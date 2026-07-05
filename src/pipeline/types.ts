@@ -49,6 +49,8 @@ export type HatchMode = "single" | "cross" | "triple";
 export interface HatchRegion {
   owner: ElementId;
   outline: Curve2D;
+  /** optional holes (e.g. a torus's hole) — clipped out via the even–odd rule */
+  holes?: Curve2D[];
   mode: HatchMode;
   /** hatch angle in degrees, within the region's direction field */
   angle: number;

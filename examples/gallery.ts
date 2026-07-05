@@ -362,8 +362,8 @@ function torusDemo(): void {
     viewport: { width: 620, height: 400 },
   };
   const build = (wobble: number): string => {
-    const scene = new Scene({ svg: { background: BG } });
-    scene.add(new Torus([0, 0, 0], [0, 0, 1], 1.5, 0.6)).style({ wobble });
+    const scene = new Scene({ light: { direction: [-0.55, 0.5, -0.55] }, svg: { background: BG } });
+    scene.add(new Torus([0, 0, 0], [0, 0, 1], 1.5, 0.6)).style({ wobble, hatch: { mode: "cross", angle: 20 } });
     return scene.render(cam).svg;
   };
   save("10-torus", stackRows(build(0), build(0.6), cam.viewport.width, cam.viewport.height, "wobble: off", "wobble: on"));

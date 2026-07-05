@@ -26,6 +26,13 @@ const nextId = (): ElementId => `torus-${autoId++}`;
 
 const TWO_PI = Math.PI * 2;
 
+/** Keep roughly `target` evenly-spaced points (a coarse polygon for clipping). */
+function decimate(pts: Vec2[], target: number): Vec2[] {
+  if (pts.length <= target) return pts;
+  const step = Math.ceil(pts.length / target);
+  return pts.filter((_, i) => i % step === 0);
+}
+
 export class Torus implements FeatureSource {
   readonly center: Vec3;
   readonly axis: Vec3; // unit
@@ -55,10 +62,30 @@ export class Torus implements FeatureSource {
     };
   }
 
-  hatchRegions(_cam: Camera, _light: Light): HatchRegion[] {
-    // Deferred: the toroidal/poloidal hatch direction field (§2.6) is future work;
-    // the annular (holed) footprint also needs more than a convex hull.
-    return [];
+  hatchRegions(cam: Camera, _light: Light): HatchRegion[] {
+    // Footprint = the annulus between the two silhouette loops (outer outline
+    // minus the hole). Straight parallel hatching (like the sphere), shaded by the
+    // scene's per-sample N·L clip; the toroidal/poloidal direction field is future.
+    const loops = this.silhouetteLoops(cam);
+    if (loops.length === 0) return [];
+    const P = projectionMatrix(cam);
+    // coarser loops are plenty for polygon clipping
+    const projected = loops.map((loop) => decimate(loop.map((p) => projectPoint(P, p).point), 160));
+    const bboxArea = (pts: Vec2[]) => {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const [x, y] of pts) {
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+      return (maxX - minX) * (maxY - minY);
+    };
+    projected.sort((a, b) => bboxArea(b) - bboxArea(a)); // outer (largest) first
+    const outer = projected[0]!;
+    if (outer.length < 3) return [];
+    const holes: Curve2D[] = projected.slice(1).filter((h) => h.length >= 3).map((pts) => ({ kind: "polyline", pts }));
+    return [{ owner: this.id, outline: { kind: "polyline", pts: outer }, holes, mode: "single", angle: 0, tone: 0.5 }];
   }
 
   extractFeatures(cam: Camera): Feature[] {

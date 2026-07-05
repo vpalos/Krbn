@@ -87,22 +87,25 @@ function outlinePoints(outline: Curve2D): Vec2[] {
 
 const cross2 = (px: number, py: number, qx: number, qy: number) => px * qy - py * qx;
 
-/** Clip an infinite hatch line (point + unit dir) to a polygon; even–odd spans. */
-function clipToPolygon(point: Vec2, dir: Vec2, poly: Vec2[]): Segment[] {
-  const n = poly.length;
+/** Clip an infinite hatch line (point + unit dir) to one or more closed loops,
+ *  even–odd — so an outline plus holes yields the annulus between them. */
+function clipToLoops(point: Vec2, dir: Vec2, loops: readonly Vec2[][]): Segment[] {
   const ts: number[] = [];
-  for (let i = 0; i < n; i++) {
-    const a = poly[i]!;
-    const b = poly[(i + 1) % n]!;
-    const ex = b[0] - a[0];
-    const ey = b[1] - a[1];
-    const denom = cross2(dir[0], dir[1], ex, ey);
-    if (Math.abs(denom) < EPS_ABS) continue;
-    const apx = a[0] - point[0];
-    const apy = a[1] - point[1];
-    const t = cross2(apx, apy, ex, ey) / denom;
-    const u = cross2(apx, apy, dir[0], dir[1]) / denom;
-    if (u >= -EPS_PARAM && u <= 1 + EPS_PARAM) ts.push(t);
+  for (const poly of loops) {
+    const n = poly.length;
+    for (let i = 0; i < n; i++) {
+      const a = poly[i]!;
+      const b = poly[(i + 1) % n]!;
+      const ex = b[0] - a[0];
+      const ey = b[1] - a[1];
+      const denom = cross2(dir[0], dir[1], ex, ey);
+      if (Math.abs(denom) < EPS_ABS) continue;
+      const apx = a[0] - point[0];
+      const apy = a[1] - point[1];
+      const t = cross2(apx, apy, ex, ey) / denom;
+      const u = cross2(apx, apy, dir[0], dir[1]) / denom;
+      if (u >= -EPS_PARAM && u <= 1 + EPS_PARAM) ts.push(t);
+    }
   }
   ts.sort((p, q) => p - q);
   const segs: Segment[] = [];
@@ -132,8 +135,11 @@ export function generateHatch(region: HatchRegion, opts: HatchOptions = {}): Seg
   const minSpacing = opts.minSpacingPx ?? 2;
   const spacing = Math.max(minSpacing, opts.spacingPx ?? toneToSpacing(region.tone));
 
-  // dedup a closed polyline's repeated last vertex
-  const poly = region.outline.kind === "polyline" ? dedupClose(pts) : pts;
+  // polygon loops: the outline plus any holes (even–odd → annulus)
+  const loops =
+    region.outline.kind === "polyline" || region.holes?.length
+      ? [dedupClose(pts), ...(region.holes ?? []).map((h) => dedupClose(outlinePoints(h)))]
+      : [];
 
   const segments: Segment[] = [];
   for (const angleDeg of hatchAngles(region.mode, region.angle)) {
@@ -153,7 +159,9 @@ export function generateHatch(region: HatchRegion, opts: HatchOptions = {}): Seg
     for (let off = start; off <= hi; off += spacing) {
       const point: Vec2 = [normal[0] * off, normal[1] * off];
       const clipped =
-        region.outline.kind === "conic" ? clipToConic(point, dir, region.outline.params) : clipToPolygon(point, dir, poly);
+        region.outline.kind === "conic" && !region.holes?.length
+          ? clipToConic(point, dir, region.outline.params)
+          : clipToLoops(point, dir, loops);
       for (const s of clipped) segments.push(s);
     }
   }

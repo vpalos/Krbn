@@ -71,6 +71,18 @@ describe("Torus — silhouette", () => {
     expect(sils.every((s) => s.kind === "polyline")).toBe(true);
   });
 
+  test("hatchRegions is an annulus (outer outline + hole) that renders", () => {
+    const regions = torus.hatchRegions(tilted, { direction: [-0.5, -0.5, -0.7] });
+    expect(regions).toHaveLength(1);
+    expect(regions[0]!.outline.kind).toBe("polyline");
+    expect(regions[0]!.holes?.length).toBe(1);
+
+    const scene = new Scene({ light: { direction: [-0.5, 0.5, -0.5] } });
+    scene.add(torus).style({ hatch: { mode: "single", angle: 0, spacingPx: 12 } });
+    const hatch = scene.render(tilted).renderStrokes.filter((s) => s.style.weight < 1);
+    expect(hatch.length).toBeGreaterThan(0);
+  });
+
   test("outer loop is larger than the inner (hole) loop", () => {
     const feats = torus.extractFeatures(tilted);
     const meanRadius = (f: (typeof feats)[number]) => {

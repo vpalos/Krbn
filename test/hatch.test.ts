@@ -81,3 +81,35 @@ describe("hatch — polygon region", () => {
     expect(triple.length).toBeGreaterThan(single.length * 2.2);
   });
 });
+
+describe("hatch — holes (annulus, even–odd)", () => {
+  const annulus: HatchRegion = {
+    owner: "ring",
+    outline: {
+      kind: "polyline",
+      pts: [[-100, -100], [100, -100], [100, 100], [-100, 100], [-100, -100]],
+    },
+    holes: [
+      {
+        kind: "polyline",
+        pts: [[-30, -30], [30, -30], [30, 30], [-30, 30], [-30, -30]],
+      },
+    ],
+    mode: "single",
+    angle: 90, // vertical lines
+    tone: 0.5,
+  };
+
+  test("a hatch line through the hole is split into two segments", () => {
+    const segs = generateHatch(annulus, { spacingPx: 20 });
+    // vertical line near x = 0 passes through the hole → two spans: [-100,-30] and [30,100]
+    const through = segs.filter(([a]) => Math.abs(a[0]) < 5);
+    expect(through.length).toBe(2);
+    // none of them cross the hole interior (|y| < 30)
+    for (const [a, b] of segs) {
+      const ys = [a[1], b[1]].sort((p, q) => p - q);
+      // no segment spans across the hole band on the centre column
+      if (Math.abs(a[0]) < 5) expect(ys[0]! >= 30 - 1e-6 || ys[1]! <= -30 + 1e-6).toBe(true);
+    }
+  });
+});

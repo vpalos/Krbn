@@ -45,10 +45,11 @@ renders. Before Phase 2 we are hardening Phase 1 — the ordered backlog:
    plane-sweep + conic∩conic and chained to polyline loops; `gallery/08`) →
    ✅ torus (§2.3, `src/primitives/torus.ts`: silhouette traced numerically from
    the implicit form as two contour loops; ray-torus via a real quartic solver;
-   `gallery/10`). **All feature gaps done.** Deferred refinements: curved (axial /
-   circumferential) hatch direction fields (§2.6), torus surface hatching, and a
-   contour Newton-projection so a *sampled* silhouette's grazing points can be
-   visibility-tested without the small nudge tolerance (matters for Phase-2 meshes).
+   `gallery/10`, surface-hatched as an annulus — even–odd hole clip leaves the
+   hole empty). **All feature gaps done.** Deferred refinements: curved (axial /
+   circumferential) hatch direction fields (§2.6) and a contour Newton-projection
+   so a *sampled* silhouette's grazing points can be visibility-tested without the
+   small nudge tolerance (matters for Phase-2 meshes).
 4. ⬜ **Verification & DX**: golden-SVG snapshot regression tests → more
    adversarial property tests → a real-`bun` test/CI note → an API-ergonomics pass.
 
