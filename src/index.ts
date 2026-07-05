@@ -36,6 +36,7 @@ export * from "./pipeline/visibility.js";
 export * from "./pipeline/wobble.js";
 export * from "./pipeline/style.js";
 export * from "./pipeline/hatch.js";
+export * from "./pipeline/abstract.js";
 
 // --- stage 5: emit + SVG backend + render facade ---
 export * from "./pipeline/emit.js";
@@ -53,3 +54,4 @@ export * from "./primitives/cone.js";
 export * from "./primitives/polygon.js";
 export * from "./primitives/line.js";
 export * from "./primitives/parametric.js";
+export * from "./primitives/intersection.js";

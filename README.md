@@ -12,12 +12,13 @@ and deliberate reduction of detail.
 > **Status: pre-alpha, actively building (updated 2026-07-05).** The math kernel,
 > the **exact conic intersection kernel**, the full analytic **primitive catalog**
 > (Quadric → Sphere/Ellipsoid/Cylinder/Cone, Plane/Polygon, Line, ParametricCurve),
-> **stage 2 — exact hidden-line visibility**, **stage 4 — styling** (seeded
-> wobble, ghosted hidden lines, hatching), the **`Scene` / importance model**, and
-> an **SVG backend** are implemented and tested — see
-> [`examples/styled.svg`](examples/styled.svg). Still to come: intersection-curve
-> features and stage-3 abstraction. See [`ai/ROADMAP.md`](ai/ROADMAP.md) for the
-> annotated build status.
+> exact hidden-line visibility, styling (wobble, ghosted hidden lines, hatching),
+> the **`Scene` / importance model**, intersection-curve features
+> (`scene.intersect`), stage-3 abstraction, and an SVG backend are implemented and
+> tested — **all nine Phase-1 build-order steps are done**. See
+> [`examples/waterline.svg`](examples/waterline.svg). Remaining is Phase-1 polish
+> (consolidation, more hatch surfaces, quartics, highlight) and then Phase 2 (the
+> mesh regime). See [`ai/ROADMAP.md`](ai/ROADMAP.md) for the annotated status.
 
 ## Why it works this way
 
@@ -56,7 +57,7 @@ src/
   primitives/  analytic primitives (Quadric, Sphere, Cylinder, Cone, Plane, Line, …)
   backend/     renderers — SVG (implemented)
   mesh/        deferred organ/mesh regime — see ai/DESIGN.md §3
-examples/    runnable demo scene → demo.svg
+examples/    runnable demos → *.svg (demo, styled, waterline)
 ai/DESIGN.md the full design & roadmap
 ```
 
@@ -71,11 +72,11 @@ bun test
 
 ## Next build target
 
-**Intersection-curve features** (sphere ∩ plane = circle, quadric ∩ quadric =
-quartic) — first-class `Feature`s that flow straight into the visibility
-classifier and styling — and **stage-3 abstraction** (screen-size thresholding,
-tone quantization, importance-driven level of detail), which makes `importance`
-fully live.
+Phase 1 is feature-complete through its nine build-order steps. Next is **Phase-1
+polish** — cross-primitive stroke consolidation, cylinder/cone surface hatching,
+quadric ∩ quadric quartics and torus, and `scene.highlight` — and then **Phase 2**,
+the mesh/organ regime: one more `FeatureSource` behind the same seam, reusing
+everything from the stage-2 contract onward.
 
 ## License
 

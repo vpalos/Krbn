@@ -11,8 +11,8 @@
 //     whose dual is P · adj(Q) · Pᵀ (P the 3×4 projection). Projection-model
 //     agnostic; exact for ortho and perspective alike.
 
-import type { AABB, Camera, Hit, Ray, Vec3 } from "../math/types.js";
-import type { Curve2D } from "../curve/types.js";
+import type { AABB, Basis, Camera, Hit, Ray, Vec3 } from "../math/types.js";
+import type { Curve2D, ConicParams } from "../curve/types.js";
 import type { ElementId, Feature, HatchRegion, Light } from "../pipeline/types.js";
 import type { FeatureSource } from "../scene/feature-source.js";
 import type { Mat4 } from "../math/mat4.js";
@@ -135,24 +135,31 @@ export class Quadric implements FeatureSource {
     const s = -pi[3] / nn;
     const origin: Vec3 = [n[0] * s, n[1] * s, n[2] * s];
     const plane = basisFromNormal(origin, n);
-
-    // Reduce Q to the plane: columns of the affine map (u,v,1) → world.
-    // Cin = Mpᵀ Q Mp with Mp = [ x̂ | ŷ | origin ] (last col homogeneous w=1).
-    const cols: Array<[number, number, number, number]> = [
-      [plane.x[0], plane.x[1], plane.x[2], 0],
-      [plane.y[0], plane.y[1], plane.y[2], 0],
-      [origin[0], origin[1], origin[2], 1],
-    ];
-    const Cin = new Array<number>(9);
-    for (let i = 0; i < 3; i++) {
-      const qi = mulVec4(this.Q, cols[i]![0], cols[i]![1], cols[i]![2], cols[i]![3]);
-      for (let j = 0; j < 3; j++) {
-        const cj = cols[j]!;
-        Cin[i * 3 + j] = qi[0] * cj[0] + qi[1] * cj[1] + qi[2] * cj[2] + qi[3] * cj[3];
-      }
-    }
-    return { kind: "conic", params: matrixToConic(Cin as unknown as Mat3), plane };
+    return { kind: "conic", params: quadricPlaneConic(this.Q, plane), plane };
   }
+}
+
+/**
+ * Restrict a quadric to a plane: the plane section is a conic, obtained as
+ * Cin = Mpᵀ Q Mp where Mp = [ x̂ | ŷ | origin ] maps in-plane (u,v,1) to world.
+ * The organizing operation behind both silhouettes (§2.2, polar plane) and
+ * intersection-curve features (§2.5, an arbitrary cutting plane).
+ */
+export function quadricPlaneConic(Q: Mat4, plane: Basis): ConicParams {
+  const cols: Array<[number, number, number, number]> = [
+    [plane.x[0], plane.x[1], plane.x[2], 0],
+    [plane.y[0], plane.y[1], plane.y[2], 0],
+    [plane.origin[0], plane.origin[1], plane.origin[2], 1],
+  ];
+  const Cin = new Array<number>(9);
+  for (let i = 0; i < 3; i++) {
+    const qi = mulVec4(Q, cols[i]![0], cols[i]![1], cols[i]![2], cols[i]![3]);
+    for (let j = 0; j < 3; j++) {
+      const cj = cols[j]!;
+      Cin[i * 3 + j] = qi[0] * cj[0] + qi[1] * cj[1] + qi[2] * cj[2] + qi[3] * cj[3];
+    }
+  }
+  return matrixToConic(Cin as unknown as Mat3);
 }
 
 /** Apparent outline in screen (pixel) coordinates: dual C* = P · adj(Q) · Pᵀ. */

@@ -13,6 +13,12 @@ suites) and `bun run build`.
 Real-world value for technical figures, and the regime where the hardest module
 (hidden-line visibility) is exact.
 
+**All nine build-order steps are implemented** end to end (extract → visibility →
+abstraction → styling → emit → SVG), verified by tests and the `examples/`
+renders. What remains in Phase 1 is polish, noted inline: cross-primitive
+consolidation, cylinder/cone surface hatching, quadric ∩ quadric quartics,
+`scene.highlight`, and torus.
+
 1. ✅ **Core math kernel** — `Vec3`/`Vec2`, `Basis`, `AABB`, `Camera` (ortho +
    perspective projection), `Ray`, and the `Curve`/`Curve2D` carriers, plus the
    **exact conic intersector** (line–conic; conic–conic via the pencil /
@@ -38,14 +44,19 @@ Real-world value for technical figures, and the regime where the hardest module
    `raycast` toward the eye; grazing/cusp boundaries (tangencies) are caught by a
    sampled occlusion scan + bisection. `classifyScene` / `classifyFeature` in
    `src/pipeline/visibility.ts`.
-6. ⬜ Intersection-curve features (sphere ∩ plane = circle, …). **← next**, with
-   the `Scene` / importance model (step 2).
+6. ✅ Intersection-curve features (`src/primitives/intersection.ts`,
+   `scene.intersect`): quadric ∩ plane = conic, sphere ∩ sphere = circle (radical
+   plane), plane ∩ plane = line — first-class `intersection` features that flow
+   through visibility + styling. quadric ∩ quadric (quartic) is a clear not-yet
+   (no exact quartic carrier).
 7. ✅ Stage 4: styling — per-element style resolution, seeded deterministic
    wobble, dash/ghost, and hatch generation clipped to the visible surface
    (`src/pipeline/style.ts`, `wobble.ts`, `hatch.ts`). Surface hatching covers
    sphere/ellipsoid + polygons today; cylinder/cone surface hatching and stage-3
    tone quantization are still to come.
-8. ⬜ Stage 3: abstraction (screen-size threshold, tone quantization, importance).
+8. ✅ Stage 3: abstraction (`src/pipeline/abstract.ts`) — importance-scaled
+   screen-size thresholding + tone quantization, wired into `Scene.render`.
+   Cross-primitive consolidation (§2.7) is still to come.
 9. ✅ Stage 5: SVG backend (`src/backend/svg.ts`) with adaptive sampling of
    analytic curves at emit (`src/pipeline/emit.ts`, `curve/sample.ts`).
 

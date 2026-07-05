@@ -56,13 +56,17 @@ bisection safety net for grazing cusps), a **runnable emit → SVG backend**
 (`src/pipeline/emit.ts`, `src/backend/svg.ts`, `src/pipeline/render.ts`) drawing
 ghosted hidden lines, **stage-4 styling** (`src/pipeline/style.ts`, `wobble.ts`,
 `hatch.ts`: per-element style, seeded wobble, dash/ghost, visibility-clipped
-hatching), and the **`Scene`/element/importance model** (`src/scene`). Visual
-checks: `examples/demo.ts` (plain) and `examples/styled.ts` (wobble + hatch +
-importance). **Not built yet:** intersection-curve features (§2.5), stage-3
-abstraction (tone quantization / importance-driven detail), cylinder/cone surface
-hatching, and `scene.intersect`/`highlight`. Next targets are **intersection
-curves** and **stage-3 abstraction**. See `ai/ROADMAP.md` for the annotated build
-order and `.claude/rules/numerical-robustness.md` for the kernel's robustness bar.
+hatching), the **`Scene`/element/importance model** (`src/scene`),
+**intersection-curve features** (`src/primitives/intersection.ts`,
+`scene.intersect`: quadric∩plane, sphere∩sphere, plane∩plane), and **stage-3
+abstraction** (`src/pipeline/abstract.ts`: importance-scaled screen-size
+thresholding + tone quantization). **All nine Phase-1 build-order steps are
+done.** Visual checks: `examples/demo.ts` (plain), `styled.ts` (wobble + hatch),
+`waterline.ts` (intersection + abstraction). **Phase-1 polish remaining:**
+cross-primitive consolidation, cylinder/cone surface hatching, quadric∩quadric
+quartics, `scene.highlight`, torus — then **Phase 2** (mesh regime). See
+`ai/ROADMAP.md` for the annotated build order and
+`.claude/rules/numerical-robustness.md` for the kernel's robustness bar.
 
 ## Rules
 

@@ -64,9 +64,18 @@ catalog are implemented and tested. What exists, by area (✅ done · 🚧 parti
   the whole styled pipeline. `role` supplies styling defaults now; importance's
   abstraction-threshold effect waits on stage 3. `scene.intersect`/`highlight`
   are deferred (need intersection curves).
-- ⬜ **Remaining:** stage 3 (abstraction / tone quantization) and
-  intersection-curve features (§2.5) are not built; cylinder/cone surface
-  hatching is future.
+- ✅ **Intersection-curve features** (`src/primitives/intersection.ts`,
+  `scene.intersect`, §2.5): quadric ∩ plane = conic, sphere ∩ sphere = circle
+  (radical plane), plane ∩ plane = line — first-class `intersection` features
+  routed through the same visibility + styling pipeline (see the waterline demo).
+  quadric ∩ quadric quartics are not yet supported.
+- ✅ **Stage 3 — abstraction** (`src/pipeline/abstract.ts`, §2.7):
+  importance-scaled screen-size thresholding + tone quantization, wired into
+  `Scene.render`. Cross-primitive consolidation is future.
+- ⬜ **Phase-1 polish remaining:** cross-primitive consolidation, cylinder/cone
+  surface hatching, quadric ∩ quadric quartics, `scene.highlight`, torus.
+
+All nine Phase-1 build-order steps (§2.9) are implemented end to end.
 
 Verification: `bun test` (unit, property, and degeneracy suites), plus
 `bun run typecheck` and `bun run build`.
@@ -303,11 +312,11 @@ Status marks reflect the tree as of 2026-07-05 (see "Implementation status" abov
    verify by eye (`examples/demo.svg`).
 5. ✅ Stage 2: exact QI (crossing events + reference test) → visible/hidden
    intervals (`src/pipeline/visibility.ts`).
-6. ⬜ Intersection curves. **← next**, with the `Scene`/importance model.
+6. ✅ Intersection curves (`src/primitives/intersection.ts`).
 7. ✅ Stage 4 styling (weight/dash/ghost/seeded-wobble) + hatch generation
    (`src/pipeline/style.ts`, `wobble.ts`, `hatch.ts`).
-8. ⬜ Stage 3 abstraction (screen-size threshold, tone quantization, importance).
-   **← next**, with intersection curves (§2.5).
+8. ✅ Stage 3 abstraction (screen-size threshold, tone quantization, importance)
+   (`src/pipeline/abstract.ts`).
 9. ✅ SVG backend (stage 5) + adaptive sampling of analytic curves
    (`src/backend/svg.ts`, `src/pipeline/emit.ts`, `src/curve/sample.ts`).
 
@@ -393,9 +402,9 @@ polyline `Curve`s) and support `raycast` / `projectedSilhouettes`.
   `Scene`/element model the API already populates (JSX renderer or custom elements
   over the same graph).
 
-Immediate next build targets, now that stage-2 QI (§2.4), stage-4 styling
-(§2.6/§4), the `Scene`/importance model (§2.8), and the SVG backend are done:
-**intersection-curve features** (§2.5 — sphere ∩ plane = circle, etc., which flow
-straight into the QI classifier and styling) and **stage-3 abstraction**
-(screen-size thresholding, tone quantization, importance-driven detail — the lever
-that makes `importance` fully live).
+The full Phase-1 pipeline is now in place (extract → visibility → abstraction →
+styling → emit → SVG), including intersection curves (§2.5). Next is **Phase-1
+polish** — cross-primitive consolidation (§2.7), cylinder/cone surface hatching
+(§2.6), quadric ∩ quadric quartics and torus (§2.3), `scene.highlight` (§2.8) —
+and then **Phase 2**, the mesh/organ regime (§3), which is one more `FeatureSource`
+behind the same seam.
