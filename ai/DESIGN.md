@@ -11,6 +11,42 @@ This document specifies **Phase 1 (analytic primitives)** in detail and keeps th
 
 ---
 
+## Implementation status (as of 2026-07-05)
+
+The engine is past scaffold: the math kernel and the full analytic-primitive
+catalog are implemented and tested. What exists, by area (✅ done · 🚧 partial ·
+⬜ not started):
+
+- ✅ **Core math** (`src/math`): `Vec3`/`Vec2` algebra, `Mat3`/`Mat4`
+  (determinant, adjugate, skew, dual quadric), `Basis`, `AABB`, and `Camera` with
+  a 3×4 projection for both orthographic and perspective.
+- ✅ **Exact conic kernel** (`src/curve`): centralized/scaled epsilons, robust
+  real quadratic + cubic solvers, and exact **line–conic** and **conic–conic**
+  intersection. Conic–conic uses the pencil `det(C1 + λC2) = 0` to find a
+  degenerate member, splits it into a line pair via the `adj(A) = −p pᵀ`
+  identity, then reuses line–conic — nothing exceeds degree 3 (see §2.4, §5).
+  This is the most heavily tested module; it covers the full degeneracy spec in
+  `.claude/rules/numerical-robustness.md` plus rigid-transform invariance.
+- ✅ **Primitive catalog** (`src/primitives`): `Quadric` with an exact silhouette
+  conic — object-space via the eye's polar plane, screen-space via the dual
+  quadric `P·adj(Q)·Pᵀ` — configured as `Sphere`/`Ellipsoid`/`Cylinder`/`Cone`
+  (§2.2, §2.3); `Plane`/`Polygon` as an occluder + hatch region; `Line`; and
+  `ParametricCurve` (`Bézier`, `helix`, `functionPlot`) with an adaptive
+  screen-flatness sampler (`src/curve/sample.ts`). All implement `FeatureSource`
+  with closed-form `raycast` and `projectedSilhouettes`.
+- 🚧 **The `FeatureSource` seam** (`src/scene`) exists and every primitive
+  implements it, but the **`Scene` graph, element wrapper, and importance/role
+  API** (§2.8) are not built — primitives are used standalone for now.
+- ⬜ **The five-stage pass** (§1.2): stage 1 features are produced by primitives,
+  but no runnable extraction/visibility/abstraction/styling/emit pipeline or
+  backend exists yet. Exact quantitative invisibility (§2.4) is the next target;
+  its inputs are already in place.
+
+Verification: `bun test` (unit, property, and degeneracy suites), plus
+`bun run typecheck` and `bun run build`.
+
+---
+
 ## 0. Guiding principles
 
 1. **Strokes are the core object.** The engine does not "render surfaces"; it
@@ -228,17 +264,23 @@ scene.highlight(s, { weight: 2.5, dashWhenHidden: true });
 
 ### 2.9 Suggested build order (Phase 1)
 
-1. Core math: `Vec3`, `Basis`, `Camera` (ortho + perspective), `Ray`, `Curve`,
+Status marks reflect the tree as of 2026-07-05 (see "Implementation status" above).
+
+1. ✅ Core math: `Vec3`, `Basis`, `Camera` (ortho + perspective), `Ray`, `Curve`,
    `Curve2D` (conic/arc/line with exact intersection).
-2. `FeatureSource` interface + `Scene` + element/importance model.
-3. `Quadric` primitive with exact silhouette conic; `Sphere`/`Cylinder`/`Cone`
-   as configurations. `Plane`/`Polygon`, `Line`, `ParametricCurve`.
-4. Stage 1 emit of raw (un-styled) features — verify by eye.
-5. Stage 2: exact QI (crossing events + reference test) → visible/hidden intervals.
-6. Intersection curves.
-7. Stage 4 styling (weight/dash/ghost/seeded-wobble) + hatch generation.
-8. Stage 3 abstraction (screen-size threshold, tone quantization, importance).
-9. SVG backend (stage 5), adaptive sampling of analytic curves.
+2. 🚧 `FeatureSource` interface (done) + `Scene` + element/importance model
+   (not yet).
+3. ✅ `Quadric` primitive with exact silhouette conic; `Sphere`/`Ellipsoid`/
+   `Cylinder`/`Cone` as configurations. `Plane`/`Polygon`, `Line`,
+   `ParametricCurve`.
+4. ⬜ Stage 1 emit of raw (un-styled) features — verify by eye.
+5. ⬜ Stage 2: exact QI (crossing events + reference test) → visible/hidden
+   intervals. **← next build target.**
+6. ⬜ Intersection curves.
+7. ⬜ Stage 4 styling (weight/dash/ghost/seeded-wobble) + hatch generation.
+8. ⬜ Stage 3 abstraction (screen-size threshold, tone quantization, importance).
+9. ⬜ SVG backend (stage 5), adaptive sampling of analytic curves — the adaptive
+   sampler itself already exists (`src/curve/sample.ts`).
 
 ---
 
@@ -309,16 +351,22 @@ polyline `Curve`s) and support `raycast` / `projectedSilhouettes`.
 
 ## 5. Open decisions / next steps
 
-- **Projection default:** orthographic (cleanest for technical figures; sphere
-  silhouette is a true circle) vs perspective (silhouette becomes an ellipse).
-  Support both; default likely ortho for Phase 1.
-- **Curve2D exact-intersection kernel:** the numerical core of exact QI. Needs a
-  robust conic–conic / line–conic intersector — the first thing to nail in §2.9.1.
+- **Projection default:** _resolved._ Both are implemented (`Camera.projection`);
+  orthographic is the default for technical figures (sphere silhouette is a true
+  circle), perspective supported (silhouette becomes an ellipse).
+- **Curve2D exact-intersection kernel:** _resolved._ The robust conic–conic /
+  line–conic intersector (the numerical core of exact QI) is implemented and is
+  the most-tested module (`src/curve/conic.ts`; see the Implementation status
+  section and §2.4).
 - **Torus and non-quadric primitives:** numerical silhouette from implicit form;
-  scope for later in Phase 1.
+  still deferred, scope for later in Phase 1.
 - **Declarative language:** deferred. When added, it deserializes into the same
   `Scene`/element model the API already populates (JSX renderer or custom elements
   over the same graph).
 
-Immediate next build target: the core math kernel (§2.9.1) — `Curve`/`Curve2D`
-with an exact conic intersector — since exact visibility depends on it.
+Immediate next build target: **exact quantitative invisibility** (§2.4) — the
+stage-2 visible/hidden interval classifier — now that the core math kernel and
+the exact conic intersector it depends on (§2.9.1) are done and the primitives
+expose the `projectedSilhouettes` crossing curves and `raycast` reference test it
+needs. The `Scene` / element / importance model (§2.8) is the other open
+foundation piece and can land alongside it.

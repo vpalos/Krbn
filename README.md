@@ -9,9 +9,13 @@ and **hatch regions** from geometry, so a scene reads as if drawn by a technical
 artist: ghosted hidden lines, cross-hatched surfaces, emphasized/dashed contours,
 and deliberate reduction of detail.
 
-> **Status: pre-alpha scaffold.** The typed spine (the `FeatureSource` seam and the
-> inter-stage contract) is in place and matches the design. Implementations land
-> next, starting with the math + curve kernel.
+> **Status: pre-alpha, actively building (updated 2026-07-05).** The math kernel,
+> the **exact conic intersection kernel**, and the full analytic **primitive
+> catalog** (Quadric → Sphere/Ellipsoid/Cylinder/Cone, Plane/Polygon, Line,
+> ParametricCurve) are implemented and tested. Still to come: the `Scene` /
+> importance model and the runnable five-stage pass + backend. Next up is stage 2,
+> exact hidden-line visibility. See [`ai/ROADMAP.md`](ai/ROADMAP.md) for the
+> annotated build status.
 
 ## Why it works this way
 
@@ -43,12 +47,12 @@ Full detail, contracts, and the mesh/organ roadmap live in
 
 ```
 src/
-  math/        core geometric types (Vec3, Basis, Camera, Ray, …)
-  curve/       Curve / Curve2D carriers (analytic until emit) + conic params
+  math/        vectors, Mat3/Mat4, Basis, AABB, Camera + projection
+  curve/       Curve / Curve2D carriers + exact conic kernel, root solvers, sampler
   pipeline/    inter-stage contract: Feature, Stroke, HatchRegion, RenderStroke
   scene/       the FeatureSource seam (+ Scene / element model, coming next)
-  primitives/  analytic primitives (Quadric, Sphere, Cylinder, Cone, Plane, …)
-  backend/     renderers (SVG first)
+  primitives/  analytic primitives (Quadric, Sphere, Cylinder, Cone, Plane, Line, …)
+  backend/     renderers (SVG first — not started)
   mesh/        deferred organ/mesh regime — see ai/DESIGN.md §3
 ai/DESIGN.md the full design & roadmap
 ```
@@ -64,9 +68,12 @@ bun test
 
 ## Next build target
 
-The exact **conic intersection kernel** (`curve/` — line–conic and conic–conic,
-robust at near-tangent and coincident cases). Exact visibility rests on it, so it
-is the first thing to implement and the first thing to test to death.
+Stage 2 — exact **hidden-line visibility** (Appel's quantitative invisibility):
+walk each projected curve, flipping a visible/hidden count at silhouette
+crossings, to produce visible/hidden intervals. The kernel it rests on (exact
+conic crossings) and the per-primitive `projectedSilhouettes` / `raycast` inputs
+are already in place. The `Scene` / element / importance model is the other open
+foundation piece.
 
 ## License
 

@@ -34,17 +34,26 @@ is where the plan lives).
 
 ## Where code lives
 
-`src/math` core geom types · `src/curve` `Curve`/`Curve2D` carriers + conic math ·
-`src/pipeline` inter-stage contract · `src/scene` the `FeatureSource` seam (+ Scene
-model, coming) · `src/primitives` analytic primitives · `src/backend` renderers
-(SVG first) · `src/mesh` deferred Phase-2 regime.
+`src/math` vectors, `Mat3`/`Mat4`, `Basis`, `AABB`, `Camera` + projection ·
+`src/curve` `Curve`/`Curve2D` carriers, the exact conic kernel (roots, epsilons,
+line/conic intersection) + adaptive sampler · `src/pipeline` inter-stage contract ·
+`src/scene` the `FeatureSource` seam (+ Scene model, still to come) ·
+`src/primitives` analytic primitives (implemented) · `src/backend` renderers
+(SVG first, empty) · `src/mesh` deferred Phase-2 regime.
 
 ## Current status & next target
 
-Pre-alpha **scaffold**: the typed spine exists, no implementations yet. The next
-build target is the **conic kernel in `src/curve/`** — exact line–conic and
-conic–conic intersection. Exact visibility depends on it, so it comes first and
-gets tested hardest. See `.claude/rules/numerical-robustness.md`.
+Past scaffold (as of 2026-07-05). **Done and tested:** the core math kernel
+(`src/math`), the exact conic kernel (`src/curve` — line–conic + conic–conic via
+the pencil/degenerate-split method, the most heavily tested module), and the full
+analytic **primitive catalog** (`src/primitives`: `Quadric`→`Sphere`/`Ellipsoid`/
+`Cylinder`/`Cone`, `Plane`/`Polygon`, `Line`, `ParametricCurve`), each
+implementing `FeatureSource` with closed-form `raycast` + `projectedSilhouettes`.
+**Not built yet:** the `Scene`/element/**importance** model, and the runnable
+five-stage pass + backend. The next build target is **stage 2 — exact
+quantitative invisibility** (visible/hidden intervals); its inputs are already in
+place. See `ai/ROADMAP.md` for the annotated build order and
+`.claude/rules/numerical-robustness.md` for the kernel's robustness bar.
 
 ## Rules
 

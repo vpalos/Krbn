@@ -23,6 +23,13 @@ export * from "./math/camera.js";
 export * from "./curve/epsilon.js";
 export * from "./curve/roots.js";
 export * from "./curve/conic.js";
+export * from "./curve/sample.js";
+export * from "./math/project.js";
 
 // --- analytic primitives ---
 export * from "./primitives/quadric.js";
+export * from "./primitives/cylinder.js";
+export * from "./primitives/cone.js";
+export * from "./primitives/polygon.js";
+export * from "./primitives/line.js";
+export * from "./primitives/parametric.js";
