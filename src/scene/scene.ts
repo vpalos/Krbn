@@ -56,6 +56,8 @@ export interface HighlightOptions {
   color?: string;
   /** when true, occluded parts are drawn dashed (x-ray) instead of dropped */
   dashWhenHidden?: boolean;
+  /** optional thick, semi-transparent "marker" halo drawn under the crisp outline */
+  halo?: { weight?: number; opacity?: number; color?: string };
 }
 
 export interface AbstractionSettings {
@@ -217,8 +219,25 @@ export class Scene {
         ghostOpacity: 0.55,
         hatch: null,
       });
+      // Optional marker halo: a thick, faint stroke under the crisp outline.
+      const halo = h.opts.halo;
+      const haloSpec = halo
+        ? resolveStyle(spec, {
+            weight: halo.weight ?? spec.weight * 3.5,
+            color: halo.color ?? spec.color,
+            hidden: h.opts.dashWhenHidden ? "ghost" : "drop",
+          })
+        : null;
+      const haloOpacity = halo?.opacity ?? 0.25;
+
       for (const feature of el.source.extractFeatures(cam)) {
         const stroke = classifyFeature(feature, cam, sources, scale);
+        if (haloSpec) {
+          for (const rs of emitStyledStroke(stroke, cam, haloSpec, this.sample, this.wobble)) {
+            // faint, and no dashes on the halo (a soft continuous glow)
+            highlightStrokes.push({ path: rs.path, style: { weight: rs.style.weight, color: rs.style.color, opacity: haloOpacity } });
+          }
+        }
         highlightStrokes.push(...emitStyledStroke(stroke, cam, spec, this.sample, this.wobble));
       }
     }

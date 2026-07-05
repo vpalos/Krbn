@@ -66,6 +66,15 @@ describe("Scene.render", () => {
     expect(withH[withH.length - 1]!.style.weight).toBe(3); // on top
   });
 
+  test("highlight halo adds a thick, faint stroke under the crisp outline", () => {
+    const scene = new Scene();
+    const s = scene.add(sphere([0, 0, 0], 1));
+    scene.highlight(s, { weight: 3, halo: { weight: 10, opacity: 0.2 } });
+    const rs = scene.render(front).renderStrokes;
+    expect(rs.some((st) => st.style.weight === 10 && Math.abs(st.style.opacity - 0.2) < 1e-9)).toBe(true);
+    expect(rs.some((st) => st.style.weight === 3 && st.style.opacity === 1)).toBe(true);
+  });
+
   test("wobble from element style perturbs the straight line run", () => {
     const scene = new Scene();
     scene.add(sphere([0, 0, 0], 1));

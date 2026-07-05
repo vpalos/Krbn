@@ -37,7 +37,8 @@ renders. Before Phase 2 we are hardening Phase 1 — the ordered backlog:
    ✅ cylinder/cone surface hatching (§2.6, `hatchRegions` return a silhouette-hull
    footprint; the scene's per-sample clip carves + shades the surface;
    `gallery/05`) → ✅ `scene.highlight` (§2.8, re-extract + draw on top, heavier,
-   dashed-where-hidden; `gallery/06`) → ✅ `Point` primitive (§2.3, a
+   dashed-where-hidden, optional semi-transparent halo; `gallery/06`) →
+   ✅ `Point` primitive (§2.3, a
    camera-facing mark emitted as tiny segments so QI decides visibility;
    `gallery/07`) → ✅ quadric ∩ quadric quartics (§2.5, `intersectQuadrics`: a
    radical-plane conic where the quadratic parts match, else the quartic traced by
@@ -46,6 +47,20 @@ renders. Before Phase 2 we are hardening Phase 1 — the ordered backlog:
    circumferential) hatch direction fields are a later refinement.
 4. ⬜ **Verification & DX**: golden-SVG snapshot regression tests → more
    adversarial property tests → a real-`bun` test/CI note → an API-ergonomics pass.
+
+### Deferred strategies (captured for later)
+
+- **Group highlight** — highlight two or more elements as *one* contour. Needs the
+  **union of the group's projected silhouettes**: reuse the per-solid convex-hull
+  footprints we already build for hatching, boolean-union those hull polygons into
+  one outer boundary, then draw the halo + crisp outline around that single
+  contour. Path A (vector, crisp) needs a small polygon-union routine
+  (Greiner–Hormann / Martinez); Path B (screen coverage mask + marching-squares)
+  gives a softer halo more cheaply. Recommend A on the hull footprints as a good
+  approximation. Deferred until after Phase-1 polish.
+- **Curved hatch direction fields** — axial / circumferential (cylinder) and
+  radial / circumferential (cone) hatch lines instead of straight parallels
+  (§2.6). Would follow surface curvature for stronger form.
 
 1. ✅ **Core math kernel** — `Vec3`/`Vec2`, `Basis`, `AABB`, `Camera` (ortho +
    perspective projection), `Ray`, and the `Curve`/`Curve2D` carriers, plus the

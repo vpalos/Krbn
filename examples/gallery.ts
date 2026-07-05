@@ -147,23 +147,33 @@ function wobbleSweep(): void {
 }
 
 // ---------------------------------------------------------------------------
-// 5. Solid shading — the three quadric-family solids surface-hatched and shaded
-//    light→dark. Hatching is clipped to each visible surface (per-sample
-//    back-projection) and gradates by N·L, so the forms read as solids.
+// 5. Solid shading — a 3×3 grid: rows are single / cross / triple hatch (1 / 2 /
+//    3 tonal layers), columns are cone / cylinder / sphere. Each is surface-
+//    hatched and shaded light→dark, so the effect of adding layers is obvious.
 // ---------------------------------------------------------------------------
 function solidShading(): void {
   const cam: Camera = {
-    eye: [0.4, -8.5, 2.4],
-    target: [0.4, 0, -0.1],
+    eye: [1.4, -11, 2.2],
+    target: [0, 0, 0],
     up: [0, 0, 1],
-    projection: "perspective",
-    scale: Math.PI / 5,
-    viewport: { width: 960, height: 340 },
+    projection: "orthographic",
+    scale: 0.012,
+    viewport: { width: 820, height: 760 },
   };
-  const scene = new Scene({ light: { direction: [-0.5, -0.55, -0.66] }, svg: { background: BG } });
-  scene.add(new Cone([-3.1, 0, -1], [0, 0, 2], 0.8)).style({ wobble: 0.22, hatch: { mode: "single", angle: 15 } });
-  scene.add(new Cylinder([0, 0, -1], [0, 0, 2], 0.8)).style({ wobble: 0.22, hatch: { mode: "cross", angle: 15 } });
-  scene.add(sphere([3.1, 0, 0], 0.9)).style({ wobble: 0.22, hatch: { mode: "triple", angle: 15 } });
+  const scene = new Scene({ light: { direction: [-0.5, -0.45, -0.55] }, svg: { background: BG } });
+  const modes = ["single", "cross", "triple"] as const;
+  const makers = [
+    (x: number, z: number) => new Cone([x, 0, z - 0.75], [0, 0, 1.5], 0.65),
+    (x: number, z: number) => new Cylinder([x, 0, z - 0.75], [0, 0, 1.5], 0.65),
+    (x: number, z: number) => sphere([x, 0, z], 0.7),
+  ];
+  modes.forEach((mode, r) => {
+    const z = 2.3 - r * 2.3; // top row single, then cross, then triple
+    makers.forEach((make, c) => {
+      const x = -2.9 + c * 2.9;
+      scene.add(make(x, z)).style({ wobble: 0.18, hatch: { mode, angle: 15 } });
+    });
+  });
   save("05-solid-shading", scene.render(cam).svg);
 }
 
@@ -184,7 +194,8 @@ function highlightDemo(): void {
   const scene = new Scene({ svg: { background: BG } });
   scene.add(new Cylinder([0, 0, -1.1], [0, 0, 2.2], 0.9)).setImportance(0.3, { role: "context" });
   const ball = scene.add(sphere([-1.75, -0.2, 0.5], 0.85)); // behind + beside: partly exposed
-  scene.highlight(ball, { weight: 2.6, dashWhenHidden: true });
+  // crisp outline on top + a thick, semi-transparent marker halo around it
+  scene.highlight(ball, { weight: 1.8, dashWhenHidden: true, halo: { weight: 12, opacity: 0.28 } });
   save("06-highlight", scene.render(cam).svg);
 }
 
@@ -237,6 +248,48 @@ function quarticDemo(): void {
   save("08-quartic", scene.render(cam).svg);
 }
 
+// ---------------------------------------------------------------------------
+// 9. Consolidation — off vs on. Three collinear, overlapping rods drawn by
+//    different elements. With wobble on, each gets its own seeded offset, so
+//    *without* consolidation they diverge into several weaving lines; *with* it
+//    they merge into one clean line (re-classified for exact visibility).
+// ---------------------------------------------------------------------------
+function stripSvg(svg: string): string {
+  return svg.replace(/^<svg[^>]*>\n?/, "").replace(/<\/svg>\s*$/, "");
+}
+
+function consolidationDemo(): void {
+  const cam: Camera = {
+    eye: [0, 0, 10],
+    target: [0, 0, 0],
+    up: [0, 1, 0],
+    projection: "orthographic",
+    scale: 0.011,
+    viewport: { width: 460, height: 220 },
+  };
+  const build = (consolidate: boolean): string => {
+    const scene = new Scene({ svg: { background: BG }, abstraction: { consolidate } });
+    // three rods along the same 3-D line; strong wobble so different seeds diverge
+    scene.add(new Line([-2.1, 0, 0], [2.1, 0, 0])).style({ wobble: 1.5, weight: 1.8 });
+    scene.add(new Line([-2.1, 0, 0], [2.1, 0, 0])).style({ wobble: 1.5, weight: 1.8 });
+    scene.add(new Line([-1.1, 0, 0], [1.4, 0, 0])).style({ wobble: 1.5, weight: 1.8 });
+    return scene.render(cam).svg;
+  };
+  const W = cam.viewport.width;
+  const H = cam.viewport.height;
+  const gap = 24;
+  const svg = [
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${2 * W + gap} ${H}" width="${2 * W + gap}" height="${H}">`,
+    stripSvg(build(false)),
+    `<g transform="translate(${W + gap},0)">${stripSvg(build(true))}</g>`,
+    `<line x1="${W + gap / 2}" y1="8" x2="${W + gap / 2}" y2="${H - 8}" stroke="#ddd" stroke-width="1" />`,
+    `<text x="14" y="26" font-family="sans-serif" font-size="14" fill="#888">consolidate: off</text>`,
+    `<text x="${W + gap + 14}" y="26" font-family="sans-serif" font-size="14" fill="#888">consolidate: on</text>`,
+    `</svg>`,
+  ].join("\n");
+  save("09-consolidation", svg);
+}
+
 hiddenLines();
 hatching();
 depthHatching();
@@ -245,4 +298,5 @@ solidShading();
 highlightDemo();
 pointsDemo();
 quarticDemo();
+consolidationDemo();
 console.log("gallery complete");
