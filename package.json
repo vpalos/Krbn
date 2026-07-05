@@ -1,0 +1,33 @@
+{
+  "name": "krbn",
+  "version": "0.0.0",
+  "description": "A web engine for non-photorealistic, pencil-style rendering of abstract and technical scenes.",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "npr", "non-photorealistic", "sketch", "pencil", "hatching",
+    "svg", "rendering", "hidden-line", "silhouette", "geometry"
+  ],
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "docs", "README.md", "LICENSE"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  },
+  "repository": { "type": "git", "url": "" }
+}
