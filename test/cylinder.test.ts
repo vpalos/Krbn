@@ -82,6 +82,15 @@ describe("Cylinder — raycast (finite solid)", () => {
   });
 });
 
+describe("Cylinder — surface hatching", () => {
+  test("hatchRegions returns a polygon footprint (silhouette hull)", () => {
+    const regions = cyl.hatchRegions(sideView, { direction: [-0.5, -0.5, -0.7] });
+    expect(regions).toHaveLength(1);
+    expect(regions[0]!.outline.kind).toBe("polyline");
+    if (regions[0]!.outline.kind === "polyline") expect(regions[0]!.outline.pts.length).toBeGreaterThanOrEqual(3);
+  });
+});
+
 describe("Cylinder — bounds", () => {
   test("tight AABB for an axis-aligned cylinder", () => {
     expect(cyl.bounds().min).toEqual([-1, -1, -1]);

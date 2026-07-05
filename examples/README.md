@@ -19,6 +19,10 @@ It writes to `examples/gallery/`:
 | `02-hatching.svg` | Hatching + tonal shading (stage 4) | Three spheres — single / cross / triple — each shading **light→dark** from a highlight into the shadow; the flat quad hatches **uniformly** (constant normal). |
 | `03-depth-hatching.svg` | Hatching with depth + intersection curve | A ball half-submerged through a plane: the exact **waterline** (sphere ∩ plane) is bold and **dashed on its hidden back arc**; the plane's hatch **stops where the ball occludes it** (gaps reveal depth); hatch tone is quantized. |
 | `04-wobble.svg` | Seeded coherent wobble | The same cone at wobble `0 → 1` (ruler → hand-drawn). At every amount the **apex stays a single clean point** and rulings meet the rim exactly — the offset is a seeded field keyed on the 3-D point, so strokes sharing a vertex join. |
+| `05-solid-shading.svg` | Surface hatching on all quadric solids | Cone / cylinder / sphere surface-hatched (single / cross / triple) and shaded **light→dark**; hatching is clipped to each visible surface, so the forms read as solids. |
+| `06-highlight.svg` | `scene.highlight` (x-ray emphasis) | A sphere behind a cylinder, highlighted: its outline is redrawn **heavier and on top**, **solid where exposed** and **dashed where the cylinder hides it**. |
+| `07-points.svg` | `Point` primitive | Camera-facing marks (× crosses and a dot ring), occludable like any feature — the one behind the sphere is ghosted away. |
+| `08-quartic.svg` | Quadric ∩ quadric quartic | An ellipsoid meeting a sphere; their quartic intersection is traced (plane-sweep + conic∩conic) and drawn as a bold loop, **solid where visible, dashed where behind** the surfaces. |
 
 ## Rendering to PNG
 

@@ -75,6 +75,14 @@ describe("Cone — raycast", () => {
   });
 });
 
+describe("Cone — surface hatching", () => {
+  test("hatchRegions returns a polygon footprint (base rim + apex hull)", () => {
+    const regions = cone.hatchRegions(sideView, { direction: [-0.5, -0.5, -0.7] });
+    expect(regions).toHaveLength(1);
+    if (regions[0]!.outline.kind === "polyline") expect(regions[0]!.outline.pts.length).toBeGreaterThanOrEqual(3);
+  });
+});
+
 describe("Cone — bounds", () => {
   test("spans apex and base disk", () => {
     expect(cone.bounds().min).toEqual([-1, -1, 0]);

@@ -32,9 +32,18 @@ renders. Before Phase 2 we are hardening Phase 1 — the ordered backlog:
    angle set clipped to the surface region dark enough for it; flat faces stay
    uniform). Hatch weight/opacity are style-driven. `wobble`/`hatch` remain
    pluggable strategies.
-3. ⬜ **Feature gaps**, in order: cylinder/cone surface hatching (§2.6) →
-   `scene.highlight` (§2.8) → `Point` primitive (§2.3) → cross-primitive
-   consolidation (§2.7) → quadric ∩ quadric quartics (§2.5) → torus (§2.3).
+3. **Feature gaps**, in order: ✅ cross-primitive consolidation (§2.7,
+   `src/pipeline/consolidate.ts`; opt-in via `abstraction.consolidate`) →
+   ✅ cylinder/cone surface hatching (§2.6, `hatchRegions` return a silhouette-hull
+   footprint; the scene's per-sample clip carves + shades the surface;
+   `gallery/05`) → ✅ `scene.highlight` (§2.8, re-extract + draw on top, heavier,
+   dashed-where-hidden; `gallery/06`) → ✅ `Point` primitive (§2.3, a
+   camera-facing mark emitted as tiny segments so QI decides visibility;
+   `gallery/07`) → ✅ quadric ∩ quadric quartics (§2.5, `intersectQuadrics`: a
+   radical-plane conic where the quadratic parts match, else the quartic traced by
+   plane-sweep + conic∩conic and chained to polyline loops; `gallery/08`) →
+   ⬜ torus (§2.3, numerical silhouette from the implicit form). Curved (axial /
+   circumferential) hatch direction fields are a later refinement.
 4. ⬜ **Verification & DX**: golden-SVG snapshot regression tests → more
    adversarial property tests → a real-`bun` test/CI note → an API-ergonomics pass.
 

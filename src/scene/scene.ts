@@ -20,10 +20,11 @@ import {
   IntersectionCurve,
   intersectPlanes,
   intersectQuadricPlane,
-  intersectSpheres,
+  intersectQuadrics,
   type Section,
 } from "../primitives/intersection.js";
-import { classifyScene, isOccluded, sceneScale } from "../pipeline/visibility.js";
+import { classifyFeature, classifyScene, isOccluded, sceneScale } from "../pipeline/visibility.js";
+import { consolidateLines } from "../pipeline/consolidate.js";
 import { emitStyledStroke, resolveStyle, ROLE_STYLE } from "../pipeline/style.js";
 import { defaultHatch, hatchAngles, type HatchStrategy } from "../pipeline/hatch.js";
 import { defaultWobble, type WobbleStrategy } from "../pipeline/wobble.js";
@@ -49,16 +50,27 @@ export interface SceneOptions {
   abstraction?: AbstractionSettings;
 }
 
+export interface HighlightOptions {
+  /** stroke weight of the highlighted outline (default: 1.6× the element weight) */
+  weight?: number;
+  color?: string;
+  /** when true, occluded parts are drawn dashed (x-ray) instead of dropped */
+  dashWhenHidden?: boolean;
+}
+
 export interface AbstractionSettings {
   /** drop features whose projected extent < this many px (importance-scaled); 0 = off */
   minFeaturePx?: number;
   /** snap hatch tone to this many discrete levels; 0/undefined = off */
   toneLevels?: number;
+  /** merge near-collinear overlapping line strokes into one (§2.7); off by default */
+  consolidate?: boolean;
 }
 
 export class Scene {
   readonly elements: Element[] = [];
   private readonly byId = new Map<ElementId, Element>();
+  private readonly highlights: { id: ElementId; opts: HighlightOptions }[] = [];
   light: Light;
   defaultStyle: StyleOverride;
   sample: SampleOptions | undefined;
@@ -90,31 +102,42 @@ export class Scene {
   }
 
   /**
+   * Emphasize an element: its features are re-extracted and drawn heavier and
+   * *on top of everything* (ai/DESIGN.md §2.8). With `dashWhenHidden`, occluded
+   * parts are dashed rather than dropped — an x-ray highlight.
+   */
+  highlight(el: Element, opts: HighlightOptions = {}): this {
+    this.highlights.push({ id: el.id, opts });
+    return this;
+  }
+
+  /**
    * Add the intersection curve of two elements as a first-class feature
-   * (ai/DESIGN.md §2.5). Supports quadric ∩ plane, sphere ∩ sphere, and
-   * plane ∩ plane; other pairings (or a quadric ∩ quadric quartic) throw.
-   * `emphasis: 'bold'` draws the waterline heavier.
+   * (ai/DESIGN.md §2.5). Supports quadric ∩ plane, quadric ∩ quadric (radical-
+   * plane conic where the quadratic parts match, otherwise the traced quartic),
+   * and plane ∩ plane. `emphasis: 'bold'` draws the waterline heavier.
    */
   intersect(a: Element, b: Element, opts: { emphasis?: "bold" | "normal"; style?: StyleOverride } = {}): Element {
-    const section = this.sectionFor(a.source, b.source);
-    const source = new IntersectionCurve(section, `intersect:${a.id}∩${b.id}`);
+    const sections = this.sectionsFor(a.source, b.source);
+    const source = new IntersectionCurve(sections, `intersect:${a.id}∩${b.id}`);
     const emphasis: StyleOverride = opts.emphasis === "bold" ? { weight: 2.6 } : {};
     return this.add(source, { style: { ...emphasis, ...opts.style } });
   }
 
-  private sectionFor(sa: FeatureSource, sb: FeatureSource): Section | null {
+  private sectionsFor(sa: FeatureSource, sb: FeatureSource): Section[] {
+    const one = (s: Section | null): Section[] => (s ? [s] : []);
     const qA = sa instanceof Quadric;
     const qB = sb instanceof Quadric;
     const pA = sa instanceof Polygon;
     const pB = sb instanceof Polygon;
-    if (qA && pB) return intersectQuadricPlane(sa.Q, sb.vertices[0]!, sb.normal);
-    if (pA && qB) return intersectQuadricPlane(sb.Q, sa.vertices[0]!, sa.normal);
-    if (qA && qB) return intersectSpheres(sa.Q, sb.Q);
+    if (qA && pB) return one(intersectQuadricPlane(sa.Q, sb.vertices[0]!, sb.normal));
+    if (pA && qB) return one(intersectQuadricPlane(sb.Q, sa.vertices[0]!, sa.normal));
+    if (qA && qB) return intersectQuadrics(sa.Q, sb.Q, sa.bounds(), sb.bounds());
     if (pA && pB) {
       const ba = sa.bounds();
       const bb = sb.bounds();
       const extent = Math.max(distance(ba.min, ba.max), distance(bb.min, bb.max));
-      return intersectPlanes(sa.vertices[0]!, sa.normal, sb.vertices[0]!, sb.normal, extent);
+      return one(intersectPlanes(sa.vertices[0]!, sa.normal, sb.vertices[0]!, sb.normal, extent));
     }
     throw new Error(`scene.intersect: unsupported pair ${sa.constructor.name} ∩ ${sb.constructor.name}`);
   }
@@ -132,10 +155,22 @@ export class Scene {
     const scale = sceneScale(sources);
 
     // Stage 3: importance-scaled screen-size thresholding.
-    const strokes = applyAbstraction(classified, {
+    let strokes = applyAbstraction(classified, {
       minFeaturePx: this.abstraction.minFeaturePx ?? 0,
       importanceOf: (owner) => this.byId.get(owner)?.importance ?? 0.5,
     });
+
+    // Stage 3: cross-primitive consolidation — merge coincident lines, then
+    // re-classify each merged 3-D segment for exact visibility.
+    if (this.abstraction.consolidate) {
+      const { singles, merged } = consolidateLines(strokes, cam);
+      strokes = [
+        ...singles,
+        ...merged.map((m) =>
+          classifyFeature({ type: m.type, owner: m.owner, curve: { kind: "line", a: m.a, b: m.b }, attrs: {} }, cam, sources, scale),
+        ),
+      ];
+    }
 
     const outlineStrokes: RenderStroke[] = [];
     for (const st of strokes) {
@@ -168,8 +203,28 @@ export class Scene {
       }
     }
 
-    // hatch under the outlines
-    const renderStrokes = [...hatchStrokes, ...outlineStrokes];
+    // Highlights: re-extract + re-classify each highlighted element and draw it
+    // last (on top), heavier, dashed-where-hidden if requested.
+    const highlightStrokes: RenderStroke[] = [];
+    for (const h of this.highlights) {
+      const el = this.byId.get(h.id);
+      if (!el) continue;
+      const base = this.resolveSpec(h.id);
+      const spec = resolveStyle(base, {
+        weight: h.opts.weight ?? base.weight * 1.6,
+        color: h.opts.color ?? base.color,
+        hidden: h.opts.dashWhenHidden ? "ghost" : "drop",
+        ghostOpacity: 0.55,
+        hatch: null,
+      });
+      for (const feature of el.source.extractFeatures(cam)) {
+        const stroke = classifyFeature(feature, cam, sources, scale);
+        highlightStrokes.push(...emitStyledStroke(stroke, cam, spec, this.sample, this.wobble));
+      }
+    }
+
+    // hatch under the outlines, highlights on top
+    const renderStrokes = [...hatchStrokes, ...outlineStrokes, ...highlightStrokes];
     const svg = renderStrokesSVG(renderStrokes, cam.viewport, this.svgOptions);
     return { strokes, renderStrokes, svg };
   }

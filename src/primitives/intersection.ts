@@ -22,7 +22,7 @@ import { basisFromNormal } from "../math/basis.js";
 import { aabbFromPoints } from "../math/aabb.js";
 import { add, addScaled, cross, dot, length, normalize, sub } from "../math/vec3.js";
 import { adjugate, det, mulVec, type Mat3 } from "../math/mat3.js";
-import { evaluateConic } from "../curve/conic.js";
+import { evaluateConic, intersectConicConic } from "../curve/conic.js";
 import { quadricPlaneConic } from "./quadric.js";
 import { EPS_ABS, EPS_DENOM, EPS_REL } from "../curve/epsilon.js";
 
@@ -31,21 +31,28 @@ export interface Section {
   bounds: AABB;
 }
 
-/** A curve where two surfaces meet, as a `FeatureSource`. A 1-D curve does not
- *  occlude, so raycast / silhouettes are empty (like a Line). */
+/** A curve (or curves) where two surfaces meet, as a `FeatureSource`. A 1-D curve
+ *  does not occlude, so raycast / silhouettes are empty (like a Line). A quartic
+ *  intersection may have more than one loop, hence a list of sections. */
 export class IntersectionCurve implements FeatureSource {
-  constructor(
-    private readonly section: Section | null,
-    readonly id: ElementId,
-  ) {}
+  private readonly sections: readonly Section[];
+
+  constructor(sections: Section | Section[] | null, readonly id: ElementId) {
+    this.sections = sections === null ? [] : Array.isArray(sections) ? sections : [sections];
+  }
 
   bounds(): AABB {
-    return this.section?.bounds ?? { min: [0, 0, 0], max: [0, 0, 0] };
+    if (this.sections.length === 0) return { min: [0, 0, 0], max: [0, 0, 0] };
+    let b = this.sections[0]!.bounds;
+    for (let i = 1; i < this.sections.length; i++) {
+      const o = this.sections[i]!.bounds;
+      b = { min: [Math.min(b.min[0], o.min[0]), Math.min(b.min[1], o.min[1]), Math.min(b.min[2], o.min[2])], max: [Math.max(b.max[0], o.max[0]), Math.max(b.max[1], o.max[1]), Math.max(b.max[2], o.max[2])] };
+    }
+    return b;
   }
 
   extractFeatures(_cam: Camera): Feature[] {
-    if (!this.section) return [];
-    return [{ type: "intersection", owner: this.id, curve: this.section.curve, attrs: {} }];
+    return this.sections.map((s) => ({ type: "intersection" as const, owner: this.id, curve: s.curve, attrs: {} }));
   }
 
   hatchRegions(_cam: Camera, _light: Light): HatchRegion[] {
@@ -101,31 +108,162 @@ export function intersectQuadricPlane(Q: Mat4, planePoint: Vec3, planeNormal: Ve
   return conicSection(plane, quadricPlaneConic(Q, plane));
 }
 
-/** sphere ∩ sphere → circle via the radical plane. Throws for a genuine
- *  quadric ∩ quadric quartic (unequal quadratic parts). */
-export function intersectSpheres(Q1: Mat4, Q2: Mat4): Section | null {
+/** The radical plane of two quadrics whose quadratic parts match (spheres, or two
+ *  equal-shape quadrics): their difference is linear. Null otherwise. */
+function radicalPlane(Q1: Mat4, Q2: Mat4): { point: Vec3; normal: Vec3 } | null {
   const a = Q1[0] as number;
   const b = Q2[0] as number;
-  if (Math.abs(a) < EPS_ABS || Math.abs(b) < EPS_ABS) {
-    throw new Error("intersectSpheres: inputs are not spheres (no x² term)");
-  }
-  // Normalize leading coefficients, then subtract: the quadratic parts must cancel.
+  if (Math.abs(a) < EPS_ABS || Math.abs(b) < EPS_ABS) return null;
   const s1 = 1 / a;
   const s2 = 1 / b;
   const D = new Array<number>(16);
   for (let i = 0; i < 16; i++) D[i] = (Q1[i] as number) * s1 - (Q2[i] as number) * s2;
   const quadraticLeftover =
     Math.abs(D[0]!) + Math.abs(D[1]!) + Math.abs(D[2]!) + Math.abs(D[5]!) + Math.abs(D[6]!) + Math.abs(D[10]!);
-  if (quadraticLeftover > EPS_REL) {
-    throw new Error("quadric ∩ quadric is a quartic; only sphere ∩ sphere is supported");
-  }
+  if (quadraticLeftover > EPS_REL) return null; // genuinely different quadratics
   const n: Vec3 = [2 * D[3]!, 2 * D[7]!, 2 * D[11]!];
   const nn = n[0] * n[0] + n[1] * n[1] + n[2] * n[2];
-  if (nn <= EPS_ABS) return null; // concentric: no radical plane
-  const dConst = D[15]!;
-  const t = -dConst / nn;
-  const planePoint: Vec3 = [n[0] * t, n[1] * t, n[2] * t];
-  return intersectQuadricPlane(Q1, planePoint, n);
+  if (nn <= EPS_ABS) return null; // concentric
+  const t = -D[15]! / nn;
+  return { point: [n[0] * t, n[1] * t, n[2] * t], normal: n };
+}
+
+/**
+ * quadric ∩ quadric, general. Uses the radical-plane shortcut when the quadratic
+ * parts match (sphere ∩ sphere and equal-shape quadrics → an exact conic), and
+ * otherwise traces the quartic (`intersectQuadricQuadric`). Returns 0, 1, or 2
+ * section curves.
+ */
+export function intersectQuadrics(Q1: Mat4, Q2: Mat4, b1: AABB, b2: AABB): Section[] {
+  const radical = radicalPlane(Q1, Q2);
+  if (radical) {
+    const sec = intersectQuadricPlane(Q1, radical.point, radical.normal);
+    return sec ? [sec] : [];
+  }
+  return intersectQuadricQuadric(Q1, Q2, b1, b2);
+}
+
+/** Centre of a quadric (where the gradient vanishes): A·c = −b, or null if the
+ *  3×3 part A is singular (an unbounded quadric with no unique centre). */
+function quadricCenter(Q: Mat4): Vec3 | null {
+  const A: Mat3 = [Q[0] as number, Q[1] as number, Q[2] as number, Q[4] as number, Q[5] as number, Q[6] as number, Q[8] as number, Q[9] as number, Q[10] as number];
+  const b: Vec3 = [Q[3] as number, Q[7] as number, Q[11] as number];
+  const d = det(A);
+  if (Math.abs(d) <= EPS_DENOM) return null;
+  const c = mulVec(adjugate(A), [-b[0], -b[1], -b[2]]);
+  return [c[0] / d, c[1] / d, c[2] / d];
+}
+
+function aabbRangeAlong(box: AABB, dir: Vec3): [number, number] {
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (let i = 0; i < 8; i++) {
+    const x = i & 1 ? box.max[0] : box.min[0];
+    const y = i & 2 ? box.max[1] : box.min[1];
+    const z = i & 4 ? box.max[2] : box.min[2];
+    const s = x * dir[0] + y * dir[1] + z * dir[2];
+    if (s < lo) lo = s;
+    if (s > hi) hi = s;
+  }
+  return [lo, hi];
+}
+
+/**
+ * quadric ∩ quadric → the quartic space curve, as sampled polyline(s). No exact
+ * low-degree carrier exists for a quartic, so it is traced: sweep cutting planes;
+ * in each plane both quadrics section to conics whose *exact* intersections
+ * (conic∩conic kernel) are points on the quartic. Points are then chained into
+ * one or more polyline loops (ai/DESIGN.md §2.5).
+ */
+export function intersectQuadricQuadric(Q1: Mat4, Q2: Mat4, b1: AABB, b2: AABB): Section[] {
+  const c1 = quadricCenter(Q1);
+  const c2 = quadricCenter(Q2);
+  let dir: Vec3 = [0, 0, 1];
+  if (c1 && c2) {
+    const dd = sub(c2, c1);
+    if (length(dd) > EPS_REL) dir = normalize(dd);
+  }
+  const [lo1, hi1] = aabbRangeAlong(b1, dir);
+  const [lo2, hi2] = aabbRangeAlong(b2, dir);
+  const lo = Math.max(lo1, lo2);
+  const hi = Math.min(hi1, hi2);
+  if (hi - lo <= EPS_ABS) return [];
+
+  const N = 160;
+  const pts: Vec3[] = [];
+  const plane0 = basisFromNormal([dir[0] * lo, dir[1] * lo, dir[2] * lo], dir);
+  for (let i = 1; i < N; i++) {
+    const s = lo + ((hi - lo) * i) / N;
+    const origin: Vec3 = [dir[0] * s, dir[1] * s, dir[2] * s];
+    const plane = { origin, x: plane0.x, y: plane0.y, z: plane0.z };
+    const k1 = quadricPlaneConic(Q1, plane);
+    const k2 = quadricPlaneConic(Q2, plane);
+    const res = intersectConicConic(k1, k2);
+    if (res.kind !== "points") continue;
+    for (const p of res.points) {
+      pts.push([
+        origin[0] + p.point[0] * plane.x[0] + p.point[1] * plane.y[0],
+        origin[1] + p.point[0] * plane.x[1] + p.point[1] * plane.y[1],
+        origin[2] + p.point[0] * plane.x[2] + p.point[1] * plane.y[2],
+      ]);
+    }
+  }
+  if (pts.length < 4) return [];
+
+  return chainPoints(pts).map((chain) => ({ curve: { kind: "polyline", pts: chain }, bounds: aabbFromPoints(chain) }));
+}
+
+/** Greedy nearest-neighbour chaining of a point cloud on a smooth curve into
+ *  ordered polylines, closing a chain when its ends meet. */
+function chainPoints(points: readonly Vec3[]): Vec3[][] {
+  const n = points.length;
+  const dist = (a: Vec3, b: Vec3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+  // adaptive gap threshold from the median nearest-neighbour distance
+  const nn: number[] = [];
+  for (let i = 0; i < n; i++) {
+    let best = Infinity;
+    for (let j = 0; j < n; j++) if (j !== i) best = Math.min(best, dist(points[i]!, points[j]!));
+    nn.push(best);
+  }
+  const sorted = [...nn].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)] || 1;
+  const maxGap = 5 * median;
+
+  const used = new Array<boolean>(n).fill(false);
+  const nearestUnused = (from: number): number => {
+    let best = -1;
+    let bestD = maxGap;
+    for (let j = 0; j < n; j++) {
+      if (used[j]) continue;
+      const d = dist(points[from]!, points[j]!);
+      if (d < bestD) {
+        bestD = d;
+        best = j;
+      }
+    }
+    return best;
+  };
+
+  const chains: Vec3[][] = [];
+  for (let start = 0; start < n; start++) {
+    if (used[start]) continue;
+    const idx: number[] = [start];
+    used[start] = true;
+    // grow forward, then backward
+    for (let cur = nearestUnused(start); cur >= 0; cur = nearestUnused(idx[idx.length - 1]!)) {
+      idx.push(cur);
+      used[cur] = true;
+    }
+    for (let cur = nearestUnused(start); cur >= 0; cur = nearestUnused(idx[0]!)) {
+      idx.unshift(cur);
+      used[cur] = true;
+    }
+    if (idx.length < 3) continue;
+    const chain = idx.map((k) => points[k]!);
+    if (dist(chain[0]!, chain[chain.length - 1]!) <= maxGap) chain.push(chain[0]!); // close the loop
+    chains.push(chain);
+  }
+  return chains;
 }
 
 /** plane ∩ plane → a line, clipped to ±`extent` about the closest point. */

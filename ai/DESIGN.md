@@ -68,7 +68,9 @@ catalog are implemented and tested. What exists, by area (✅ done · 🚧 parti
   `scene.intersect`, §2.5): quadric ∩ plane = conic, sphere ∩ sphere = circle
   (radical plane), plane ∩ plane = line — first-class `intersection` features
   routed through the same visibility + styling pipeline (see the waterline demo).
-  quadric ∩ quadric quartics are not yet supported.
+  quadric ∩ quadric is also supported: a radical-plane conic where the quadratic
+  parts match, else the quartic space curve traced by plane-sweep + conic∩conic
+  and chained into polyline loops (`gallery/08`).
 - ✅ **Stage 3 — abstraction** (`src/pipeline/abstract.ts`, §2.7):
   importance-scaled screen-size thresholding + tone quantization, wired into
   `Scene.render`. Cross-primitive consolidation is future.
@@ -79,8 +81,9 @@ catalog are implemented and tested. What exists, by area (✅ done · 🚧 parti
   3-D field keyed on the object-space point, per element) so strokes join at
   shared vertices; per-patch hatch tone via tonal layering so curved surfaces
   shade light→dark while flat faces stay uniform; style-driven hatch weight/opacity.
-- ⬜ **Phase-1 polish remaining:** cross-primitive consolidation, cylinder/cone
-  surface hatching, quadric ∩ quadric quartics, `scene.highlight`, torus.
+- 🚧 **Phase-1 polish:** consolidation, cylinder/cone surface hatching,
+  `scene.highlight`, `Point`, and quadric ∩ quadric quartics are done; **torus**
+  (numerical silhouette from the implicit form) is the last remaining item.
 
 All nine Phase-1 build-order steps (§2.9) are implemented end to end.
 

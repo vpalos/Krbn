@@ -8,7 +8,7 @@
 // which is a clean derivation: the two solutions for m give the two generators.
 // (The base rim is a crease/boundary; back-half self-occlusion is step 5.)
 
-import type { AABB, Camera, Hit, Ray, Vec3 } from "../math/types.js";
+import type { AABB, Camera, Hit, Ray, Vec2, Vec3 } from "../math/types.js";
 import type { Curve2D } from "../curve/types.js";
 import type { ElementId, Feature, HatchRegion, Light } from "../pipeline/types.js";
 import type { FeatureSource } from "../scene/feature-source.js";
@@ -16,6 +16,7 @@ import { basisFromNormal } from "../math/basis.js";
 import { add, addScaled, dot, length, normalize, sub } from "../math/vec3.js";
 import { cameraFrame, projectionMatrix, projectPoint } from "../math/camera.js";
 import { projectCircle } from "../math/project.js";
+import { convexHull } from "../math/hull.js";
 import { solveQuadratic } from "../curve/roots.js";
 import { EPS_ABS } from "../curve/epsilon.js";
 
@@ -61,8 +62,25 @@ export class Cone implements FeatureSource {
     return { min, max };
   }
 
-  hatchRegions(_cam: Camera, _light: Light): HatchRegion[] {
-    return [];
+  hatchRegions(cam: Camera, _light: Light): HatchRegion[] {
+    // Outline = convex hull of the projected base rim plus the apex (the screen
+    // footprint of the convex silhouette); the scene's per-sample surface clip
+    // carves the visible surface and shades it by N·L (§2.6).
+    const P = projectionMatrix(cam);
+    const plane = basisFromNormal(this.baseCenter, this.axis);
+    const pts: Vec2[] = [projectPoint(P, this.apex).point];
+    for (let i = 0; i < 32; i++) {
+      const th = (2 * Math.PI * i) / 32;
+      const w: Vec3 = [
+        this.baseCenter[0] + this.baseRadius * (Math.cos(th) * plane.x[0] + Math.sin(th) * plane.y[0]),
+        this.baseCenter[1] + this.baseRadius * (Math.cos(th) * plane.x[1] + Math.sin(th) * plane.y[1]),
+        this.baseCenter[2] + this.baseRadius * (Math.cos(th) * plane.x[2] + Math.sin(th) * plane.y[2]),
+      ];
+      pts.push(projectPoint(P, w).point);
+    }
+    const outline = convexHull(pts);
+    if (outline.length < 3) return [];
+    return [{ owner: this.id, outline: { kind: "polyline", pts: outline }, mode: "single", angle: 0, tone: 0.5 }];
   }
 
   extractFeatures(cam: Camera): Feature[] {

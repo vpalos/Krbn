@@ -5,7 +5,8 @@
 //     recomputed per frame so detail thins as you zoom out. Importance modulates
 //     the cutoff (high importance keeps detail; low raises the bar).
 //   • tone quantization — snap shading to k discrete levels before hatching.
-// Cross-primitive consolidation (§2.7) is not yet implemented.
+//   • cross-primitive consolidation — merging coincident lines lives in its own
+//     module (`consolidate.ts`), since it needs the camera + a re-classify pass.
 
 import type { Curve2D } from "../curve/types.js";
 import type { ElementId, Stroke } from "./types.js";

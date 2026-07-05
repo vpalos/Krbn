@@ -6,7 +6,7 @@
 // tangent points from the eye to the base circle. The back half is
 // self-occluded — that is the visibility stage's job (step 5), not here.
 
-import type { AABB, Camera, Hit, Ray, Vec3 } from "../math/types.js";
+import type { AABB, Camera, Hit, Ray, Vec2, Vec3 } from "../math/types.js";
 import type { Curve2D } from "../curve/types.js";
 import type { ElementId, Feature, HatchRegion, Light } from "../pipeline/types.js";
 import type { FeatureSource } from "../scene/feature-source.js";
@@ -14,6 +14,7 @@ import { basisFromNormal } from "../math/basis.js";
 import { add, addScaled, cross, dot, length, normalize, sub } from "../math/vec3.js";
 import { cameraFrame, projectionMatrix, projectPoint } from "../math/camera.js";
 import { projectCircle } from "../math/project.js";
+import { convexHull } from "../math/hull.js";
 import { solveQuadratic } from "../curve/roots.js";
 import { EPS_ABS, EPS_REL } from "../curve/epsilon.js";
 
@@ -50,8 +51,27 @@ export class Cylinder implements FeatureSource {
     return { min, max };
   }
 
-  hatchRegions(_cam: Camera, _light: Light): HatchRegion[] {
-    return [];
+  hatchRegions(cam: Camera, _light: Light): HatchRegion[] {
+    // Outline = convex hull of the two projected rim ellipses (the exact screen
+    // footprint of the convex silhouette). The scene's per-sample surface clip
+    // then carves the visible surface and shades it by N·L (§2.6).
+    const P = projectionMatrix(cam);
+    const plane = basisFromNormal(this.base, this.axis);
+    const pts: Vec2[] = [];
+    for (const c of [this.base, this.top]) {
+      for (let i = 0; i < 32; i++) {
+        const th = (2 * Math.PI * i) / 32;
+        const w: Vec3 = [
+          c[0] + this.radius * (Math.cos(th) * plane.x[0] + Math.sin(th) * plane.y[0]),
+          c[1] + this.radius * (Math.cos(th) * plane.x[1] + Math.sin(th) * plane.y[1]),
+          c[2] + this.radius * (Math.cos(th) * plane.x[2] + Math.sin(th) * plane.y[2]),
+        ];
+        pts.push(projectPoint(P, w).point);
+      }
+    }
+    const outline = convexHull(pts);
+    if (outline.length < 3) return [];
+    return [{ owner: this.id, outline: { kind: "polyline", pts: outline }, mode: "single", angle: 0, tone: 0.5 }];
   }
 
   extractFeatures(cam: Camera): Feature[] {

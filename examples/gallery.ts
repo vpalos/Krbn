@@ -11,11 +11,12 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Camera } from "../src/math/types.js";
 import { Scene } from "../src/scene/scene.js";
-import { sphere } from "../src/primitives/quadric.js";
+import { sphere, ellipsoid } from "../src/primitives/quadric.js";
 import { Cylinder } from "../src/primitives/cylinder.js";
 import { Cone } from "../src/primitives/cone.js";
 import { Polygon } from "../src/primitives/polygon.js";
 import { Line } from "../src/primitives/line.js";
+import { Point } from "../src/primitives/point.js";
 
 // Defaults next to this file; overridable so a compiled copy can still target
 // the repo (KRBN_GALLERY_OUT). Normal `bun run` users need not set it.
@@ -145,8 +146,103 @@ function wobbleSweep(): void {
   save("04-wobble", scene.toSVG(cam));
 }
 
+// ---------------------------------------------------------------------------
+// 5. Solid shading — the three quadric-family solids surface-hatched and shaded
+//    light→dark. Hatching is clipped to each visible surface (per-sample
+//    back-projection) and gradates by N·L, so the forms read as solids.
+// ---------------------------------------------------------------------------
+function solidShading(): void {
+  const cam: Camera = {
+    eye: [0.4, -8.5, 2.4],
+    target: [0.4, 0, -0.1],
+    up: [0, 0, 1],
+    projection: "perspective",
+    scale: Math.PI / 5,
+    viewport: { width: 960, height: 340 },
+  };
+  const scene = new Scene({ light: { direction: [-0.5, -0.55, -0.66] }, svg: { background: BG } });
+  scene.add(new Cone([-3.1, 0, -1], [0, 0, 2], 0.8)).style({ wobble: 0.22, hatch: { mode: "single", angle: 15 } });
+  scene.add(new Cylinder([0, 0, -1], [0, 0, 2], 0.8)).style({ wobble: 0.22, hatch: { mode: "cross", angle: 15 } });
+  scene.add(sphere([3.1, 0, 0], 0.9)).style({ wobble: 0.22, hatch: { mode: "triple", angle: 15 } });
+  save("05-solid-shading", scene.render(cam).svg);
+}
+
+// ---------------------------------------------------------------------------
+// 6. Highlight — a sphere sits behind a cylinder. `scene.highlight` re-draws the
+//    sphere's outline on top of everything, heavier, and dashed where the
+//    cylinder hides it (an x-ray emphasis).
+// ---------------------------------------------------------------------------
+function highlightDemo(): void {
+  const cam: Camera = {
+    eye: [4.4, 3.1, 2.4],
+    target: [0, 0, 0],
+    up: [0, 0, 1],
+    projection: "perspective",
+    scale: Math.PI / 4,
+    viewport: { width: 640, height: 480 },
+  };
+  const scene = new Scene({ svg: { background: BG } });
+  scene.add(new Cylinder([0, 0, -1.1], [0, 0, 2.2], 0.9)).setImportance(0.3, { role: "context" });
+  const ball = scene.add(sphere([-1.75, -0.2, 0.5], 0.85)); // behind + beside: partly exposed
+  scene.highlight(ball, { weight: 2.6, dashWhenHidden: true });
+  save("06-highlight", scene.render(cam).svg);
+}
+
+// ---------------------------------------------------------------------------
+// 7. Points — small camera-facing marks (× crosses and a dot), occludable like
+//    any feature: the one behind the sphere is ghosted (faint dashed), the rest
+//    are solid.
+// ---------------------------------------------------------------------------
+function pointsDemo(): void {
+  const cam: Camera = {
+    eye: [3.6, 2.6, 2.2],
+    target: [0, 0, 0],
+    up: [0, 0, 1],
+    projection: "perspective",
+    scale: Math.PI / 4,
+    viewport: { width: 620, height: 460 },
+  };
+  const scene = new Scene({ svg: { background: BG } });
+  scene.add(sphere([0, 0, 0], 1)).setImportance(0.3, { role: "context" });
+  const marks: [number, number, number][] = [
+    [1.7, 0, 0.9],
+    [-1.6, 0.2, 0.6],
+    [0.2, 1.7, -0.4],
+    [0.1, -0.1, -1.9], // directly behind the sphere → ghosted
+  ];
+  for (const m of marks) scene.add(new Point(m, { mark: "cross", sizePx: 9 }));
+  scene.add(new Point([0, 0, 1.6], { mark: "dot", sizePx: 10 }));
+  save("07-points", scene.render(cam).svg);
+}
+
+// ---------------------------------------------------------------------------
+// 8. Quadric ∩ quadric quartic — an ellipsoid meeting a sphere. Their
+//    intersection is a quartic space curve, traced via plane-sweep + the exact
+//    conic∩conic kernel and drawn as a bold loop, solid where visible and dashed
+//    where it passes behind the surfaces.
+// ---------------------------------------------------------------------------
+function quarticDemo(): void {
+  const cam: Camera = {
+    eye: [3.4, 2.6, 2.1],
+    target: [0, 0, 0],
+    up: [0, 0, 1],
+    projection: "perspective",
+    scale: Math.PI / 4,
+    viewport: { width: 640, height: 480 },
+  };
+  const scene = new Scene({ svg: { background: BG } });
+  const a = scene.add(ellipsoid([-0.55, 0, 0], [1.3, 0.8, 0.85])).setImportance(0.3, { role: "context" });
+  const b = scene.add(sphere([0.7, 0.1, 0.15], 0.9)).setImportance(0.3, { role: "context" });
+  scene.intersect(a, b, { emphasis: "bold" }).style({ wobble: 0.15 });
+  save("08-quartic", scene.render(cam).svg);
+}
+
 hiddenLines();
 hatching();
 depthHatching();
 wobbleSweep();
+solidShading();
+highlightDemo();
+pointsDemo();
+quarticDemo();
 console.log("gallery complete");

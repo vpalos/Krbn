@@ -3,6 +3,7 @@ import type { Camera } from "../src/math/types.js";
 import { Scene } from "../src/scene/scene.js";
 import { sphere } from "../src/primitives/quadric.js";
 import { Line } from "../src/primitives/line.js";
+import { Cone } from "../src/primitives/cone.js";
 
 const front: Camera = {
   eye: [0, 0, 10],
@@ -51,6 +52,20 @@ describe("Scene.render", () => {
     expect(res.svg).toContain("<polyline");
   });
 
+  test("highlight redraws an element on top, heavier", () => {
+    const plain = new Scene();
+    plain.add(sphere([0, 0, 0], 1));
+    const base = plain.render(front).renderStrokes.length;
+
+    const scene = new Scene();
+    const s = scene.add(sphere([0, 0, 0], 1));
+    scene.highlight(s, { weight: 3, dashWhenHidden: true });
+    const withH = scene.render(front).renderStrokes;
+    expect(withH.length).toBeGreaterThan(base); // extra strokes, drawn last
+    expect(withH.some((st) => st.style.weight === 3)).toBe(true);
+    expect(withH[withH.length - 1]!.style.weight).toBe(3); // on top
+  });
+
   test("wobble from element style perturbs the straight line run", () => {
     const scene = new Scene();
     scene.add(sphere([0, 0, 0], 1));
@@ -77,6 +92,12 @@ describe("Scene hatching", () => {
     expect(hatch.length).toBeGreaterThan(0);
     expect(hatch[0]!.style.weight).toBeCloseTo(0.4);
     expect(hatch[0]!.style.opacity).toBeCloseTo(0.9);
+  });
+
+  test("a cone can be surface-hatched (curved-surface shading)", () => {
+    const scene = new Scene({ light: { direction: [-0.5, -0.5, -0.7] } });
+    scene.add(new Cone([0, 0, -1], [0, 0, 2], 1)).style({ hatch: { mode: "single", angle: 20, spacingPx: 10 } });
+    expect(hatchOf(scene.render(front).renderStrokes).length).toBeGreaterThan(0);
   });
 
   test("a hatched sphere fills its disk, clipped to the silhouette", () => {

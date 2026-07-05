@@ -4,9 +4,10 @@ import { sphere } from "../src/primitives/quadric.js";
 import { Polygon } from "../src/primitives/polygon.js";
 import {
   intersectQuadricPlane,
-  intersectSpheres,
+  intersectQuadrics,
   intersectPlanes,
 } from "../src/primitives/intersection.js";
+import { ellipsoid } from "../src/primitives/quadric.js";
 import { evaluateConic } from "../src/curve/conic.js";
 import { Scene } from "../src/scene/scene.js";
 
@@ -56,12 +57,13 @@ describe("quadric ∩ plane = conic", () => {
   });
 });
 
-describe("sphere ∩ sphere = circle", () => {
+describe("sphere ∩ sphere = circle (radical plane)", () => {
   test("two unit spheres, centres 1 apart → circle at the midplane", () => {
     const s1 = sphere([0, 0, 0], 1);
     const s2 = sphere([1, 0, 0], 1);
-    const sec = intersectSpheres(s1.Q, s2.Q)!;
-    expect(sec).not.toBeNull();
+    const secs = intersectQuadrics(s1.Q, s2.Q, s1.bounds(), s2.bounds());
+    expect(secs).toHaveLength(1);
+    const sec = secs[0]!;
     // radical plane is x = 0.5; circle radius √(1 − 0.25) = √0.75
     if (sec.curve.kind === "conic") {
       expect(sec.curve.plane.origin[0]).toBeCloseTo(0.5, 6);
@@ -69,17 +71,35 @@ describe("sphere ∩ sphere = circle", () => {
     }
   });
 
-  test("disjoint spheres → null", () => {
-    expect(intersectSpheres(sphere([0, 0, 0], 1).Q, sphere([5, 0, 0], 1).Q)).toBeNull();
+  test("disjoint spheres → no section", () => {
+    const s1 = sphere([0, 0, 0], 1);
+    const s2 = sphere([5, 0, 0], 1);
+    expect(intersectQuadrics(s1.Q, s2.Q, s1.bounds(), s2.bounds())).toHaveLength(0);
+  });
+});
+
+describe("quadric ∩ quadric = quartic (traced)", () => {
+  test("sphere ∩ ellipsoid → a closed polyline loop on both surfaces", () => {
+    const s = sphere([0, 0, 0], 1);
+    const e = ellipsoid([0, 0, 0], [1.6, 0.7, 1.2]);
+    const secs = intersectQuadrics(s.Q, e.Q, s.bounds(), e.bounds());
+    expect(secs.length).toBeGreaterThanOrEqual(1);
+    const chain = secs[0]!.curve;
+    expect(chain.kind).toBe("polyline");
+    if (chain.kind === "polyline") {
+      expect(chain.pts.length).toBeGreaterThan(8);
+      // every traced point lies on BOTH quadrics
+      for (const p of chain.pts) {
+        expect(Math.abs(p[0] * p[0] + p[1] * p[1] + p[2] * p[2] - 1)).toBeLessThan(1e-4); // on unit sphere
+        expect(Math.abs(p[0] * p[0] / (1.6 * 1.6) + p[1] * p[1] / (0.7 * 0.7) + p[2] * p[2] / (1.2 * 1.2) - 1)).toBeLessThan(1e-4);
+      }
+    }
   });
 
-  test("a genuine quadric ∩ quadric quartic throws", () => {
-    // sphere ∩ ellipsoid: quadratic parts differ → not a circle
+  test("disjoint quadrics → no section", () => {
     const s = sphere([0, 0, 0], 1);
-    const e = sphere([0, 0, 0], 1); // same, but tweak Q to an ellipsoid-like matrix
-    const eQ = e.Q.slice();
-    eQ[5] = 4; // change the y² coefficient → no longer a sphere
-    expect(() => intersectSpheres(s.Q, eQ as unknown as typeof e.Q)).toThrow("quartic");
+    const e = ellipsoid([9, 0, 0], [1.6, 0.7, 1.2]);
+    expect(intersectQuadrics(s.Q, e.Q, s.bounds(), e.bounds())).toHaveLength(0);
   });
 });
 
