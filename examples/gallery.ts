@@ -274,17 +274,26 @@ function quarticDemo(): void {
     target: [0, 0, 0],
     up: [0, 0, 1],
     projection: "perspective",
-    scale: Math.PI / 4,
-    viewport: { width: 640, height: 480 },
+    scale: Math.PI / 4.4,
+    viewport: { width: 560, height: 420 },
   };
-  const build = (wobble: number): string => {
-    const scene = new Scene({ svg: { background: BG } });
-    const a = scene.add(ellipsoid([-0.55, 0, 0], [1.3, 0.8, 0.85])).setImportance(0.3, { role: "context" }).style({ wobble });
-    const b = scene.add(sphere([0.7, 0.1, 0.15], 0.9)).setImportance(0.3, { role: "context" }).style({ wobble });
+  // rows = wobble off / on; columns = wireframe / shaded (hatched)
+  const build = (wobble: number, shaded: boolean): string => {
+    // front-lit (from the camera side, upper) so the highlight faces the viewer
+    const scene = new Scene({ light: { direction: [-0.4, -0.45, -0.55] }, svg: { background: BG } });
+    const style = shaded ? { wobble, hatch: { mode: "triple" as const, angle: 20, spacingPx: 6 } } : { wobble };
+    const a = scene.add(ellipsoid([-0.55, 0, 0], [1.3, 0.8, 0.85])).setImportance(0.3, { role: "context" }).style(style);
+    const b = scene.add(sphere([0.7, 0.1, 0.15], 0.9)).setImportance(0.3, { role: "context" }).style(style);
     scene.intersect(a, b, { emphasis: "bold" }).style({ wobble });
     return scene.render(cam).svg;
   };
-  save("08-quartic", stackRows(build(0), build(0.7), cam.viewport.width, cam.viewport.height, "wobble: off", "wobble: on"));
+  save(
+    "08-quartic",
+    gridStitch(cam.viewport.width, cam.viewport.height, [
+      [build(0, false), build(0, true)],
+      [build(0.7, false), build(0.7, true)],
+    ], ["wobble: off", "wobble: on"]),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -299,6 +308,32 @@ function stripSvg(svg: string): string {
 
 const label = (x: number, y: number, s: string): string =>
   `<text x="${x}" y="${y}" font-family="sans-serif" font-size="14" fill="#999">${s}</text>`;
+
+/** Arrange a grid of same-size panels; row labels top-left, dividers between. */
+function gridStitch(W: number, H: number, rows: string[][], rowLabels: string[]): string {
+  const gapX = 22;
+  const gapY = 18;
+  const cols = rows[0]!.length;
+  const totalW = cols * W + (cols - 1) * gapX;
+  const totalH = rows.length * H + (rows.length - 1) * gapY;
+  const parts = [
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalW} ${totalH}" width="${totalW}" height="${totalH}">`,
+  ];
+  rows.forEach((row, r) => {
+    const y = r * (H + gapY);
+    row.forEach((svg, c) => {
+      parts.push(`<g transform="translate(${c * (W + gapX)},${y})">${stripSvg(svg)}</g>`);
+    });
+    parts.push(label(14, y + 26, rowLabels[r]!));
+    if (r < rows.length - 1) parts.push(`<line x1="10" y1="${y + H + gapY / 2}" x2="${totalW - 10}" y2="${y + H + gapY / 2}" stroke="#ddd" stroke-width="1" />`);
+  });
+  for (let c = 1; c < cols; c++) {
+    const x = c * (W + gapX) - gapX / 2;
+    parts.push(`<line x1="${x}" y1="8" x2="${x}" y2="${totalH - 8}" stroke="#ddd" stroke-width="1" />`);
+  }
+  parts.push(`</svg>`);
+  return parts.join("\n");
+}
 
 /** Stack two same-size panels vertically into one SVG with a divider + labels. */
 function stackRows(top: string, bottom: string, W: number, H: number, labelTop: string, labelBottom: string): string {

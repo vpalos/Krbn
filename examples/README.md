@@ -71,9 +71,11 @@ one behind the sphere is ghosted away.
 
 ![quartic](gallery/08-quartic.svg)
 
-Two rows (**wobble off / on**). An ellipsoid meeting a sphere; their quartic
-intersection is traced (plane-sweep + conic∩conic, Newton-refined) and drawn as a
-bold loop, **solid where visible, dashed where behind** the surfaces.
+A 2×2 grid: **rows** are wobble off / on, **columns** are wireframe / shaded. An
+ellipsoid meeting a sphere; their quartic intersection is traced (plane-sweep +
+conic∩conic, Newton-refined) and drawn as a bold loop, **solid where visible,
+dashed where behind** the surfaces. The shaded column hatches both quadrics (with
+mutual occlusion) under the same intersection curve.
 
 ### 09 · Cross-primitive consolidation (off vs on)
 
