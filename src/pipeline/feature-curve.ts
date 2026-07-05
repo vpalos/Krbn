@@ -97,7 +97,8 @@ export function buildFeatureModel(curve: Curve, cam: Camera): FeatureCurveModel 
         const c = Math.cos(theta);
         const s = Math.sin(theta);
         const form = params.A * c * c + params.B * c * s + params.C * s * s;
-        const rho = form > 1e-15 ? Math.sqrt(Math.max(0, -Fc / form)) : 0;
+        const ratio = Math.abs(form) > 1e-15 ? -Fc / form : 0; // sign-invariant
+        const rho = ratio > 0 ? Math.sqrt(ratio) : 0;
         const u = cx + rho * c;
         const v = cy + rho * s;
         return [

@@ -20,7 +20,7 @@ import type { Mat3 } from "../math/mat3.js";
 import { adjugate4, mulVec4, quadricNormal, symmetric4 } from "../math/mat4.js";
 import { adjugate as adjugate3 } from "../math/mat3.js";
 import { basisFromNormal } from "../math/basis.js";
-import { aabbFromCenterRadius } from "../math/aabb.js";
+import { aabbFromCenterRadius, aabbCenter } from "../math/aabb.js";
 import { cameraFrame, projectionMatrix, type Proj } from "../math/camera.js";
 import { matrixToConic } from "../curve/conic.js";
 import { normalize, dot } from "../math/vec3.js";
@@ -46,9 +46,18 @@ export class Quadric implements FeatureSource {
     return this.aabb;
   }
 
-  hatchRegions(_cam: Camera, _light: Light): HatchRegion[] {
-    // Deferred: hatching lands with stage-4 styling (roadmap step 7).
-    return [];
+  hatchRegions(cam: Camera, light: Light): HatchRegion[] {
+    // The fillable region is the (closed) apparent outline conic. Tone comes from
+    // Lambert at the point of the surface facing the camera — a single-tone
+    // approximation until stage-3 tone quantization refines it per patch.
+    const P = projectionMatrix(cam);
+    const conic = outlineScreenConic(this.Q, P);
+    if (!conic || conic.kind !== "conic") return [];
+    const center = aabbCenter(this.aabb);
+    const nFront = normalize([cam.eye[0] - center[0], cam.eye[1] - center[1], cam.eye[2] - center[2]]);
+    const diffuse = Math.max(0, dot(nFront, [-light.direction[0], -light.direction[1], -light.direction[2]]));
+    const tone = Math.min(1, Math.max(0, 1 - diffuse));
+    return [{ owner: this.id, outline: conic, mode: "single", angle: 0, tone }];
   }
 
   /** Closed-form ray–quadric intersection: substitute P(t) = O + tD into Pᵀ Q P. */

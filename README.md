@@ -12,12 +12,12 @@ and deliberate reduction of detail.
 > **Status: pre-alpha, actively building (updated 2026-07-05).** The math kernel,
 > the **exact conic intersection kernel**, the full analytic **primitive catalog**
 > (Quadric → Sphere/Ellipsoid/Cylinder/Cone, Plane/Polygon, Line, ParametricCurve),
-> **stage 2 — exact hidden-line visibility** (visible/hidden intervals), and a
-> runnable **emit → SVG backend** (ghosted hidden lines) are implemented and
-> tested — see [`examples/demo.svg`](examples/demo.svg). Still to come:
-> intersection-curve features, the `Scene` / importance model, stage-3
-> abstraction, and real stage-4 styling. See [`ai/ROADMAP.md`](ai/ROADMAP.md) for
-> the annotated build status.
+> **stage 2 — exact hidden-line visibility**, **stage 4 — styling** (seeded
+> wobble, ghosted hidden lines, hatching), the **`Scene` / importance model**, and
+> an **SVG backend** are implemented and tested — see
+> [`examples/styled.svg`](examples/styled.svg). Still to come: intersection-curve
+> features and stage-3 abstraction. See [`ai/ROADMAP.md`](ai/ROADMAP.md) for the
+> annotated build status.
 
 ## Why it works this way
 
@@ -51,8 +51,8 @@ Full detail, contracts, and the mesh/organ roadmap live in
 src/
   math/        vectors, Mat3/Mat4, Basis, AABB, Camera + projection/unproject
   curve/       Curve / Curve2D carriers + exact conic kernel, root solvers, sampler
-  pipeline/    contract types, stage-2 visibility, emit, and the render facade
-  scene/       the FeatureSource seam (+ Scene / element model, coming next)
+  pipeline/    contract types, visibility, styling (wobble/hatch), emit, render
+  scene/       the FeatureSource seam + Scene / element / importance model
   primitives/  analytic primitives (Quadric, Sphere, Cylinder, Cone, Plane, Line, …)
   backend/     renderers — SVG (implemented)
   mesh/        deferred organ/mesh regime — see ai/DESIGN.md §3
@@ -72,9 +72,10 @@ bun test
 ## Next build target
 
 **Intersection-curve features** (sphere ∩ plane = circle, quadric ∩ quadric =
-quartic) — first-class `Feature`s that flow straight into the stage-2 visibility
-classifier — together with the `Scene` / element / importance model. After that:
-real stage-4 styling (seeded wobble, hatching) and stage-3 abstraction.
+quartic) — first-class `Feature`s that flow straight into the visibility
+classifier and styling — and **stage-3 abstraction** (screen-size thresholding,
+tone quantization, importance-driven level of detail), which makes `importance`
+fully live.
 
 ## License
 

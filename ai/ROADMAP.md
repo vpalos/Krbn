@@ -18,10 +18,12 @@ Real-world value for technical figures, and the regime where the hardest module
    **exact conic intersector** (line–conic; conic–conic via the pencil /
    degenerate-line-pair split) and robust real root solvers. The critical path,
    and the most heavily tested part of the engine. _(design.md §2.9.1)_
-2. 🚧 **`FeatureSource` seam + `Scene` / element + importance model.** The
-   interface exists and every primitive implements it directly. The `Scene`
-   graph, element wrapper, and importance/role API _(design.md §2.8)_ are **not
-   built yet** — primitives are currently constructed and queried standalone.
+2. ✅ **`FeatureSource` seam + `Scene` / element + importance model.** `Scene`
+   holds elements (source + `importance`/`role`/style overrides), resolves a
+   per-element style, and renders the whole pipeline (`src/scene/scene.ts`,
+   `element.ts`). Importance is carried and `role` drives styling defaults; its
+   abstraction-threshold lever waits on stage 3. `scene.intersect`/`highlight`
+   from the §2.8 sketch are deferred (need intersection curves).
 3. ✅ **Primitive catalog.** `Quadric` with exact silhouette conic (screen-space
    dual-quadric outline + object-space polar-plane contour), configured as
    `Sphere` / `Ellipsoid` / `Cylinder` / `Cone`; plus `Plane` / `Polygon`
@@ -38,9 +40,11 @@ Real-world value for technical figures, and the regime where the hardest module
    `src/pipeline/visibility.ts`.
 6. ⬜ Intersection-curve features (sphere ∩ plane = circle, …). **← next**, with
    the `Scene` / importance model (step 2).
-7. 🚧 Stage 4: styling (weight/dash/ghost/seeded-wobble) + hatch generation. Emit
-   applies a minimal default policy (solid visible / faint-dashed hidden); the
-   real styling stage, seeded wobble, and hatch generation are not built yet.
+7. ✅ Stage 4: styling — per-element style resolution, seeded deterministic
+   wobble, dash/ghost, and hatch generation clipped to the visible surface
+   (`src/pipeline/style.ts`, `wobble.ts`, `hatch.ts`). Surface hatching covers
+   sphere/ellipsoid + polygons today; cylinder/cone surface hatching and stage-3
+   tone quantization are still to come.
 8. ⬜ Stage 3: abstraction (screen-size threshold, tone quantization, importance).
 9. ✅ Stage 5: SVG backend (`src/backend/svg.ts`) with adaptive sampling of
    analytic curves at emit (`src/pipeline/emit.ts`, `curve/sample.ts`).
@@ -59,8 +63,10 @@ everything from the stage-2 contract onward is reused. All ⬜.
 
 ## Cross-cutting
 
-Seeded/deterministic wobble ⬜, temporal-coherence discipline (starts in Phase 1)
-⬜, SVG-first backend ✅ (`src/backend/svg.ts`), optional alpha as a pure drawing
-op ⬜, and a declarative authoring language that later deserializes into the same
+Seeded/deterministic wobble ✅ (`src/pipeline/wobble.ts`; anchored to object-space
+arclength), temporal-coherence discipline 🚧 (wobble is deterministic per
+identity; fully coherent chains/silhouettes across frames are future),
+SVG-first backend ✅ (`src/backend/svg.ts`), optional alpha as a pure drawing op
+⬜, and a declarative authoring language that later deserializes into the same
 `Scene` model ⬜. The adaptive analytic-curve sampler this all leans on is ✅
 (`curve/sample.ts`).

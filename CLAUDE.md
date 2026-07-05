@@ -37,10 +37,11 @@ is where the plan lives).
 `src/math` vectors, `Mat3`/`Mat4`, `Basis`, `AABB`, `Camera` + projection ·
 `src/curve` `Curve`/`Curve2D` carriers, the exact conic kernel (roots, epsilons,
 line/conic + screen intersection) + adaptive sampler · `src/pipeline` inter-stage
-contract, stage-2 visibility, emit, and the render facade · `src/scene` the
-`FeatureSource` seam (+ Scene model, still to come) · `src/primitives` analytic
-primitives (implemented) · `src/backend` renderers (SVG implemented) ·
-`src/mesh` deferred Phase-2 regime · `examples/` runnable demo → SVG.
+contract, stage-2 visibility, stage-4 styling (wobble/hatch), emit, render facade ·
+`src/scene` the `FeatureSource` seam + `Scene`/element/importance model ·
+`src/primitives` analytic primitives (implemented) · `src/backend` renderers
+(SVG implemented) · `src/mesh` deferred Phase-2 regime · `examples/` runnable
+demos → SVG (`demo.ts` plain, `styled.ts` wobble + hatch).
 
 ## Current status & next target
 
@@ -51,15 +52,17 @@ analytic **primitive catalog** (`src/primitives`: `Quadric`→`Sphere`/`Ellipsoi
 `Cylinder`/`Cone`, `Plane`/`Polygon`, `Line`, `ParametricCurve`), and **stage 2 —
 exact quantitative invisibility** (`src/pipeline/visibility.ts`: visible/hidden
 intervals via analytic silhouette crossings + closed-form depth `raycast`, with a
-bisection safety net for grazing cusps), and a **runnable emit → SVG backend**
-(`src/pipeline/emit.ts`, `src/backend/svg.ts`, `src/pipeline/render.ts`) that
-draws ghosted hidden lines — `examples/demo.ts` → `examples/demo.svg` is the
-visual check. **Not built yet:** the `Scene`/element/**importance** model,
-intersection-curve features (§2.5), stage-3 abstraction, and the real stage-4
-styling (emit only applies a minimal default). Next targets are **intersection
-curves** and the **`Scene`/importance model**. See `ai/ROADMAP.md` for the
-annotated build order and `.claude/rules/numerical-robustness.md` for the
-kernel's robustness bar.
+bisection safety net for grazing cusps), a **runnable emit → SVG backend**
+(`src/pipeline/emit.ts`, `src/backend/svg.ts`, `src/pipeline/render.ts`) drawing
+ghosted hidden lines, **stage-4 styling** (`src/pipeline/style.ts`, `wobble.ts`,
+`hatch.ts`: per-element style, seeded wobble, dash/ghost, visibility-clipped
+hatching), and the **`Scene`/element/importance model** (`src/scene`). Visual
+checks: `examples/demo.ts` (plain) and `examples/styled.ts` (wobble + hatch +
+importance). **Not built yet:** intersection-curve features (§2.5), stage-3
+abstraction (tone quantization / importance-driven detail), cylinder/cone surface
+hatching, and `scene.intersect`/`highlight`. Next targets are **intersection
+curves** and **stage-3 abstraction**. See `ai/ROADMAP.md` for the annotated build
+order and `.claude/rules/numerical-robustness.md` for the kernel's robustness bar.
 
 ## Rules
 

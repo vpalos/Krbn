@@ -32,10 +32,19 @@ export * from "./math/intersect3d.js";
 export * from "./pipeline/feature-curve.js";
 export * from "./pipeline/visibility.js";
 
+// --- stage 4: styling (wobble, dash/ghost, hatch) ---
+export * from "./pipeline/wobble.js";
+export * from "./pipeline/style.js";
+export * from "./pipeline/hatch.js";
+
 // --- stage 5: emit + SVG backend + render facade ---
 export * from "./pipeline/emit.js";
 export * from "./backend/svg.js";
 export * from "./pipeline/render.js";
+
+// --- authoring model: Scene / Element / importance ---
+export * from "./scene/element.js";
+export * from "./scene/scene.js";
 
 // --- analytic primitives ---
 export * from "./primitives/quadric.js";

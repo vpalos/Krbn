@@ -7,11 +7,29 @@
 // minimal *default* policy so the engine's signature output — ghosted hidden
 // lines — is already visible: solid for visible runs, faint dashed for hidden.
 
-import type { Camera, Vec2 } from "../math/types.js";
+import type { Camera, Vec2, Vec3 } from "../math/types.js";
 import type { RenderStroke, RenderStyle, Stroke } from "./types.js";
-import { buildFeatureModel } from "./feature-curve.js";
+import type { Proj } from "../math/camera.js";
+import { buildFeatureModel, type FeatureCurveModel } from "./feature-curve.js";
 import { projectionMatrix, projectPoint } from "../math/camera.js";
 import { adaptiveSample, DEFAULT_SAMPLE, type SampleOptions } from "../curve/sample.js";
+
+/**
+ * Adaptively sample one interval of a feature model, returning both the screen
+ * polyline and the object-space points (the latter drives arclength-anchored
+ * wobble). Shared by the minimal emit here and the full styling pass.
+ */
+export function sampleInterval(
+  model: FeatureCurveModel,
+  t0: number,
+  t1: number,
+  P: Proj,
+  opts: SampleOptions = DEFAULT_SAMPLE,
+): { path: Vec2[]; points3: Vec3[] } {
+  const project = (p: Vec3): Vec2 => projectPoint(P, p).point;
+  const { points } = adaptiveSample((t) => model.point3(t), t0, t1, project, opts);
+  return { path: points.map(project), points3: points };
+}
 
 export interface EmitStyle {
   visible: RenderStyle;
@@ -34,14 +52,12 @@ export function emitStroke(
 ): RenderStroke[] {
   const model = buildFeatureModel(stroke.feature.curve, cam);
   const P = projectionMatrix(cam);
-  const project = (p: readonly [number, number, number]): Vec2 => projectPoint(P, p).point;
 
   const out: RenderStroke[] = [];
   for (const iv of stroke.intervals) {
     const s = iv.visible ? style.visible : style.hidden;
     if (!s) continue;
-    const { points } = adaptiveSample((t) => model.point3(t), iv.t0, iv.t1, project, opts);
-    const path = points.map(project);
+    const { path } = sampleInterval(model, iv.t0, iv.t1, P, opts);
     if (path.length >= 2) out.push({ path, style: s });
   }
   return out;

@@ -50,12 +50,20 @@ catalog are implemented and tested. What exists, by area (✅ done · 🚧 parti
   screen polyline and drawn — solid for visible runs, faint-dashed "ghost" for
   hidden (a minimal stand-in until stage 4). See `examples/demo.ts` →
   `examples/demo.svg` for a visual check.
-- 🚧 **The `FeatureSource` seam** (`src/scene`) exists and every primitive
-  implements it, but the **`Scene` graph, element wrapper, and importance/role
-  API** (§2.8) are not built — primitives are used standalone for now.
-- ⬜ **Remaining stages:** stage 3 (abstraction) and the real stage 4 (styling,
-  seeded wobble, hatch generation) are not built, and intersection-curve features
-  (§2.5) are not built.
+- ✅ **Stage 4 — styling** (`src/pipeline/style.ts`, `wobble.ts`, `hatch.ts`):
+  per-element style resolution, seeded deterministic wobble (anchored to
+  object-space arclength, continuous across visibility intervals), dash/ghost, and
+  hatch generation clipped exactly to the outline and to the *visible* surface
+  (gaps reveal what is behind — the alpha-free transparency of §0.3). Surface
+  hatching currently covers sphere/ellipsoid + polygons.
+- ✅ **`Scene` / element / importance model** (`src/scene`, §2.8): elements wrap a
+  `FeatureSource` with `importance`/`role`/style overrides; `Scene.render` runs
+  the whole styled pipeline. `role` supplies styling defaults now; importance's
+  abstraction-threshold effect waits on stage 3. `scene.intersect`/`highlight`
+  are deferred (need intersection curves).
+- ⬜ **Remaining:** stage 3 (abstraction / tone quantization) and
+  intersection-curve features (§2.5) are not built; cylinder/cone surface
+  hatching is future.
 
 Verification: `bun test` (unit, property, and degeneracy suites), plus
 `bun run typecheck` and `bun run build`.
@@ -283,8 +291,8 @@ Status marks reflect the tree as of 2026-07-05 (see "Implementation status" abov
 
 1. ✅ Core math: `Vec3`, `Basis`, `Camera` (ortho + perspective), `Ray`, `Curve`,
    `Curve2D` (conic/arc/line with exact intersection).
-2. 🚧 `FeatureSource` interface (done) + `Scene` + element/importance model
-   (not yet).
+2. ✅ `FeatureSource` interface + `Scene` + element/importance model
+   (`src/scene`; intersect/highlight deferred).
 3. ✅ `Quadric` primitive with exact silhouette conic; `Sphere`/`Ellipsoid`/
    `Cylinder`/`Cone` as configurations. `Plane`/`Polygon`, `Line`,
    `ParametricCurve`.
@@ -293,9 +301,10 @@ Status marks reflect the tree as of 2026-07-05 (see "Implementation status" abov
 5. ✅ Stage 2: exact QI (crossing events + reference test) → visible/hidden
    intervals (`src/pipeline/visibility.ts`).
 6. ⬜ Intersection curves. **← next**, with the `Scene`/importance model.
-7. 🚧 Stage 4 styling (weight/dash/ghost/seeded-wobble) + hatch generation — only
-   a minimal default (solid/ghost) applied at emit so far.
+7. ✅ Stage 4 styling (weight/dash/ghost/seeded-wobble) + hatch generation
+   (`src/pipeline/style.ts`, `wobble.ts`, `hatch.ts`).
 8. ⬜ Stage 3 abstraction (screen-size threshold, tone quantization, importance).
+   **← next**, with intersection curves (§2.5).
 9. ✅ SVG backend (stage 5) + adaptive sampling of analytic curves
    (`src/backend/svg.ts`, `src/pipeline/emit.ts`, `src/curve/sample.ts`).
 
@@ -381,8 +390,9 @@ polyline `Curve`s) and support `raycast` / `projectedSilhouettes`.
   `Scene`/element model the API already populates (JSX renderer or custom elements
   over the same graph).
 
-Immediate next build targets, now that stage-2 exact QI (§2.4) is done:
+Immediate next build targets, now that stage-2 QI (§2.4), stage-4 styling
+(§2.6/§4), the `Scene`/importance model (§2.8), and the SVG backend are done:
 **intersection-curve features** (§2.5 — sphere ∩ plane = circle, etc., which flow
-straight into the same QI classifier), the **`Scene` / element / importance
-model** (§2.8), and a first **runnable emit pass + SVG backend** so classified
-strokes become viewable.
+straight into the QI classifier and styling) and **stage-3 abstraction**
+(screen-size thresholding, tone quantization, importance-driven detail — the lever
+that makes `importance` fully live).

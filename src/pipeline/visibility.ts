@@ -21,7 +21,7 @@ import { cameraFrame } from "../math/camera.js";
 import { distance, normalize, sub } from "../math/vec3.js";
 
 /** Scene diameter, for scaling the depth/parameter tolerances. */
-function sceneScale(sources: readonly FeatureSource[]): number {
+export function sceneScale(sources: readonly FeatureSource[]): number {
   let d = 0;
   for (const s of sources) {
     const b = s.bounds();
