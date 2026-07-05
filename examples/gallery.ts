@@ -17,6 +17,7 @@ import { Cone } from "../src/primitives/cone.js";
 import { Polygon } from "../src/primitives/polygon.js";
 import { Line } from "../src/primitives/line.js";
 import { Point } from "../src/primitives/point.js";
+import { Torus } from "../src/primitives/torus.js";
 import { projectionMatrix, projectPoint } from "../src/math/camera.js";
 
 // Defaults next to this file; overridable so a compiled copy can still target
@@ -345,6 +346,29 @@ function consolidationDemo(): void {
   save("09-consolidation", svg);
 }
 
+// ---------------------------------------------------------------------------
+// 10. Torus — the one non-quadric primitive. Its silhouette is a *quartic* image
+//     curve, extracted numerically from the implicit form as two contour loops
+//     (outer + hole) and hidden-line classified: the near arcs are solid, the far
+//     arcs (behind the tube) dashed. Two rows (wobble off / on).
+// ---------------------------------------------------------------------------
+function torusDemo(): void {
+  const cam: Camera = {
+    eye: [4.0, 3.0, 2.7],
+    target: [0, 0, 0],
+    up: [0, 0, 1],
+    projection: "perspective",
+    scale: Math.PI / 4.6,
+    viewport: { width: 620, height: 400 },
+  };
+  const build = (wobble: number): string => {
+    const scene = new Scene({ svg: { background: BG } });
+    scene.add(new Torus([0, 0, 0], [0, 0, 1], 1.5, 0.6)).style({ wobble });
+    return scene.render(cam).svg;
+  };
+  save("10-torus", stackRows(build(0), build(0.6), cam.viewport.width, cam.viewport.height, "wobble: off", "wobble: on"));
+}
+
 hiddenLines();
 hatching();
 depthHatching();
@@ -354,4 +378,5 @@ highlightDemo();
 pointsDemo();
 quarticDemo();
 consolidationDemo();
+torusDemo();
 console.log("gallery complete");

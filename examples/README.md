@@ -83,6 +83,15 @@ Three coincident wobbled rods. **Off**: different per-element seeds make them
 weave into a tangle. **On**: they merge into one clean line
 (`abstraction.consolidate`).
 
+### 10 · Torus (the one non-quadric primitive)
+
+![torus](gallery/10-torus.svg)
+
+Two rows (**wobble off / on**). The torus silhouette is a **quartic** image curve,
+extracted numerically from the implicit form as two contour loops (outer + hole).
+The outer outline is solid; the hole rim is **solid on its near arc and dashed on
+the far arc** where the tube hides it. Ray-torus is a genuine quartic.
+
 ## Rendering to PNG
 
 SVGs open in any browser. To rasterize (e.g. for a README), use any SVG tool:

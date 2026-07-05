@@ -87,6 +87,19 @@ export const EPS_ANGLE = 1e-9;
 export const EPS_DEPTH_REL = 1e-6;
 
 /**
+ * Relative distance (fraction of scene scale) to step a point *off its surface,
+ * toward the viewer*, before casting an occlusion ray. A silhouette point is a
+ * grazing/tangent point of its own view ray, so a ray cast from exactly on the
+ * surface produces a near-tangent double root that leaks past EPS_DEPTH_REL;
+ * nudging clears the self-surface (which then sits behind the ray origin) while
+ * keeping the origin near the point, so the ray stays well-conditioned. Must
+ * exceed the tangent double-root spread AND the depth gap of a sampled
+ * silhouette's chord (which dips inside the true outline) — both small — while
+ * staying well below genuine self-occlusion depth (order the object size).
+ */
+export const EPS_NUDGE_REL = 3e-3;
+
+/**
  * Relative comparison helper: true when a and b agree to EPS_REL, with an
  * absolute floor so values near zero still compare sanely.
  */

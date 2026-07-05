@@ -9,6 +9,6 @@
   <polyline points="513.21,189.42 513.26,179.22 511.92,169.11 509.22,159.28 505.21,149.92 499.94,141.2 493.53,133.29 486.09,126.35 477.76,120.49 468.7,115.83 459.08,112.45 449.09,110.42 438.92,109.76 428.74,110.48 418.76,112.56 409.16,115.95 400.1,120.58" fill="none" stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
   <polyline points="400.1,120.58 389.22,128.45 379.91,138.06 372.42,149.09 366.99,161.18 363.74,173.97 362.75,187.06 364.05,200.06 367.58,212.58 373.21,224.25 380.79,234.75 390.08,243.75 400.81,251 412.67,256.27 425.31,259.42 438.37,260.32 451.45,258.93" fill="none" stroke="#1a1a1a" stroke-width="1.35" stroke-opacity="0.32" stroke-dasharray="4,3" stroke-linecap="round" stroke-linejoin="round" />
   <polyline points="451.45,258.93 463.31,255.61 474.54,250.39 484.82,243.4 493.88,234.81 501.44,224.84 507.29,213.75 511.26,201.83 513.21,189.42" fill="none" stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-  <polyline points="364.15,137.15 343.5,292.7" fill="none" stroke="#1a1a1a" stroke-width="1.35" stroke-opacity="0.32" stroke-dasharray="4,3" stroke-linecap="round" stroke-linejoin="round" />
-  <polyline points="343.5,292.7 315.95,500.17" fill="none" stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+  <polyline points="364.15,137.15 343.63,291.7" fill="none" stroke="#1a1a1a" stroke-width="1.35" stroke-opacity="0.32" stroke-dasharray="4,3" stroke-linecap="round" stroke-linejoin="round" />
+  <polyline points="343.63,291.7 315.95,500.17" fill="none" stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
 </svg>

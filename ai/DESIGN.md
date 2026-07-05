@@ -83,9 +83,12 @@ catalog are implemented and tested. What exists, by area (✅ done · 🚧 parti
   3-D field keyed on the object-space point, per element) so strokes join at
   shared vertices; per-patch hatch tone via tonal layering so curved surfaces
   shade light→dark while flat faces stay uniform; style-driven hatch weight/opacity.
-- 🚧 **Phase-1 polish:** consolidation, cylinder/cone surface hatching,
-  `scene.highlight`, `Point`, and quadric ∩ quadric quartics are done; **torus**
-  (numerical silhouette from the implicit form) is the last remaining item.
+- ✅ **Phase-1 polish complete:** consolidation, cylinder/cone surface hatching,
+  `scene.highlight` (+ halo), `Point`, quadric ∩ quadric quartics, and the
+  **torus** (`src/primitives/torus.ts`: numerical silhouette as two contour loops
+  from the implicit form; ray-torus via a real quartic solver, `curve/roots.ts`).
+  Deferred refinements: curved hatch direction fields, torus surface hatching, and
+  a contour Newton-projection for sampled silhouettes (Phase-2 meshes).
 
 All nine Phase-1 build-order steps (§2.9) are implemented end to end.
 

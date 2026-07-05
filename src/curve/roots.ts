@@ -124,3 +124,71 @@ export function solveCubicReal(a: number, b: number, c: number, d: number): numb
 
   return roots.sort((x, y) => x - y);
 }
+
+/**
+ * Real roots of a·x⁴ + b·x³ + c·x² + d·x + e = 0, ascending. Ferrari's method:
+ * depress to y⁴ + p y² + q y + r, factor into two quadratics via a positive real
+ * root of the resolvent cubic w³ + 2p w² + (p²−4r) w − q² = 0, then solve each
+ * quadratic. Every root is finished with a couple of Newton steps on the original
+ * polynomial for accuracy. The degree-4 case the ray–torus intersection needs
+ * (numerical-robustness.md: closed-form where possible).
+ */
+export function solveQuarticReal(a: number, b: number, c: number, d: number, e: number): number[] {
+  if (Math.abs(a) <= EPS_ABS) return solveCubicReal(b, c, d, e);
+
+  const B = b / a, C = c / a, D = d / a, E = e / a;
+  const B4 = B / 4;
+  // depressed quartic y⁴ + p y² + q y + r  (x = y − B/4)
+  const p = C - (3 * B * B) / 8;
+  const q = D - (B * C) / 2 + (B * B * B) / 8;
+  const r = E - (B * D) / 4 + (B * B * C) / 16 - (3 * B * B * B * B) / 256;
+
+  const roots: number[] = [];
+  const pushQuadratic = (bb: number, cc: number) => {
+    const disc = bb * bb - 4 * cc;
+    if (disc < 0) return;
+    const s = Math.sqrt(disc);
+    roots.push((-bb + s) / 2 - B4, (-bb - s) / 2 - B4);
+  };
+
+  if (Math.abs(q) <= 1e-12) {
+    // biquadratic: y² = (−p ± √(p²−4r)) / 2
+    const disc = p * p - 4 * r;
+    if (disc >= 0) {
+      const s = Math.sqrt(disc);
+      for (const y2 of [(-p + s) / 2, (-p - s) / 2]) {
+        if (y2 >= 0) {
+          const y = Math.sqrt(y2);
+          roots.push(y - B4, -y - B4);
+        }
+      }
+    }
+  } else {
+    // resolvent cubic; take the largest positive real root
+    let w = 0;
+    for (const cr of solveCubicReal(1, 2 * p, p * p - 4 * r, -q * q)) if (cr > w) w = cr;
+    if (w > 0) {
+      const alpha = Math.sqrt(w);
+      const beta = (p + w - q / alpha) / 2;
+      const gamma = (p + w + q / alpha) / 2;
+      pushQuadratic(alpha, beta); //  y² + α y + β = 0
+      pushQuadratic(-alpha, gamma); //  y² − α y + γ = 0
+    }
+  }
+
+  // Newton polish on the original quartic.
+  const f = (x: number) => (((a * x + b) * x + c) * x + d) * x + e;
+  const fp = (x: number) => ((4 * a * x + 3 * b) * x + 2 * c) * x + d;
+  for (let i = 0; i < roots.length; i++) {
+    let x = roots[i]!;
+    for (let k = 0; k < 3; k++) {
+      const yp = fp(x);
+      if (Math.abs(yp) <= EPS_ABS) break;
+      const nx = x - f(x) / yp;
+      if (!Number.isFinite(nx)) break;
+      x = nx;
+    }
+    roots[i] = x;
+  }
+  return roots.sort((u, v) => u - v);
+}

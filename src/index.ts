@@ -55,5 +55,6 @@ export * from "./primitives/cone.js";
 export * from "./primitives/polygon.js";
 export * from "./primitives/line.js";
 export * from "./primitives/point.js";
+export * from "./primitives/torus.js";
 export * from "./primitives/parametric.js";
 export * from "./primitives/intersection.js";

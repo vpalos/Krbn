@@ -18,8 +18,8 @@ import type { Feature, Stroke, VisibilityInterval } from "./types.js";
 import { buildFeatureModel } from "./feature-curve.js";
 import { crossScreenCurves } from "../curve/intersect2d.js";
 import { cameraFrame, projectionMatrix, projectPoint } from "../math/camera.js";
-import { distance, normalize, sub } from "../math/vec3.js";
-import { EPS_DEPTH_REL, EPS_PARAM_REL } from "../curve/epsilon.js";
+import { addScaled, distance, normalize, sub } from "../math/vec3.js";
+import { EPS_DEPTH_REL, EPS_NUDGE_REL, EPS_PARAM_REL } from "../curve/epsilon.js";
 
 /** Scene diameter, for scaling the depth/parameter tolerances. */
 export function sceneScale(sources: readonly FeatureSource[]): number {
@@ -32,26 +32,31 @@ export function sceneScale(sources: readonly FeatureSource[]): number {
 }
 
 /**
- * Is the world point `p` hidden by any surface in the scene? True when a ray from
- * `p` toward the eye meets an occluder strictly between `p` and the eye. The
- * feature's own surface is skipped via `epsSkip` (the self-hit sits at t ≈ 0).
+ * Is the world point `p` hidden by any surface in the scene? We step `p` a hair
+ * *toward the viewer* (off its own surface) and cast toward the eye: an occluder
+ * is any surface hit strictly between there and the eye. The nudge is what makes
+ * this robust at silhouettes — a contour point is a grazing/tangent point of its
+ * own view ray, whose self-hit is a near-tangent double root; nudging off the
+ * surface pushes that self-hit *behind* the ray origin (t < 0, ignored) while
+ * keeping the origin near `p` so the ray stays well-conditioned.
  */
 export function isOccluded(p: Vec3, cam: Camera, sources: readonly FeatureSource[], scale: number): boolean {
   const epsSkip = EPS_DEPTH_REL * scale;
-  let dir: Vec3;
+  const nudge = EPS_NUDGE_REL * scale;
+  let toEye: Vec3;
   let tMax: number;
   if (cam.projection === "perspective") {
-    dir = normalize(sub(cam.eye, p));
-    tMax = distance(cam.eye, p);
+    toEye = normalize(sub(cam.eye, p));
+    tMax = distance(cam.eye, p) - nudge;
   } else {
     const f = cameraFrame(cam).forward;
-    dir = [-f[0], -f[1], -f[2]]; // toward the eye side
+    toEye = [-f[0], -f[1], -f[2]];
     tMax = Infinity;
   }
-  const ray = { origin: p, dir };
+  const ray = { origin: addScaled(p, toEye, nudge), dir: toEye };
   for (const s of sources) {
     for (const h of s.raycast(ray)) {
-      if (h.t > epsSkip && h.t < tMax - epsSkip) return true;
+      if (h.t > epsSkip && h.t < tMax) return true;
     }
   }
   return false;

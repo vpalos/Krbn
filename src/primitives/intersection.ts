@@ -23,6 +23,7 @@ import { aabbFromPoints } from "../math/aabb.js";
 import { add, addScaled, cross, dot, length, normalize, sub } from "../math/vec3.js";
 import { adjugate, det, mulVec, type Mat3 } from "../math/mat3.js";
 import { evaluateConic, intersectConicConic } from "../curve/conic.js";
+import { chainPoints } from "../curve/chain.js";
 import { mulVec4, quadricNormal } from "../math/mat4.js";
 import { quadricPlaneConic } from "./quadric.js";
 import { EPS_ABS, EPS_DENOM, EPS_REL } from "../curve/epsilon.js";
@@ -273,59 +274,6 @@ function refineChain(chain: readonly Vec3[], Q1: Mat4, Q2: Mat4): Vec3[] {
     out.push([chain[i]![0], chain[i]![1], chain[i]![2]]);
   }
   return out;
-}
-
-/** Greedy nearest-neighbour chaining of a point cloud on a smooth curve into
- *  ordered polylines, closing a chain when its ends meet. */
-function chainPoints(points: readonly Vec3[]): Vec3[][] {
-  const n = points.length;
-  const dist = (a: Vec3, b: Vec3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
-  // adaptive gap threshold from the median nearest-neighbour distance
-  const nn: number[] = [];
-  for (let i = 0; i < n; i++) {
-    let best = Infinity;
-    for (let j = 0; j < n; j++) if (j !== i) best = Math.min(best, dist(points[i]!, points[j]!));
-    nn.push(best);
-  }
-  const sorted = [...nn].sort((a, b) => a - b);
-  const median = sorted[Math.floor(sorted.length / 2)] || 1;
-  const maxGap = 5 * median;
-
-  const used = new Array<boolean>(n).fill(false);
-  const nearestUnused = (from: number): number => {
-    let best = -1;
-    let bestD = maxGap;
-    for (let j = 0; j < n; j++) {
-      if (used[j]) continue;
-      const d = dist(points[from]!, points[j]!);
-      if (d < bestD) {
-        bestD = d;
-        best = j;
-      }
-    }
-    return best;
-  };
-
-  const chains: Vec3[][] = [];
-  for (let start = 0; start < n; start++) {
-    if (used[start]) continue;
-    const idx: number[] = [start];
-    used[start] = true;
-    // grow forward, then backward
-    for (let cur = nearestUnused(start); cur >= 0; cur = nearestUnused(idx[idx.length - 1]!)) {
-      idx.push(cur);
-      used[cur] = true;
-    }
-    for (let cur = nearestUnused(start); cur >= 0; cur = nearestUnused(idx[0]!)) {
-      idx.unshift(cur);
-      used[cur] = true;
-    }
-    if (idx.length < 3) continue;
-    const chain = idx.map((k) => points[k]!);
-    if (dist(chain[0]!, chain[chain.length - 1]!) <= maxGap) chain.push(chain[0]!); // close the loop
-    chains.push(chain);
-  }
-  return chains;
 }
 
 /** plane ∩ plane → a line, clipped to ±`extent` about the closest point. */

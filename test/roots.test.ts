@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { solveQuadratic, solveCubicReal } from "../src/curve/roots.js";
+import { solveQuadratic, solveCubicReal, solveQuarticReal } from "../src/curve/roots.js";
 
 describe("solveQuadratic", () => {
   test("two distinct real roots, ascending", () => {
@@ -101,5 +101,73 @@ describe("solveCubicReal", () => {
       const val = a * r * r * r + b * r * r + c * r + d;
       expect(Math.abs(val)).toBeLessThan(1e-9);
     }
+  });
+});
+
+describe("solveQuarticReal", () => {
+  const quartic = (a: number, b: number, c: number, d: number, e: number) => (x: number) =>
+    (((a * x + b) * x + c) * x + d) * x + e;
+
+  // expand (x-r1)(x-r2)(x-r3)(x-r4) → coefficients
+  const fromRoots = (rs: number[]): [number, number, number, number, number] => {
+    let coeffs: number[] = [1];
+    for (const r of rs) {
+      const next: number[] = new Array<number>(coeffs.length + 1).fill(0);
+      for (let i = 0; i < coeffs.length; i++) {
+        next[i] = next[i]! + coeffs[i]!;
+        next[i + 1] = next[i + 1]! - r * coeffs[i]!;
+      }
+      coeffs = next;
+    }
+    return coeffs as [number, number, number, number, number];
+  };
+
+  test("four distinct real roots", () => {
+    const [a, b, c, d, e] = fromRoots([-3, -1, 2, 5]);
+    const roots = solveQuarticReal(a, b, c, d, e);
+    expect(roots).toHaveLength(4);
+    expect(roots[0]).toBeCloseTo(-3);
+    expect(roots[1]).toBeCloseTo(-1);
+    expect(roots[2]).toBeCloseTo(2);
+    expect(roots[3]).toBeCloseTo(5);
+  });
+
+  test("biquadratic x⁴ − 5x² + 4 → ±1, ±2", () => {
+    const roots = solveQuarticReal(1, 0, -5, 0, 4);
+    expect(roots).toHaveLength(4);
+    expect(roots.map((r) => Math.round(r * 1e6) / 1e6)).toEqual([-2, -1, 1, 2]);
+  });
+
+  test("two real, two complex roots", () => {
+    // (x²+1)(x-2)(x-3) = x⁴ -5x³ +7x² -5x +6 : real roots 2, 3
+    const roots = solveQuarticReal(1, -5, 7, -5, 6);
+    expect(roots).toHaveLength(2);
+    expect(roots[0]).toBeCloseTo(2);
+    expect(roots[1]).toBeCloseTo(3);
+  });
+
+  test("no real roots (x²+1)(x²+4)", () => {
+    expect(solveQuarticReal(1, 0, 5, 0, 4)).toHaveLength(0);
+  });
+
+  test("a double root is recovered", () => {
+    // (x-1)²(x-4)(x+2)
+    const [a, b, c, d, e] = fromRoots([1, 1, 4, -2]);
+    const roots = solveQuarticReal(a, b, c, d, e);
+    const has = (v: number) => roots.some((r) => Math.abs(r - v) < 1e-5);
+    expect(has(1) && has(4) && has(-2)).toBe(true);
+  });
+
+  test("every returned root satisfies the quartic to high precision", () => {
+    const [a, b, c, d, e] = [2, -3, -4, 1, 0.5];
+    const f = quartic(a, b, c, d, e);
+    for (const r of solveQuarticReal(a, b, c, d, e)) expect(Math.abs(f(r))).toBeLessThan(1e-8);
+  });
+
+  test("leading coeff ≈ 0 falls back to the cubic", () => {
+    const roots = solveQuarticReal(0, 1, -6, 11, -6); // (x-1)(x-2)(x-3)
+    expect(roots).toHaveLength(3);
+    expect(roots[0]).toBeCloseTo(1);
+    expect(roots[2]).toBeCloseTo(3);
   });
 });
