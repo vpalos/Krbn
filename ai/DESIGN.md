@@ -72,8 +72,12 @@ catalog are implemented and tested. What exists, by area (✅ done · 🚧 parti
 - ✅ **Stage 3 — abstraction** (`src/pipeline/abstract.ts`, §2.7):
   importance-scaled screen-size thresholding + tone quantization, wired into
   `Scene.render`. Cross-primitive consolidation is future.
-- ⬜ **Phase-1 polish remaining:** cross-primitive consolidation, cylinder/cone
-  surface hatching, quadric ∩ quadric quartics, `scene.highlight`, torus.
+- ✅ **Numerical hygiene** (Phase-1 polish 1): every tolerance is centralized and
+  documented in `curve/epsilon.ts`; the QI grazing/cusp scan is screen-relative
+  with a documented miss bound.
+- ⬜ **Phase-1 polish remaining:** visual fidelity (coherent wobble joins,
+  per-patch hatch tone), cross-primitive consolidation, cylinder/cone surface
+  hatching, quadric ∩ quadric quartics, `scene.highlight`, torus.
 
 All nine Phase-1 build-order steps (§2.9) are implemented end to end.
 

@@ -7,7 +7,7 @@
 import type { Vec2 } from "../math/types.js";
 import type { Curve2D, ConicParams } from "./types.js";
 import { intersectLineConic, intersectConicConic, type Line2 } from "./conic.js";
-import { EPS_POINT } from "./epsilon.js";
+import { EPS_ABS, EPS_PARAM, EPS_POINT } from "./epsilon.js";
 
 interface Segment {
   a: Vec2;
@@ -58,18 +58,18 @@ function segSeg(p: Segment, q: Segment): Vec2[] {
   const r: Vec2 = [p.b[0] - p.a[0], p.b[1] - p.a[1]];
   const s: Vec2 = [q.b[0] - q.a[0], q.b[1] - q.a[1]];
   const denom = r[0] * s[1] - r[1] * s[0];
-  if (Math.abs(denom) <= 1e-12) return []; // parallel or degenerate
+  if (Math.abs(denom) <= EPS_ABS) return []; // parallel or degenerate
   const qp: Vec2 = [q.a[0] - p.a[0], q.a[1] - p.a[1]];
   const t = (qp[0] * s[1] - qp[1] * s[0]) / denom;
   const u = (qp[0] * r[1] - qp[1] * r[0]) / denom;
-  if (t < -1e-9 || t > 1 + 1e-9 || u < -1e-9 || u > 1 + 1e-9) return [];
+  if (t < -EPS_PARAM || t > 1 + EPS_PARAM || u < -EPS_PARAM || u > 1 + EPS_PARAM) return [];
   return [[p.a[0] + t * r[0], p.a[1] + t * r[1]]];
 }
 
 /** Segment × conic, keeping only hits within the segment extent. */
 function segConic(seg: Segment, params: ConicParams): Vec2[] {
   const res = intersectLineConic(asLine(seg), params);
-  const within = (t: number) => t >= -1e-9 && t <= 1 + 1e-9;
+  const within = (t: number) => t >= -EPS_PARAM && t <= 1 + EPS_PARAM;
   switch (res.kind) {
     case "none":
     case "contained":

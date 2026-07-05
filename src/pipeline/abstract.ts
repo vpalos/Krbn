@@ -9,6 +9,7 @@
 
 import type { Curve2D } from "../curve/types.js";
 import type { ElementId, Stroke } from "./types.js";
+import { EPS_DENOM } from "../curve/epsilon.js";
 
 /** Projected screen extent (bounding-box diagonal, px) of a curve. */
 export function screenExtent(curve: Curve2D): number {
@@ -22,8 +23,8 @@ export function screenExtent(curve: Curve2D): number {
     case "conic": {
       const k = curve.params;
       const d = 4 * k.A * k.C - k.B * k.B;
-      const cx = Math.abs(d) < 1e-15 ? 0 : (-2 * k.C * k.D + k.B * k.E) / d;
-      const cy = Math.abs(d) < 1e-15 ? 0 : (-2 * k.A * k.E + k.B * k.D) / d;
+      const cx = Math.abs(d) < EPS_DENOM ? 0 : (-2 * k.C * k.D + k.B * k.E) / d;
+      const cy = Math.abs(d) < EPS_DENOM ? 0 : (-2 * k.A * k.E + k.B * k.D) / d;
       const Fc = k.A * cx * cx + k.B * cx * cy + k.C * cy * cy + k.D * cx + k.E * cy + k.F;
       const pts: [number, number][] = [];
       for (let i = 0; i < 32; i++) {
@@ -31,7 +32,7 @@ export function screenExtent(curve: Curve2D): number {
         const c = Math.cos(th);
         const s = Math.sin(th);
         const form = k.A * c * c + k.B * c * s + k.C * s * s;
-        if (Math.abs(form) < 1e-15) continue;
+        if (Math.abs(form) < EPS_DENOM) continue;
         const ratio = -Fc / form;
         if (ratio <= 0) continue;
         const rho = Math.sqrt(ratio);

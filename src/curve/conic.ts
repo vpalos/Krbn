@@ -33,7 +33,7 @@ import {
   scaleM,
 } from "../math/mat3.js";
 import { solveCubicReal, solveQuadratic } from "./roots.js";
-import { EPS_ABS, EPS_POINT, EPS_RANK, EPS_REL } from "./epsilon.js";
+import { EPS_ABS, EPS_ONCURVE, EPS_POINT, EPS_RANK, EPS_REL } from "./epsilon.js";
 
 // ---------------------------------------------------------------------------
 // Conic <-> matrix, constructors
@@ -387,7 +387,7 @@ function onConic(M: Mat3, p: Vec2): boolean {
   const val = Math.abs(quadForm(M, hp, hp));
   // scale by the matrix magnitude and the point's homogeneous weight²
   const scale = frobeniusNorm(M) * (p[0] * p[0] + p[1] * p[1] + 1);
-  return val <= 1e-6 * (scale > 0 ? scale : 1);
+  return val <= EPS_ONCURVE * (scale > 0 ? scale : 1);
 }
 
 function addUnique(list: IntersectionPoint[], point: Vec2, tangent: boolean): void {

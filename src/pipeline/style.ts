@@ -91,7 +91,9 @@ export function emitStyledStroke(
   const model = buildFeatureModel(stroke.feature.curve, cam);
   const P = projectionMatrix(cam);
   const styles = toRenderStyles(spec);
-  const seed = hashSeed(`${stroke.feature.owner}:${stroke.feature.type}`);
+  // Seed per element (owner), NOT per feature type — so an element's silhouette,
+  // rims, generators, etc. share one field and join at their common vertices.
+  const seed = hashSeed(stroke.feature.owner);
 
   const out: RenderStroke[] = [];
   for (const iv of stroke.intervals) {

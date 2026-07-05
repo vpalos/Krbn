@@ -31,6 +31,7 @@ import { applyAbstraction, quantizeTone } from "../pipeline/abstract.js";
 import { renderStrokesSVG } from "../backend/svg.js";
 import { unproject } from "../math/camera.js";
 import { distance, normalize } from "../math/vec3.js";
+import { EPS_DEPTH_REL } from "../curve/epsilon.js";
 
 const HATCH_WEIGHT = 0.7;
 const HATCH_OPACITY = 0.55;
@@ -172,10 +173,12 @@ export class Scene {
   }
 }
 
-/** The front surface point seen at a pixel on the owner source, or null. */
-function surfacePoint(source: FeatureSource, cam: Camera, pt: Vec2): Vec3 | null {
+/** The front surface point seen at a pixel on the owner source, or null. The
+ *  depth floor is relative to scene scale (matches the QI self-hit skip). */
+function surfacePoint(source: FeatureSource, cam: Camera, pt: Vec2, scale: number): Vec3 | null {
   const hits = source.raycast(unproject(cam, pt));
-  for (const h of hits) if (h.t > 1e-6) return h.point;
+  const floor = EPS_DEPTH_REL * scale;
+  for (const h of hits) if (h.t > floor) return h.point;
   return null;
 }
 
@@ -199,7 +202,7 @@ function clipHatchToVisible(
   for (let i = 0; i <= k; i++) {
     const t = i / k;
     const pt: Vec2 = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
-    const p3 = surfacePoint(owner, cam, pt);
+    const p3 = surfacePoint(owner, cam, pt, scale);
     const visible = p3 !== null && !isOccluded(p3, cam, sources, scale);
     if (visible) run.push(pt);
     else {

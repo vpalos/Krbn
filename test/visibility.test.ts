@@ -92,6 +92,27 @@ describe("cylinder rim self-occlusion", () => {
   });
 });
 
+describe("grazing/cusp scan scales with screen size", () => {
+  test("cylinder rim self-occlusion resolves at large on-screen scale", () => {
+    const cyl = new Cylinder([0, 0, -1], [0, 0, 2], 1);
+    // small `scale` (world/px) + big viewport → the rim spans a large pixel
+    // extent; a fixed-count scan could miss the grazing boundary, the
+    // screen-relative scan should not.
+    const bigTilted: Camera = {
+      eye: [6, 0, 3],
+      target: [0, 0, 0],
+      up: [0, 0, 1],
+      projection: "orthographic",
+      scale: 0.004,
+      viewport: { width: 900, height: 900 },
+    };
+    const rim = cyl.extractFeatures(bigTilted).find((f) => f.type === "boundary")!;
+    const stroke = classifyFeature(rim, bigTilted, [cyl]);
+    expect(hasVisible(stroke.intervals)).toBe(true);
+    expect(hasHidden(stroke.intervals)).toBe(true);
+  });
+});
+
 describe("back-projection parameter recovery (exact inverse)", () => {
   const persp: Camera = {
     eye: [2, 1, 6],

@@ -15,6 +15,7 @@ import { planeToScreenHomography, screenConicFromPlaneConic, projectCircle } fro
 import { conicToMatrix, evaluateConic } from "../curve/conic.js";
 import { deCasteljau, adaptiveSample } from "../curve/sample.js";
 import { toPlaneCoords } from "../math/basis.js";
+import { EPS_ANGLE, EPS_DENOM, EPS_ONCURVE } from "../curve/epsilon.js";
 import type { Curve2D } from "../curve/types.js";
 
 export interface FeatureCurveModel {
@@ -71,7 +72,7 @@ export function buildFeatureModel(curve: Curve, cam: Camera): FeatureCurveModel 
       return {
         t0: a0,
         t1: a1,
-        closed: a1 - a0 >= 2 * Math.PI - 1e-9,
+        closed: a1 - a0 >= 2 * Math.PI - EPS_ANGLE,
         point3,
         screen: exact ?? sampledScreen(P, point3, a0, a1),
         paramOf: (pt) => {
@@ -80,8 +81,8 @@ export function buildFeatureModel(curve: Curve, cam: Camera): FeatureCurveModel 
           const [u, v] = toPlaneCoords(plane, wp);
           let theta = Math.atan2(v, u);
           // bring into [a0, a1]
-          while (theta < a0 - 1e-9) theta += 2 * Math.PI;
-          while (theta > a1 + 1e-9) theta -= 2 * Math.PI;
+          while (theta < a0 - EPS_ANGLE) theta += 2 * Math.PI;
+          while (theta > a1 + EPS_ANGLE) theta -= 2 * Math.PI;
           return theta;
         },
       };
@@ -90,14 +91,14 @@ export function buildFeatureModel(curve: Curve, cam: Camera): FeatureCurveModel 
     case "conic": {
       const { params, plane } = curve;
       const det = 4 * params.A * params.C - params.B * params.B;
-      const cx = Math.abs(det) > 1e-15 ? (-2 * params.C * params.D + params.B * params.E) / det : 0;
-      const cy = Math.abs(det) > 1e-15 ? (-2 * params.A * params.E + params.B * params.D) / det : 0;
+      const cx = Math.abs(det) > EPS_DENOM ? (-2 * params.C * params.D + params.B * params.E) / det : 0;
+      const cy = Math.abs(det) > EPS_DENOM ? (-2 * params.A * params.E + params.B * params.D) / det : 0;
       const Fc = evaluateConic(params, cx, cy); // value at the conic centre (< 0 inside an ellipse)
       const point3 = (theta: number): Vec3 => {
         const c = Math.cos(theta);
         const s = Math.sin(theta);
         const form = params.A * c * c + params.B * c * s + params.C * s * s;
-        const ratio = Math.abs(form) > 1e-15 ? -Fc / form : 0; // sign-invariant
+        const ratio = Math.abs(form) > EPS_DENOM ? -Fc / form : 0; // sign-invariant
         const rho = ratio > 0 ? Math.sqrt(ratio) : 0;
         const u = cx + rho * c;
         const v = cy + rho * s;
@@ -162,7 +163,7 @@ function buildPolylineModel(pts: readonly Vec3[], cam: Camera, P: Proj): Feature
       let best: { t: number; residual: number } | null = null;
       for (let i = 0; i < n; i++) {
         const hit = rayLineClosestU(ray, pts[i]!, pts[i + 1]!);
-        if (!hit || hit.u < -1e-6 || hit.u > 1 + 1e-6) continue;
+        if (!hit || hit.u < -EPS_ONCURVE || hit.u > 1 + EPS_ONCURVE) continue;
         if (!best || hit.residual < best.residual) best = { t: i + Math.max(0, Math.min(1, hit.u)), residual: hit.residual };
       }
       return best ? best.t : null;

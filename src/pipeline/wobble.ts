@@ -1,22 +1,35 @@
 // Seeded, deterministic "hand-drawn" wobble (ai/DESIGN.md §4).
 //
-// The offset is value noise evaluated along the stroke's *object-space arclength*
-// and seeded by the stroke's identity (owner + feature type). Consequences that
-// matter (temporal-coherence discipline, CLAUDE.md):
+// The default (`createWobble`) offsets each vertex by a screen-space vector
+// sampled from a seeded 3-D noise field keyed on the vertex's *object-space
+// position*. This is the coherence-preserving formulation:
 //   • deterministic — same scene ⇒ same wobble, never re-randomized per frame;
-//   • continuous across visibility intervals — a hidden/visible split of one
-//     feature shares a single noise field, so the dashes line up with the solids;
-//   • anchored to geometry, not screen — a point on the curve keeps its offset as
-//     the camera moves (mild only; a fuller coherence pass is future work).
+//   • joins at shared vertices — two strokes through the same 3-D point (a
+//     cylinder ruling meeting its rim, a cone's generators at the apex) receive
+//     the *same* offset, so they meet exactly instead of splitting;
+//   • continuous across visibility intervals — a hidden/visible split shares the
+//     one field, so dashes line up with solids;
+//   • anchored to geometry, not screen — a fixed 3-D point keeps its offset as the
+//     camera moves (view-dependent features like silhouettes still drift mildly,
+//     since their generating point moves on the surface).
+//
+// `applyWobble` (the older per-stroke lateral offset) is kept as a lower-level
+// building block.
 
 import type { Vec2, Vec3 } from "../math/types.js";
+import { EPS_POINT } from "../curve/epsilon.js";
 
-/** Peak lateral offset (px) at wobble = 1. */
+/** Peak lateral offset (px) at wobble = 1 (lateral `applyWobble`). */
 const AMPLITUDE_PX = 2.6;
-/** Noise cycles per world unit of arclength. */
+/** Noise cycles per world unit of arclength (lateral `applyWobble`). */
 const FREQUENCY = 3.1;
 /** Default vertex spacing (px) when densifying a run so wobble has room to bend. */
 const WOBBLE_STEP_PX = 6;
+
+/** Peak per-axis screen offset (px) at wobble = 1 for the spatial field. */
+const SPATIAL_AMPLITUDE_PX = 1.9;
+/** Spatial-noise cycles per world unit. */
+const SPATIAL_FREQUENCY = 1.7;
 
 /** FNV-1a string hash → uint32, for turning a stroke identity into a seed. */
 export function hashSeed(s: string): number {
@@ -52,6 +65,45 @@ function fbm(x: number, seed: number): number {
   return 0.68 * valueNoise(x, seed) + 0.32 * valueNoise(x * 2.03 + 11.7, seed ^ 0x9e3779b9);
 }
 
+/** 3-D integer-lattice hash → [-1, 1]. */
+function lattice3(ix: number, iy: number, iz: number, seed: number): number {
+  let h = Math.imul((ix | 0) ^ seed, 2246822519);
+  h = Math.imul(h ^ (iy | 0), 3266489917);
+  h ^= h >>> 15;
+  h = Math.imul(h ^ (iz | 0), 668265263);
+  h ^= h >>> 13;
+  return ((h >>> 0) / 0xffffffff) * 2 - 1;
+}
+
+/** Trilinear smooth value noise in 3-D, in [-1, 1]. */
+function valueNoise3(x: number, y: number, z: number, seed: number): number {
+  const ix = Math.floor(x), iy = Math.floor(y), iz = Math.floor(z);
+  const fx = x - ix, fy = y - iy, fz = z - iz;
+  const u = fx * fx * (3 - 2 * fx);
+  const v = fy * fy * (3 - 2 * fy);
+  const w = fz * fz * (3 - 2 * fz);
+  const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+  const c000 = lattice3(ix, iy, iz, seed), c100 = lattice3(ix + 1, iy, iz, seed);
+  const c010 = lattice3(ix, iy + 1, iz, seed), c110 = lattice3(ix + 1, iy + 1, iz, seed);
+  const c001 = lattice3(ix, iy, iz + 1, seed), c101 = lattice3(ix + 1, iy, iz + 1, seed);
+  const c011 = lattice3(ix, iy + 1, iz + 1, seed), c111 = lattice3(ix + 1, iy + 1, iz + 1, seed);
+  const x00 = lerp(c000, c100, u), x10 = lerp(c010, c110, u);
+  const x01 = lerp(c001, c101, u), x11 = lerp(c011, c111, u);
+  return lerp(lerp(x00, x10, v), lerp(x01, x11, v), w);
+}
+
+function fbm3(x: number, y: number, z: number, seed: number): number {
+  return 0.66 * valueNoise3(x, y, z, seed) + 0.34 * valueNoise3(x * 2.02 + 9.3, y * 2.02 + 4.1, z * 2.02 + 7.7, seed ^ 0x9e3779b9);
+}
+
+/** Screen-space offset (px) for a 3-D point, sampled from the seeded field. */
+function spatialOffset(p: Vec3, seed: number, ampPx: number, freq: number): [number, number] {
+  const x = p[0] * freq, y = p[1] * freq, z = p[2] * freq;
+  const ox = fbm3(x, y, z, seed);
+  const oy = fbm3(x + 11.3, y + 7.1, z + 5.9, seed ^ 0x85ebca6b);
+  return [ox * ampPx, oy * ampPx];
+}
+
 /**
  * Offset each vertex of `path` laterally by a seeded noise sampled at that
  * vertex's object-space arclength. `arclength[i]` is the cumulative world-space
@@ -85,7 +137,7 @@ function wobblePath(
     let tx = next[0] - prev[0];
     let ty = next[1] - prev[1];
     const len = Math.hypot(tx, ty);
-    if (len <= 1e-9) {
+    if (len <= EPS_POINT) {
       out.push([path[i]![0], path[i]![1]]);
       continue;
     }
@@ -149,7 +201,8 @@ export function arclengthOf(points: readonly (readonly [number, number, number])
 export interface WobbleInput {
   path: readonly Vec2[];
   points3: readonly Vec3[];
-  /** seed derived from stroke identity (owner + feature type) */
+  /** seed derived from element identity — shared across an element's features so
+   *  its strokes join at common vertices */
   seed: number;
   /** 0 = ruler, ~1 = hero sketchy */
   amount: number;
@@ -165,26 +218,37 @@ export interface WobbleStrategy {
 }
 
 export interface WobbleParams {
+  /** peak per-axis screen offset (px) at amount = 1 */
   amplitudePx?: number;
+  /** spatial-noise cycles per world unit */
   frequency?: number;
   /** densify spacing so straight runs have interior vertices to bend */
   stepPx?: number;
 }
 
-/** The built-in value-noise wobble, with tunable amplitude/frequency/density. */
+/**
+ * The built-in coherence-preserving wobble: each densified vertex is offset in
+ * screen space by a seeded 3-D noise field sampled at its object-space position,
+ * so any two strokes sharing a 3-D vertex receive the same offset and stay
+ * joined. Tunable amplitude / frequency / density.
+ */
 export function createWobble(params: WobbleParams = {}): WobbleStrategy {
-  const amplitudePx = params.amplitudePx ?? AMPLITUDE_PX;
-  const frequency = params.frequency ?? FREQUENCY;
+  const amplitudePx = params.amplitudePx ?? SPATIAL_AMPLITUDE_PX;
+  const frequency = params.frequency ?? SPATIAL_FREQUENCY;
   const stepPx = params.stepPx ?? WOBBLE_STEP_PX;
   return {
     apply({ path, points3, seed, amount }) {
       if (amount <= 0 || path.length < 2) return path.map((p) => [p[0], p[1]]);
       const dense = densify(path, points3, stepPx);
-      return wobblePath(dense.path, arclengthOf(dense.points3), seed, amount, amplitudePx, frequency);
+      const amp = amount * amplitudePx;
+      return dense.path.map((p, i) => {
+        const [ox, oy] = spatialOffset(dense.points3[i]!, seed, amp, frequency);
+        return [p[0] + ox, p[1] + oy];
+      });
     },
   };
 }
 
-/** Default wobble strategy (identical to the previous inline behaviour). */
+/** Default wobble strategy — the coherence-preserving spatial field. */
 export const defaultWobble: WobbleStrategy = createWobble();
 

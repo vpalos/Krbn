@@ -13,6 +13,7 @@ import type { Vec2 } from "../math/types.js";
 import type { Curve2D, ConicParams } from "../curve/types.js";
 import type { HatchMode, HatchRegion } from "./types.js";
 import { intersectLineConic, evaluateConic } from "../curve/conic.js";
+import { EPS_ABS, EPS_DENOM, EPS_PARAM, EPS_POINT } from "../curve/epsilon.js";
 
 export type Segment = readonly [Vec2, Vec2];
 
@@ -44,7 +45,7 @@ function toneToSpacing(tone: number): number {
 
 function conicCenter(k: ConicParams): Vec2 {
   const det = 4 * k.A * k.C - k.B * k.B;
-  if (Math.abs(det) < 1e-15) return [0, 0];
+  if (Math.abs(det) < EPS_DENOM) return [0, 0];
   return [(-2 * k.C * k.D + k.B * k.E) / det, (-2 * k.A * k.E + k.B * k.D) / det];
 }
 
@@ -58,7 +59,7 @@ function sampleConic(k: ConicParams): Vec2[] {
     const c = Math.cos(th);
     const s = Math.sin(th);
     const form = k.A * c * c + k.B * c * s + k.C * s * s;
-    if (Math.abs(form) < 1e-15) continue;
+    if (Math.abs(form) < EPS_DENOM) continue;
     const ratio = -Fc / form; // sign-invariant: Fc and form flip together
     if (ratio <= 0) continue;
     const rho = Math.sqrt(ratio);
@@ -93,19 +94,19 @@ function clipToPolygon(point: Vec2, dir: Vec2, poly: Vec2[]): Segment[] {
     const ex = b[0] - a[0];
     const ey = b[1] - a[1];
     const denom = cross2(dir[0], dir[1], ex, ey);
-    if (Math.abs(denom) < 1e-12) continue;
+    if (Math.abs(denom) < EPS_ABS) continue;
     const apx = a[0] - point[0];
     const apy = a[1] - point[1];
     const t = cross2(apx, apy, ex, ey) / denom;
     const u = cross2(apx, apy, dir[0], dir[1]) / denom;
-    if (u >= -1e-9 && u <= 1 + 1e-9) ts.push(t);
+    if (u >= -EPS_PARAM && u <= 1 + EPS_PARAM) ts.push(t);
   }
   ts.sort((p, q) => p - q);
   const segs: Segment[] = [];
   for (let i = 0; i + 1 < ts.length; i += 2) {
     const t0 = ts[i]!;
     const t1 = ts[i + 1]!;
-    if (t1 - t0 < 1e-6) continue;
+    if (t1 - t0 < EPS_POINT) continue;
     segs.push([
       [point[0] + t0 * dir[0], point[1] + t0 * dir[1]],
       [point[0] + t1 * dir[0], point[1] + t1 * dir[1]],
@@ -179,7 +180,7 @@ function dedupClose(pts: Vec2[]): Vec2[] {
   if (pts.length > 1) {
     const a = pts[0]!;
     const b = pts[pts.length - 1]!;
-    if (Math.abs(a[0] - b[0]) < 1e-9 && Math.abs(a[1] - b[1]) < 1e-9) return pts.slice(0, -1);
+    if (Math.abs(a[0] - b[0]) < EPS_POINT && Math.abs(a[1] - b[1]) < EPS_POINT) return pts.slice(0, -1);
   }
   return pts;
 }

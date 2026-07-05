@@ -15,9 +15,25 @@ Real-world value for technical figures, and the regime where the hardest module
 
 **All nine build-order steps are implemented** end to end (extract → visibility →
 abstraction → styling → emit → SVG), verified by tests and the `examples/`
-renders. What remains in Phase 1 is polish, noted inline: cross-primitive
-consolidation, cylinder/cone surface hatching, quadric ∩ quadric quartics,
-`scene.highlight`, and torus.
+renders. Before Phase 2 we are hardening Phase 1 — the ordered backlog:
+
+### Phase 1 polish backlog (ordered)
+
+1. ✅ **Numerical hygiene.** All per-site epsilons are centralized in
+   `curve/epsilon.ts` as named, documented, role-based tolerances (`EPS_DENOM`,
+   `EPS_PARAM`, `EPS_PARAM_REL`, `EPS_ONCURVE`, `EPS_ANGLE`, `EPS_DEPTH_REL`, …);
+   no magic numbers remain outside that module. The QI grazing/cusp safety-net now
+   scans at a screen-relative resolution (~`SCAN_STEP_PX` px), with its miss bound
+   documented; transversal boundaries stay exact via analytic crossings.
+2. ⬜ **Visual fidelity.** Coherent wobble that joins strokes at shared vertices
+   (no gaps where a ruling meets a rim); per-patch hatch tone so curved surfaces
+   shade light→dark instead of a flat single tone; hatch spacing and line-weight
+   refinement.
+3. ⬜ **Feature gaps**, in order: cylinder/cone surface hatching (§2.6) →
+   `scene.highlight` (§2.8) → `Point` primitive (§2.3) → cross-primitive
+   consolidation (§2.7) → quadric ∩ quadric quartics (§2.5) → torus (§2.3).
+4. ⬜ **Verification & DX**: golden-SVG snapshot regression tests → more
+   adversarial property tests → a real-`bun` test/CI note → an API-ergonomics pass.
 
 1. ✅ **Core math kernel** — `Vec3`/`Vec2`, `Basis`, `AABB`, `Camera` (ortho +
    perspective projection), `Ray`, and the `Curve`/`Curve2D` carriers, plus the

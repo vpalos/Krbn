@@ -17,8 +17,9 @@ import type { FeatureSource } from "../scene/feature-source.js";
 import type { Feature, Stroke, VisibilityInterval } from "./types.js";
 import { buildFeatureModel } from "./feature-curve.js";
 import { crossScreenCurves } from "../curve/intersect2d.js";
-import { cameraFrame } from "../math/camera.js";
+import { cameraFrame, projectionMatrix, projectPoint } from "../math/camera.js";
 import { distance, normalize, sub } from "../math/vec3.js";
+import { EPS_DEPTH_REL, EPS_PARAM_REL } from "../curve/epsilon.js";
 
 /** Scene diameter, for scaling the depth/parameter tolerances. */
 export function sceneScale(sources: readonly FeatureSource[]): number {
@@ -36,7 +37,7 @@ export function sceneScale(sources: readonly FeatureSource[]): number {
  * feature's own surface is skipped via `epsSkip` (the self-hit sits at t ≈ 0).
  */
 export function isOccluded(p: Vec3, cam: Camera, sources: readonly FeatureSource[], scale: number): boolean {
-  const epsSkip = 1e-6 * scale;
+  const epsSkip = EPS_DEPTH_REL * scale;
   let dir: Vec3;
   let tMax: number;
   if (cam.projection === "perspective") {
@@ -56,9 +57,31 @@ export function isOccluded(p: Vec3, cam: Camera, sources: readonly FeatureSource
   return false;
 }
 
-/** Samples of the occlusion predicate used to seed the grazing-boundary scan. */
-const OCCLUSION_SCAN = 128;
+// Grazing/cusp scan resolution. The scan seeds tangential visibility changes
+// (which produce no transversal image crossing); its spacing is held roughly
+// constant in *screen pixels* so the resolution does not degrade on large
+// features. A tangential hidden run thinner than ~SCAN_STEP_PX px may be missed
+// — that is the documented limit of this safety-net; transversal boundaries stay
+// exact via the analytic crossings in step 1a.
+const SCAN_STEP_PX = 4;
+const SCAN_MIN = 64;
+const SCAN_MAX = 4096;
 const BISECT_ITERS = 26;
+
+/** Approximate on-screen length of a feature (for scan-resolution scaling). */
+function screenLength(model: ReturnType<typeof buildFeatureModel>, cam: Camera): number {
+  const P = projectionMatrix(cam);
+  const N = 48;
+  let len = 0;
+  let prev = projectPoint(P, model.point3(model.t0)).point;
+  for (let i = 1; i <= N; i++) {
+    const t = model.t0 + ((model.t1 - model.t0) * i) / N;
+    const cur = projectPoint(P, model.point3(t)).point;
+    len += Math.hypot(cur[0] - prev[0], cur[1] - prev[1]);
+    prev = cur;
+  }
+  return len;
+}
 
 /** Classify one feature curve into visible/hidden intervals against the scene. */
 export function classifyFeature(
@@ -69,7 +92,7 @@ export function classifyFeature(
 ): Stroke {
   const model = buildFeatureModel(feature.curve, cam);
   const span = model.t1 - model.t0;
-  const epsT = 1e-7 * (span || 1);
+  const epsT = EPS_PARAM_REL * (span || 1);
   const occ = (t: number): boolean => isOccluded(model.point3(t), cam, sources, scale);
 
   // 1a) exact analytic crossings — transversal visibility changes land here
@@ -89,11 +112,12 @@ export function classifyFeature(
   // a transversal image crossing (hard-parts registry). Scan the occlusion
   // predicate for sign flips and bisect each to a precise boundary. Flips that
   // coincide with an analytic crossing are absorbed, keeping the exact value.
-  const scanTol = (2 * span) / OCCLUSION_SCAN;
+  const scanN = Math.min(SCAN_MAX, Math.max(SCAN_MIN, Math.ceil(screenLength(model, cam) / SCAN_STEP_PX)));
+  const scanTol = (2 * span) / scanN;
   let prevT = model.t0;
   let prevOcc = occ(model.t0);
-  for (let i = 1; i <= OCCLUSION_SCAN; i++) {
-    const t = model.t0 + (span * i) / OCCLUSION_SCAN;
+  for (let i = 1; i <= scanN; i++) {
+    const t = model.t0 + (span * i) / scanN;
     const curOcc = occ(t);
     if (curOcc !== prevOcc) {
       const b = bisectFlip(occ, prevT, prevOcc, t);

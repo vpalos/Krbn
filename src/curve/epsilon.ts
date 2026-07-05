@@ -46,6 +46,47 @@ export const EPS_RANK = 1e-9;
 export const EPS_POINT = 1e-9;
 
 /**
+ * Smallest determinant / denominator we will divide by in a closed-form solve
+ * (conic centre, plane→screen homography, 2×2 / 3×3 linear systems). Below this
+ * the formula is treated as degenerate rather than producing a blown-up result.
+ * Near machine epsilon because these divisors are not pre-normalized.
+ */
+export const EPS_DENOM = 1e-15;
+
+/**
+ * Inclusion slack for a *normalized* parameter at an interval endpoint — e.g. a
+ * segment parameter in [0,1] or a curve parameter at its domain ends. Absolute
+ * because the parameter is already unit-scaled.
+ */
+export const EPS_PARAM = 1e-9;
+
+/**
+ * Relative slack (fraction of the parameter span) for merging/deduping feature
+ * parameters — visibility crossing events and interval bounds. Looser than
+ * EPS_PARAM so distinct-but-adjacent events collapse, tighter than any real
+ * interval we care to keep.
+ */
+export const EPS_PARAM_REL = 1e-7;
+
+/**
+ * Relative tolerance for on-curve membership and back-projection *residuals*
+ * (point-on-conic, ray↔line closest-approach distance). Deliberately looser than
+ * EPS_REL: these values survive a chain of projective ops (project → intersect →
+ * unproject) and accumulate more rounding than a single closed-form root.
+ */
+export const EPS_ONCURVE = 1e-6;
+
+/** Absolute tolerance on an angle in radians (arc closed-flag, θ-range clamps). */
+export const EPS_ANGLE = 1e-9;
+
+/**
+ * Relative depth floor (fraction of scene scale) used to skip a viewing ray's
+ * *originating* surface when testing occlusion — the self-hit sits at t ≈ 0, so
+ * anything nearer than this is the feature's own surface, not an occluder.
+ */
+export const EPS_DEPTH_REL = 1e-6;
+
+/**
  * Relative comparison helper: true when a and b agree to EPS_REL, with an
  * absolute floor so values near zero still compare sanely.
  */

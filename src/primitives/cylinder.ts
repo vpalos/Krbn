@@ -15,7 +15,7 @@ import { add, addScaled, cross, dot, length, normalize, sub } from "../math/vec3
 import { cameraFrame, projectionMatrix, projectPoint } from "../math/camera.js";
 import { projectCircle } from "../math/project.js";
 import { solveQuadratic } from "../curve/roots.js";
-import { EPS_ABS } from "../curve/epsilon.js";
+import { EPS_ABS, EPS_REL } from "../curve/epsilon.js";
 
 let autoId = 0;
 const nextId = (): ElementId => `cylinder-${autoId++}`;
@@ -160,7 +160,7 @@ export class Cylinder implements FeatureSource {
     if (cam.projection === "orthographic") {
       const v = cameraFrame(cam).forward;
       const axb = cross(this.axis, v);
-      if (length(axb) <= 1e-9) return null; // view ∥ axis
+      if (length(axb) <= EPS_REL) return null; // view ∥ axis
       const u = normalize(axb);
       return [addScaled(this.base, u, this.radius), addScaled(this.base, u, -this.radius)];
     }

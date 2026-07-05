@@ -24,7 +24,7 @@ import { add, addScaled, cross, dot, length, normalize, sub } from "../math/vec3
 import { adjugate, det, mulVec, type Mat3 } from "../math/mat3.js";
 import { evaluateConic } from "../curve/conic.js";
 import { quadricPlaneConic } from "./quadric.js";
-import { EPS_ABS } from "../curve/epsilon.js";
+import { EPS_ABS, EPS_DENOM, EPS_REL } from "../curve/epsilon.js";
 
 export interface Section {
   curve: Curve;
@@ -65,7 +65,7 @@ export class IntersectionCurve implements FeatureSource {
 
 const conicCenter = (k: ConicParams): [number, number] => {
   const d = 4 * k.A * k.C - k.B * k.B;
-  if (Math.abs(d) < 1e-15) return [0, 0];
+  if (Math.abs(d) < EPS_DENOM) return [0, 0];
   return [(-2 * k.C * k.D + k.B * k.E) / d, (-2 * k.A * k.E + k.B * k.D) / d];
 };
 
@@ -79,7 +79,7 @@ function conicSection(plane: Basis, params: ConicParams): Section | null {
     const c = Math.cos(th);
     const s = Math.sin(th);
     const form = params.A * c * c + params.B * c * s + params.C * s * s;
-    if (Math.abs(form) < 1e-15) continue;
+    if (Math.abs(form) < EPS_DENOM) continue;
     const ratio = -Fc / form;
     if (ratio <= 0) continue;
     const rho = Math.sqrt(ratio);
@@ -116,7 +116,7 @@ export function intersectSpheres(Q1: Mat4, Q2: Mat4): Section | null {
   for (let i = 0; i < 16; i++) D[i] = (Q1[i] as number) * s1 - (Q2[i] as number) * s2;
   const quadraticLeftover =
     Math.abs(D[0]!) + Math.abs(D[1]!) + Math.abs(D[2]!) + Math.abs(D[5]!) + Math.abs(D[6]!) + Math.abs(D[10]!);
-  if (quadraticLeftover > 1e-9) {
+  if (quadraticLeftover > EPS_REL) {
     throw new Error("quadric ∩ quadric is a quartic; only sphere ∩ sphere is supported");
   }
   const n: Vec3 = [2 * D[3]!, 2 * D[7]!, 2 * D[11]!];
@@ -138,7 +138,7 @@ export function intersectPlanes(
 ): Section | null {
   const dirRaw = cross(nA, nB);
   const L = length(dirRaw);
-  if (L <= 1e-9) return null; // parallel planes
+  if (L <= EPS_REL) return null; // parallel planes
   const dir = normalize(dirRaw);
   // Solve [nA; nB; dir]·p = [nA·pA, nB·pB, 0] for the point p0 on both planes.
   const M: Mat3 = [nA[0], nA[1], nA[2], nB[0], nB[1], nB[2], dir[0], dir[1], dir[2]];
