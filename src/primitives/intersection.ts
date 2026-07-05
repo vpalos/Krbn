@@ -23,6 +23,7 @@ import { aabbFromPoints } from "../math/aabb.js";
 import { add, addScaled, cross, dot, length, normalize, sub } from "../math/vec3.js";
 import { adjugate, det, mulVec, type Mat3 } from "../math/mat3.js";
 import { evaluateConic, intersectConicConic } from "../curve/conic.js";
+import { mulVec4, quadricNormal } from "../math/mat4.js";
 import { quadricPlaneConic } from "./quadric.js";
 import { EPS_ABS, EPS_DENOM, EPS_REL } from "../curve/epsilon.js";
 
@@ -210,7 +211,68 @@ export function intersectQuadricQuadric(Q1: Mat4, Q2: Mat4, b1: AABB, b2: AABB):
   }
   if (pts.length < 4) return [];
 
-  return chainPoints(pts).map((chain) => ({ curve: { kind: "polyline", pts: chain }, bounds: aabbFromPoints(chain) }));
+  return chainPoints(pts).map((chain) => {
+    const refined = refineChain(chain, Q1, Q2);
+    return { curve: { kind: "polyline", pts: refined }, bounds: aabbFromPoints(refined) };
+  });
+}
+
+/** f(x) = (x,1)ᵀ Q (x,1) — the quadric's implicit value at x. */
+function quadricValue(Q: Mat4, p: Vec3): number {
+  const q = mulVec4(Q, p[0], p[1], p[2], 1);
+  return p[0] * q[0] + p[1] * q[1] + p[2] * q[2] + q[3];
+}
+
+/**
+ * Snap a point onto the intersection curve Q1=0 ∩ Q2=0 by a few Newton steps in
+ * the plane spanned by the two gradients (minimum-norm correction). Makes refined
+ * samples lie *exactly* on both surfaces rather than on straight chords.
+ */
+function projectToCurve(Q1: Mat4, Q2: Mat4, p0: Vec3): Vec3 {
+  let x = p0;
+  for (let k = 0; k < 5; k++) {
+    const n1 = quadricNormal(Q1, x);
+    const n2 = quadricNormal(Q2, x);
+    const G1: Vec3 = [2 * n1[0], 2 * n1[1], 2 * n1[2]];
+    const G2: Vec3 = [2 * n2[0], 2 * n2[1], 2 * n2[2]];
+    const f1 = quadricValue(Q1, x);
+    const f2 = quadricValue(Q2, x);
+    if (Math.abs(f1) + Math.abs(f2) < 1e-13) break;
+    const a = dot(G1, G1);
+    const b = dot(G1, G2);
+    const c = dot(G2, G2);
+    const detJ = a * c - b * b;
+    if (Math.abs(detJ) <= EPS_ABS) break; // gradients parallel (tangency)
+    // w = (J Jᵀ)⁻¹ r,   δ = −Jᵀ w
+    const w0 = (c * f1 - b * f2) / detJ;
+    const w1 = (a * f2 - b * f1) / detJ;
+    x = [x[0] - (w0 * G1[0] + w1 * G2[0]), x[1] - (w0 * G1[1] + w1 * G2[1]), x[2] - (w0 * G1[2] + w1 * G2[2])];
+  }
+  return x;
+}
+
+const dist3 = (a: Vec3, b: Vec3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+
+/** Adaptively subdivide a chained polyline, projecting each inserted midpoint
+ *  onto the exact curve, until segments are short (smooth, high-res, exact). */
+function refineChain(chain: readonly Vec3[], Q1: Mat4, Q2: Mat4): Vec3[] {
+  if (chain.length < 2) return chain.map((p) => [p[0], p[1], p[2]]);
+  const bb = aabbFromPoints(chain);
+  const maxSeg = Math.max(dist3(bb.min, bb.max) * 0.02, 1e-4);
+  const out: Vec3[] = [[chain[0]![0], chain[0]![1], chain[0]![2]]];
+  const recurse = (a: Vec3, b: Vec3, depth: number): void => {
+    if (depth > 0 && dist3(a, b) > maxSeg) {
+      const mid = projectToCurve(Q1, Q2, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]);
+      recurse(a, mid, depth - 1);
+      out.push(mid);
+      recurse(mid, b, depth - 1);
+    }
+  };
+  for (let i = 1; i < chain.length; i++) {
+    recurse(chain[i - 1]!, chain[i]!, 6);
+    out.push([chain[i]![0], chain[i]![1], chain[i]![2]]);
+  }
+  return out;
 }
 
 /** Greedy nearest-neighbour chaining of a point cloud on a smooth curve into

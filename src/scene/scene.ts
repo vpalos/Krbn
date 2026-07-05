@@ -29,7 +29,7 @@ import { emitStyledStroke, resolveStyle, ROLE_STYLE } from "../pipeline/style.js
 import { defaultHatch, hatchAngles, type HatchStrategy } from "../pipeline/hatch.js";
 import { defaultWobble, type WobbleStrategy } from "../pipeline/wobble.js";
 import { applyAbstraction, quantizeTone } from "../pipeline/abstract.js";
-import { renderStrokesSVG } from "../backend/svg.js";
+import { renderItemsSVG, type SvgGroup, type SvgItem } from "../backend/svg.js";
 import { unproject } from "../math/camera.js";
 import { distance, normalize } from "../math/vec3.js";
 import { EPS_DEPTH_REL } from "../curve/epsilon.js";
@@ -206,8 +206,11 @@ export class Scene {
     }
 
     // Highlights: re-extract + re-classify each highlighted element and draw it
-    // last (on top), heavier, dashed-where-hidden if requested.
-    const highlightStrokes: RenderStroke[] = [];
+    // last (on top), heavier, dashed-where-hidden if requested. The optional halo
+    // is emitted as ONE opacity group per highlight, so its overlapping
+    // semi-transparent segments composite once instead of compounding at the ends.
+    const haloGroups: SvgGroup[] = [];
+    const crispStrokes: RenderStroke[] = [];
     for (const h of this.highlights) {
       const el = this.byId.get(h.id);
       if (!el) continue;
@@ -219,32 +222,27 @@ export class Scene {
         ghostOpacity: 0.55,
         hatch: null,
       });
-      // Optional marker halo: a thick, faint stroke under the crisp outline.
       const halo = h.opts.halo;
-      const haloSpec = halo
-        ? resolveStyle(spec, {
-            weight: halo.weight ?? spec.weight * 3.5,
-            color: halo.color ?? spec.color,
-            hidden: h.opts.dashWhenHidden ? "ghost" : "drop",
-          })
-        : null;
-      const haloOpacity = halo?.opacity ?? 0.25;
+      const haloSpec = halo ? resolveStyle(spec, { weight: halo.weight ?? spec.weight * 3.5, color: halo.color ?? spec.color, hidden: "ghost" }) : null;
+      const haloMembers: RenderStroke[] = [];
 
       for (const feature of el.source.extractFeatures(cam)) {
         const stroke = classifyFeature(feature, cam, sources, scale);
         if (haloSpec) {
+          // a continuous glow around the whole contour: opaque members, one group opacity
           for (const rs of emitStyledStroke(stroke, cam, haloSpec, this.sample, this.wobble)) {
-            // faint, and no dashes on the halo (a soft continuous glow)
-            highlightStrokes.push({ path: rs.path, style: { weight: rs.style.weight, color: rs.style.color, opacity: haloOpacity } });
+            haloMembers.push({ path: rs.path, style: { weight: rs.style.weight, color: rs.style.color, opacity: 1 } });
           }
         }
-        highlightStrokes.push(...emitStyledStroke(stroke, cam, spec, this.sample, this.wobble));
+        crispStrokes.push(...emitStyledStroke(stroke, cam, spec, this.sample, this.wobble));
       }
+      if (haloMembers.length) haloGroups.push({ opacity: halo?.opacity ?? 0.25, strokes: haloMembers });
     }
 
-    // hatch under the outlines, highlights on top
-    const renderStrokes = [...hatchStrokes, ...outlineStrokes, ...highlightStrokes];
-    const svg = renderStrokesSVG(renderStrokes, cam.viewport, this.svgOptions);
+    // draw order: hatch, outlines, halo glow, crisp highlights on top
+    const items: SvgItem[] = [...hatchStrokes, ...outlineStrokes, ...haloGroups, ...crispStrokes];
+    const renderStrokes = [...hatchStrokes, ...outlineStrokes, ...haloGroups.flatMap((g) => g.strokes), ...crispStrokes];
+    const svg = renderItemsSVG(items, cam.viewport, this.svgOptions);
     return { strokes, renderStrokes, svg };
   }
 

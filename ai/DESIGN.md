@@ -69,8 +69,10 @@ catalog are implemented and tested. What exists, by area (✅ done · 🚧 parti
   (radical plane), plane ∩ plane = line — first-class `intersection` features
   routed through the same visibility + styling pipeline (see the waterline demo).
   quadric ∩ quadric is also supported: a radical-plane conic where the quadratic
-  parts match, else the quartic space curve traced by plane-sweep + conic∩conic
-  and chained into polyline loops (`gallery/08`).
+  parts match, else the quartic space curve traced by plane-sweep + conic∩conic,
+  chained into polyline loops, then adaptively refined with a 2-surface Newton
+  projection so the samples are dense and lie exactly on both quadrics
+  (`gallery/08`).
 - ✅ **Stage 3 — abstraction** (`src/pipeline/abstract.ts`, §2.7):
   importance-scaled screen-size thresholding + tone quantization, wired into
   `Scene.render`. Cross-primitive consolidation is future.

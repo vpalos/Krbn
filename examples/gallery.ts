@@ -160,7 +160,9 @@ function solidShading(): void {
     scale: 0.012,
     viewport: { width: 820, height: 760 },
   };
-  const scene = new Scene({ light: { direction: [-0.5, -0.45, -0.55] }, svg: { background: BG } });
+  // front-light from the upper-right (like 02) so the camera-facing surfaces get
+  // a strong light→dark gradient; the camera looks roughly along +y here.
+  const scene = new Scene({ light: { direction: [-0.55, 0.6, -0.5] }, svg: { background: BG } });
   const modes = ["single", "cross", "triple"] as const;
   const makers = [
     (x: number, z: number) => new Cone([x, 0, z - 0.75], [0, 0, 1.5], 0.65),
@@ -191,12 +193,15 @@ function highlightDemo(): void {
     scale: Math.PI / 4,
     viewport: { width: 640, height: 480 },
   };
-  const scene = new Scene({ svg: { background: BG } });
-  scene.add(new Cylinder([0, 0, -1.1], [0, 0, 2.2], 0.9)).setImportance(0.3, { role: "context" });
-  const ball = scene.add(sphere([-1.75, -0.2, 0.5], 0.85)); // behind + beside: partly exposed
-  // crisp outline on top + a thick, semi-transparent marker halo around it
-  scene.highlight(ball, { weight: 1.8, dashWhenHidden: true, halo: { weight: 12, opacity: 0.28 } });
-  save("06-highlight", scene.render(cam).svg);
+  const build = (wobble: number): string => {
+    const scene = new Scene({ svg: { background: BG } });
+    scene.add(new Cylinder([0, 0, -1.1], [0, 0, 2.2], 0.9)).setImportance(0.3, { role: "context" }).style({ wobble });
+    const ball = scene.add(sphere([-1.75, -0.2, 0.5], 0.85)).style({ wobble }); // behind + beside: partly exposed
+    // crisp outline on top + a thick, semi-transparent marker halo around it
+    scene.highlight(ball, { weight: 1.8, dashWhenHidden: true, halo: { weight: 12, opacity: 0.28 } });
+    return scene.render(cam).svg;
+  };
+  save("06-highlight", stackRows(build(0), build(0.8), cam.viewport.width, cam.viewport.height, "wobble: off", "wobble: on"));
 }
 
 // ---------------------------------------------------------------------------
@@ -241,11 +246,14 @@ function quarticDemo(): void {
     scale: Math.PI / 4,
     viewport: { width: 640, height: 480 },
   };
-  const scene = new Scene({ svg: { background: BG } });
-  const a = scene.add(ellipsoid([-0.55, 0, 0], [1.3, 0.8, 0.85])).setImportance(0.3, { role: "context" });
-  const b = scene.add(sphere([0.7, 0.1, 0.15], 0.9)).setImportance(0.3, { role: "context" });
-  scene.intersect(a, b, { emphasis: "bold" }).style({ wobble: 0.15 });
-  save("08-quartic", scene.render(cam).svg);
+  const build = (wobble: number): string => {
+    const scene = new Scene({ svg: { background: BG } });
+    const a = scene.add(ellipsoid([-0.55, 0, 0], [1.3, 0.8, 0.85])).setImportance(0.3, { role: "context" }).style({ wobble });
+    const b = scene.add(sphere([0.7, 0.1, 0.15], 0.9)).setImportance(0.3, { role: "context" }).style({ wobble });
+    scene.intersect(a, b, { emphasis: "bold" }).style({ wobble });
+    return scene.render(cam).svg;
+  };
+  save("08-quartic", stackRows(build(0), build(0.7), cam.viewport.width, cam.viewport.height, "wobble: off", "wobble: on"));
 }
 
 // ---------------------------------------------------------------------------
@@ -256,6 +264,23 @@ function quarticDemo(): void {
 // ---------------------------------------------------------------------------
 function stripSvg(svg: string): string {
   return svg.replace(/^<svg[^>]*>\n?/, "").replace(/<\/svg>\s*$/, "");
+}
+
+const label = (x: number, y: number, s: string): string =>
+  `<text x="${x}" y="${y}" font-family="sans-serif" font-size="14" fill="#999">${s}</text>`;
+
+/** Stack two same-size panels vertically into one SVG with a divider + labels. */
+function stackRows(top: string, bottom: string, W: number, H: number, labelTop: string, labelBottom: string): string {
+  const gap = 18;
+  return [
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${2 * H + gap}" width="${W}" height="${2 * H + gap}">`,
+    stripSvg(top),
+    `<g transform="translate(0,${H + gap})">${stripSvg(bottom)}</g>`,
+    `<line x1="10" y1="${H + gap / 2}" x2="${W - 10}" y2="${H + gap / 2}" stroke="#ddd" stroke-width="1" />`,
+    label(14, 26, labelTop),
+    label(14, H + gap + 26, labelBottom),
+    `</svg>`,
+  ].join("\n");
 }
 
 function consolidationDemo(): void {
