@@ -1,9 +1,9 @@
-import type { AABB, Camera, Ray, Hit } from '../math/types.js';
-import type { Curve2D } from '../curve/types.js';
-import type { Feature, HatchRegion, Light } from '../pipeline/types.js';
+import type { AABB, Camera, Ray, Hit } from "../math/types.js";
+import type { Curve2D } from "../curve/types.js";
+import type { Feature, HatchRegion, Light } from "../pipeline/types.js";
 
 /**
- * The seam of the engine (docs/design.md §1.1).
+ * The seam of the engine (ai/DESIGN.md §1.1).
  *
  * Analytic primitives and triangle meshes both implement this interface;
  * nothing downstream of stage 1 knows which kind produced its input. Adding the

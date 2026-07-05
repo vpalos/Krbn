@@ -1,5 +1,5 @@
-import type { Curve, Curve2D } from '../curve/types.js';
-import type { Vec3 } from '../math/types.js';
+import type { Curve, Curve2D } from "../curve/types.js";
+import type { Vec3 } from "../math/types.js";
 
 /** Identifies the scene element that owns a feature (for importance + styling). */
 export type ElementId = string;
@@ -10,13 +10,13 @@ export interface Light {
 }
 
 export type FeatureType =
-  | 'silhouette'
-  | 'crease'
-  | 'boundary'
-  | 'suggestive'
-  | 'intersection';
+  | "silhouette"
+  | "crease"
+  | "boundary"
+  | "suggestive"
+  | "intersection";
 
-/** Stage 1 → 2. Object space, already chained (docs/design.md §1.4). */
+/** Stage 1 → 2. Object space, already chained (ai/DESIGN.md §1.4). */
 export interface Feature {
   type: FeatureType;
   /** carried end-to-end so importance/styling stay resolvable in stages 3–4 */
@@ -39,10 +39,10 @@ export interface Stroke {
   intervals: VisibilityInterval[];
 }
 
-export type HatchMode = 'single' | 'cross' | 'triple';
+export type HatchMode = "single" | "cross" | "triple";
 
 /**
- * A surface region to be filled with hatching (docs/design.md §2.6).
+ * A surface region to be filled with hatching (ai/DESIGN.md §2.6).
  * Its outline is clipped to the visible portion so gaps reveal what is behind
  * (alpha-free transparency).
  */

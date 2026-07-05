@@ -1,6 +1,6 @@
 # Roadmap
 
-Detail, contracts, and the hard-parts registry live in [`docs/design.md`](docs/design.md).
+Detail, contracts, and the hard-parts registry live in [`ai/DESIGN.md`](ai/DESIGN.md).
 This is the short view.
 
 ## Phase 1 — Analytic primitives (current)
@@ -9,7 +9,7 @@ Real-world value for technical figures, and the regime where the hardest module
 (hidden-line visibility) is exact.
 
 1. Core math kernel — `Vec3`, `Basis`, `Camera`, `Ray`, `Curve`, `Curve2D`
-   with an **exact conic intersector** (the critical path). *(design.md §2.9.1)*
+   with an **exact conic intersector** (the critical path). _(design.md §2.9.1)_
 2. `FeatureSource` interface + `Scene` / element + importance model.
 3. `Quadric` with exact silhouette conic; `Sphere` / `Cylinder` / `Cone` as
    configurations. `Plane` / `Polygon`, `Line`, `ParametricCurve`.
