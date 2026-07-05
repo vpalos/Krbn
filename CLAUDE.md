@@ -36,24 +36,30 @@ is where the plan lives).
 
 `src/math` vectors, `Mat3`/`Mat4`, `Basis`, `AABB`, `Camera` + projection ·
 `src/curve` `Curve`/`Curve2D` carriers, the exact conic kernel (roots, epsilons,
-line/conic intersection) + adaptive sampler · `src/pipeline` inter-stage contract ·
-`src/scene` the `FeatureSource` seam (+ Scene model, still to come) ·
-`src/primitives` analytic primitives (implemented) · `src/backend` renderers
-(SVG first, empty) · `src/mesh` deferred Phase-2 regime.
+line/conic + screen intersection) + adaptive sampler · `src/pipeline` inter-stage
+contract, stage-2 visibility, emit, and the render facade · `src/scene` the
+`FeatureSource` seam (+ Scene model, still to come) · `src/primitives` analytic
+primitives (implemented) · `src/backend` renderers (SVG implemented) ·
+`src/mesh` deferred Phase-2 regime · `examples/` runnable demo → SVG.
 
 ## Current status & next target
 
 Past scaffold (as of 2026-07-05). **Done and tested:** the core math kernel
 (`src/math`), the exact conic kernel (`src/curve` — line–conic + conic–conic via
-the pencil/degenerate-split method, the most heavily tested module), and the full
+the pencil/degenerate-split method, the most heavily tested module), the full
 analytic **primitive catalog** (`src/primitives`: `Quadric`→`Sphere`/`Ellipsoid`/
-`Cylinder`/`Cone`, `Plane`/`Polygon`, `Line`, `ParametricCurve`), each
-implementing `FeatureSource` with closed-form `raycast` + `projectedSilhouettes`.
-**Not built yet:** the `Scene`/element/**importance** model, and the runnable
-five-stage pass + backend. The next build target is **stage 2 — exact
-quantitative invisibility** (visible/hidden intervals); its inputs are already in
-place. See `ai/ROADMAP.md` for the annotated build order and
-`.claude/rules/numerical-robustness.md` for the kernel's robustness bar.
+`Cylinder`/`Cone`, `Plane`/`Polygon`, `Line`, `ParametricCurve`), and **stage 2 —
+exact quantitative invisibility** (`src/pipeline/visibility.ts`: visible/hidden
+intervals via analytic silhouette crossings + closed-form depth `raycast`, with a
+bisection safety net for grazing cusps), and a **runnable emit → SVG backend**
+(`src/pipeline/emit.ts`, `src/backend/svg.ts`, `src/pipeline/render.ts`) that
+draws ghosted hidden lines — `examples/demo.ts` → `examples/demo.svg` is the
+visual check. **Not built yet:** the `Scene`/element/**importance** model,
+intersection-curve features (§2.5), stage-3 abstraction, and the real stage-4
+styling (emit only applies a minimal default). Next targets are **intersection
+curves** and the **`Scene`/importance model**. See `ai/ROADMAP.md` for the
+annotated build order and `.claude/rules/numerical-robustness.md` for the
+kernel's robustness bar.
 
 ## Rules
 

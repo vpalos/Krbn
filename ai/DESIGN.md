@@ -34,13 +34,28 @@ catalog are implemented and tested. What exists, by area (✅ done · 🚧 parti
   `ParametricCurve` (`Bézier`, `helix`, `functionPlot`) with an adaptive
   screen-flatness sampler (`src/curve/sample.ts`). All implement `FeatureSource`
   with closed-form `raycast` and `projectedSilhouettes`.
+- ✅ **Stage 2 — exact quantitative invisibility** (`src/pipeline/visibility.ts`,
+  §2.4): each feature is split into visible/hidden intervals. Transversal
+  boundaries come from exact analytic crossings of the feature's screen curve with
+  occluders' `projectedSilhouettes`; each interval's state is decided by a
+  closed-form depth `raycast` toward the eye (self-occlusion falls out via a depth
+  epsilon). Grazing/cusp boundaries — where visibility changes at a *tangency*
+  with no transversal image crossing — are caught by a sampled occlusion scan with
+  bisection refinement (the hard-parts-registry cusp case; the transversal path
+  stays exact). Feature-parameter recovery is exact via back-projection
+  (`src/pipeline/feature-curve.ts`).
+- ✅ **Emit + SVG backend** (`src/pipeline/emit.ts`, `src/backend/svg.ts`,
+  `src/pipeline/render.ts`): the whole Phase-1 chain (extract → visibility → emit
+  → SVG) runs end to end. Each visibility interval is adaptively sampled to a
+  screen polyline and drawn — solid for visible runs, faint-dashed "ghost" for
+  hidden (a minimal stand-in until stage 4). See `examples/demo.ts` →
+  `examples/demo.svg` for a visual check.
 - 🚧 **The `FeatureSource` seam** (`src/scene`) exists and every primitive
   implements it, but the **`Scene` graph, element wrapper, and importance/role
   API** (§2.8) are not built — primitives are used standalone for now.
-- ⬜ **The five-stage pass** (§1.2): stage 1 features are produced by primitives,
-  but no runnable extraction/visibility/abstraction/styling/emit pipeline or
-  backend exists yet. Exact quantitative invisibility (§2.4) is the next target;
-  its inputs are already in place.
+- ⬜ **Remaining stages:** stage 3 (abstraction) and the real stage 4 (styling,
+  seeded wobble, hatch generation) are not built, and intersection-curve features
+  (§2.5) are not built.
 
 Verification: `bun test` (unit, property, and degeneracy suites), plus
 `bun run typecheck` and `bun run build`.
@@ -273,14 +288,16 @@ Status marks reflect the tree as of 2026-07-05 (see "Implementation status" abov
 3. ✅ `Quadric` primitive with exact silhouette conic; `Sphere`/`Ellipsoid`/
    `Cylinder`/`Cone` as configurations. `Plane`/`Polygon`, `Line`,
    `ParametricCurve`.
-4. ⬜ Stage 1 emit of raw (un-styled) features — verify by eye.
-5. ⬜ Stage 2: exact QI (crossing events + reference test) → visible/hidden
-   intervals. **← next build target.**
-6. ⬜ Intersection curves.
-7. ⬜ Stage 4 styling (weight/dash/ghost/seeded-wobble) + hatch generation.
+4. ✅ Stage 1 emit of raw features — via the render facade (`renderScene`),
+   verify by eye (`examples/demo.svg`).
+5. ✅ Stage 2: exact QI (crossing events + reference test) → visible/hidden
+   intervals (`src/pipeline/visibility.ts`).
+6. ⬜ Intersection curves. **← next**, with the `Scene`/importance model.
+7. 🚧 Stage 4 styling (weight/dash/ghost/seeded-wobble) + hatch generation — only
+   a minimal default (solid/ghost) applied at emit so far.
 8. ⬜ Stage 3 abstraction (screen-size threshold, tone quantization, importance).
-9. ⬜ SVG backend (stage 5), adaptive sampling of analytic curves — the adaptive
-   sampler itself already exists (`src/curve/sample.ts`).
+9. ✅ SVG backend (stage 5) + adaptive sampling of analytic curves
+   (`src/backend/svg.ts`, `src/pipeline/emit.ts`, `src/curve/sample.ts`).
 
 ---
 
@@ -364,9 +381,8 @@ polyline `Curve`s) and support `raycast` / `projectedSilhouettes`.
   `Scene`/element model the API already populates (JSX renderer or custom elements
   over the same graph).
 
-Immediate next build target: **exact quantitative invisibility** (§2.4) — the
-stage-2 visible/hidden interval classifier — now that the core math kernel and
-the exact conic intersector it depends on (§2.9.1) are done and the primitives
-expose the `projectedSilhouettes` crossing curves and `raycast` reference test it
-needs. The `Scene` / element / importance model (§2.8) is the other open
-foundation piece and can land alongside it.
+Immediate next build targets, now that stage-2 exact QI (§2.4) is done:
+**intersection-curve features** (§2.5 — sphere ∩ plane = circle, etc., which flow
+straight into the same QI classifier), the **`Scene` / element / importance
+model** (§2.8), and a first **runnable emit pass + SVG backend** so classified
+strokes become viewable.

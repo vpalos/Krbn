@@ -27,17 +27,23 @@ Real-world value for technical figures, and the regime where the hardest module
    `Sphere` / `Ellipsoid` / `Cylinder` / `Cone`; plus `Plane` / `Polygon`
    (occluder + hatch region), `Line`, and `ParametricCurve` (`Bézier`, `helix`,
    `functionPlot`). All expose closed-form `raycast` and `projectedSilhouettes`.
-4. ⬜ Stage 1: a runnable pass that emits raw un-styled features (verify by eye).
-   Primitives already produce `Feature`s; the pass that collects and draws them
-   does not exist yet.
-5. ⬜ Stage 2: exact quantitative-invisibility → visible/hidden intervals.
-   **Next build target** — its inputs (`projectedSilhouettes` crossing curves,
-   `raycast` reference test) are now in place across all primitives.
-6. ⬜ Intersection-curve features (sphere ∩ plane = circle, …).
-7. ⬜ Stage 4: styling (weight/dash/ghost/seeded-wobble) + hatch generation.
+4. ✅ Stage 1 / emit / render: a runnable pass wires extract → visibility → emit
+   → SVG (`renderScene` / `renderSceneSVG` in `src/pipeline/render.ts`). Verify by
+   eye via `examples/demo.ts` → `examples/demo.svg`.
+5. ✅ Stage 2: exact quantitative-invisibility → visible/hidden intervals.
+   Analytic crossings (`projectedSilhouettes` × the feature's screen curve) place
+   transversal boundaries exactly; each interval's state is an exact depth
+   `raycast` toward the eye; grazing/cusp boundaries (tangencies) are caught by a
+   sampled occlusion scan + bisection. `classifyScene` / `classifyFeature` in
+   `src/pipeline/visibility.ts`.
+6. ⬜ Intersection-curve features (sphere ∩ plane = circle, …). **← next**, with
+   the `Scene` / importance model (step 2).
+7. 🚧 Stage 4: styling (weight/dash/ghost/seeded-wobble) + hatch generation. Emit
+   applies a minimal default policy (solid visible / faint-dashed hidden); the
+   real styling stage, seeded wobble, and hatch generation are not built yet.
 8. ⬜ Stage 3: abstraction (screen-size threshold, tone quantization, importance).
-9. ⬜ Stage 5: SVG backend with adaptive sampling of analytic curves. (The
-   adaptive screen-flatness sampler itself already exists in `curve/sample.ts`.)
+9. ✅ Stage 5: SVG backend (`src/backend/svg.ts`) with adaptive sampling of
+   analytic curves at emit (`src/pipeline/emit.ts`, `curve/sample.ts`).
 
 ## Phase 2 — Mesh / organ regime (deferred, not lost)
 
@@ -54,6 +60,7 @@ everything from the stage-2 contract onward is reused. All ⬜.
 ## Cross-cutting
 
 Seeded/deterministic wobble ⬜, temporal-coherence discipline (starts in Phase 1)
-⬜, SVG-first backend ⬜, optional alpha as a pure drawing op ⬜, and a declarative
-authoring language that later deserializes into the same `Scene` model ⬜. The
-adaptive analytic-curve sampler this all leans on is ✅ (`curve/sample.ts`).
+⬜, SVG-first backend ✅ (`src/backend/svg.ts`), optional alpha as a pure drawing
+op ⬜, and a declarative authoring language that later deserializes into the same
+`Scene` model ⬜. The adaptive analytic-curve sampler this all leans on is ✅
+(`curve/sample.ts`).

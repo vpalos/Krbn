@@ -3,7 +3,7 @@
 // with pixel coordinates (u/w, v/w). Orthographic and perspective are handled by
 // swapping the intrinsic block only (ai/DESIGN.md §5: support both, default ortho).
 
-import type { Camera, Vec2, Vec3 } from "./types.js";
+import type { Camera, Ray, Vec2, Vec3 } from "./types.js";
 import { cross, dot, normalize, sub } from "./vec3.js";
 
 export interface CameraFrame {
@@ -74,4 +74,36 @@ export function projectPoint(P: Proj, p: Vec3): { point: Vec2; w: number } {
   const v = (P[4] as number) * p[0] + (P[5] as number) * p[1] + (P[6] as number) * p[2] + (P[7] as number);
   const w = (P[8] as number) * p[0] + (P[9] as number) * p[1] + (P[10] as number) * p[2] + (P[11] as number);
   return { point: [u / w, v / w], w };
+}
+
+/**
+ * Inverse of {@link projectPoint}: the world-space viewing ray through a pixel.
+ * Perspective rays fan out from the eye; orthographic rays are parallel along the
+ * view axis, offset across the image plane. Used by the visibility stage to map a
+ * screen crossing back onto a feature's supporting geometry (ai/DESIGN.md §2.4).
+ */
+export function unproject(cam: Camera, pixel: Vec2): Ray {
+  const { right, up, forward } = cameraFrame(cam);
+  const W = cam.viewport.width;
+  const H = cam.viewport.height;
+  if (cam.projection === "perspective") {
+    const fpx = H / 2 / Math.tan(cam.scale / 2);
+    const a = (pixel[0] - W / 2) / fpx;
+    const b = -(pixel[1] - H / 2) / fpx;
+    const dir = normalize([
+      a * right[0] + b * up[0] + forward[0],
+      a * right[1] + b * up[1] + forward[1],
+      a * right[2] + b * up[2] + forward[2],
+    ]);
+    return { origin: cam.eye, dir };
+  }
+  // Orthographic: parallel rays, origin slid across the image plane through the eye.
+  const xo = (pixel[0] - W / 2) * cam.scale;
+  const yo = -(pixel[1] - H / 2) * cam.scale;
+  const origin: Vec3 = [
+    cam.eye[0] + xo * right[0] + yo * up[0],
+    cam.eye[1] + xo * right[1] + yo * up[1],
+    cam.eye[2] + xo * right[2] + yo * up[2],
+  ];
+  return { origin, dir: forward };
 }

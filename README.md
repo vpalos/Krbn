@@ -10,12 +10,14 @@ artist: ghosted hidden lines, cross-hatched surfaces, emphasized/dashed contours
 and deliberate reduction of detail.
 
 > **Status: pre-alpha, actively building (updated 2026-07-05).** The math kernel,
-> the **exact conic intersection kernel**, and the full analytic **primitive
-> catalog** (Quadric → Sphere/Ellipsoid/Cylinder/Cone, Plane/Polygon, Line,
-> ParametricCurve) are implemented and tested. Still to come: the `Scene` /
-> importance model and the runnable five-stage pass + backend. Next up is stage 2,
-> exact hidden-line visibility. See [`ai/ROADMAP.md`](ai/ROADMAP.md) for the
-> annotated build status.
+> the **exact conic intersection kernel**, the full analytic **primitive catalog**
+> (Quadric → Sphere/Ellipsoid/Cylinder/Cone, Plane/Polygon, Line, ParametricCurve),
+> **stage 2 — exact hidden-line visibility** (visible/hidden intervals), and a
+> runnable **emit → SVG backend** (ghosted hidden lines) are implemented and
+> tested — see [`examples/demo.svg`](examples/demo.svg). Still to come:
+> intersection-curve features, the `Scene` / importance model, stage-3
+> abstraction, and real stage-4 styling. See [`ai/ROADMAP.md`](ai/ROADMAP.md) for
+> the annotated build status.
 
 ## Why it works this way
 
@@ -47,13 +49,14 @@ Full detail, contracts, and the mesh/organ roadmap live in
 
 ```
 src/
-  math/        vectors, Mat3/Mat4, Basis, AABB, Camera + projection
+  math/        vectors, Mat3/Mat4, Basis, AABB, Camera + projection/unproject
   curve/       Curve / Curve2D carriers + exact conic kernel, root solvers, sampler
-  pipeline/    inter-stage contract: Feature, Stroke, HatchRegion, RenderStroke
+  pipeline/    contract types, stage-2 visibility, emit, and the render facade
   scene/       the FeatureSource seam (+ Scene / element model, coming next)
   primitives/  analytic primitives (Quadric, Sphere, Cylinder, Cone, Plane, Line, …)
-  backend/     renderers (SVG first — not started)
+  backend/     renderers — SVG (implemented)
   mesh/        deferred organ/mesh regime — see ai/DESIGN.md §3
+examples/    runnable demo scene → demo.svg
 ai/DESIGN.md the full design & roadmap
 ```
 
@@ -68,12 +71,10 @@ bun test
 
 ## Next build target
 
-Stage 2 — exact **hidden-line visibility** (Appel's quantitative invisibility):
-walk each projected curve, flipping a visible/hidden count at silhouette
-crossings, to produce visible/hidden intervals. The kernel it rests on (exact
-conic crossings) and the per-primitive `projectedSilhouettes` / `raycast` inputs
-are already in place. The `Scene` / element / importance model is the other open
-foundation piece.
+**Intersection-curve features** (sphere ∩ plane = circle, quadric ∩ quadric =
+quartic) — first-class `Feature`s that flow straight into the stage-2 visibility
+classifier — together with the `Scene` / element / importance model. After that:
+real stage-4 styling (seeded wobble, hatching) and stage-3 abstraction.
 
 ## License
 

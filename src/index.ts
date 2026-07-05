@@ -24,7 +24,18 @@ export * from "./curve/epsilon.js";
 export * from "./curve/roots.js";
 export * from "./curve/conic.js";
 export * from "./curve/sample.js";
+export * from "./curve/intersect2d.js";
 export * from "./math/project.js";
+export * from "./math/intersect3d.js";
+
+// --- stage 2: exact quantitative-invisibility (visible/hidden intervals) ---
+export * from "./pipeline/feature-curve.js";
+export * from "./pipeline/visibility.js";
+
+// --- stage 5: emit + SVG backend + render facade ---
+export * from "./pipeline/emit.js";
+export * from "./backend/svg.js";
+export * from "./pipeline/render.js";
 
 // --- analytic primitives ---
 export * from "./primitives/quadric.js";
