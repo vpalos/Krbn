@@ -91,24 +91,28 @@ weave into a tangle. **On**: they merge into one clean line
 
 ![torus](gallery/10-torus.svg)
 
-Two rows (**wobble off / on**). The torus silhouette is a **quartic** image curve,
+A 2×2 grid: **rows** are wobble off / on, **columns** are the **curved field** vs
+**flat** parallel hatch. The torus silhouette is a **quartic** image curve,
 extracted numerically from the implicit form as two contour loops (outer + hole).
 The outer outline is solid; the hole rim is **solid on its near arc and dashed on
-the far arc** where the tube hides it. Ray-torus is a genuine quartic. The tube is
-hatched along its **exact poloidal + toroidal direction field** (§2.6): the hatch
-lines are the surface's own iso-parameter circles, so they wrap the tube, and each
-one's hidden half drops out of the same front-face + occlusion test (the hole is
-left empty for free).
+the far arc** where the tube hides it. Ray-torus is a genuine quartic. In the
+curved column the tube is hatched along its **exact poloidal + toroidal direction
+field** (§2.6) — the hatch lines are the surface's own iso-parameter circles, so
+they wrap the tube and each one's hidden half drops out of the front-face +
+occlusion test; the flat column (`hatch.field: false`) shows the same shading with
+straight parallels for comparison.
 
 ### 11 · Two interlocking toruses
 
 ![two toruses](gallery/11-tori.svg)
 
-Two toruses threaded through each other like chain links, each cross-hatched with
-its surface-following poloidal/toroidal field and wobbled. **Mutual occlusion**
-falls straight out of the visibility stage — each torus dashes the other's hidden
-silhouette and stops its hatch where the other is in front — so the compound
-figure reads correctly with no special handling.
+Two toruses threaded through each other like chain links, each cross-hatched and
+wobbled — **curved field** (left) vs **flat** parallels (right). **Mutual
+occlusion** falls straight out of the visibility stage — each torus dashes the
+other's hidden silhouette and stops its hatch where the other is in front — so the
+compound figure reads correctly with no special handling. The curved field makes
+the linked tubes read as solid form; the flat hatch reads like a decal, which is
+exactly why the field matters.
 
 ### 12 · Curved hatch direction fields
 

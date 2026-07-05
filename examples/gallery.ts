@@ -404,12 +404,25 @@ function torusDemo(): void {
     scale: Math.PI / 4.6,
     viewport: { width: 620, height: 400 },
   };
-  const build = (wobble: number): string => {
+  const build = (wobble: number, field: boolean): string => {
     const scene = new Scene({ light: { direction: [-0.55, 0.5, -0.55] }, svg: { background: BG } });
-    scene.add(new Torus([0, 0, 0], [0, 0, 1], 1.5, 0.6)).style({ wobble, hatch: { mode: "cross", angle: 20 } });
+    scene.add(new Torus([0, 0, 0], [0, 0, 1], 1.5, 0.6)).style({ wobble, hatch: { mode: "cross", angle: 20, field } });
     return scene.render(cam).svg;
   };
-  save("10-torus", stackRows(build(0), build(0.6), cam.viewport.width, cam.viewport.height, "wobble: off", "wobble: on"));
+  // rows = wobble off / on; columns = curved poloidal/toroidal field vs flat parallels
+  save(
+    "10-torus",
+    gridStitch(
+      cam.viewport.width,
+      cam.viewport.height,
+      [
+        [build(0, true), build(0, false)],
+        [build(0.6, true), build(0.6, false)],
+      ],
+      ["wobble: off", "wobble: on"],
+      ["curved field", "flat"],
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -427,10 +440,17 @@ function toriDemo(): void {
     scale: Math.PI / 4.6,
     viewport: { width: 680, height: 520 },
   };
-  const scene = new Scene({ light: { direction: [-0.55, 0.5, -0.55] }, svg: { background: BG } });
-  scene.add(new Torus([0, 0, 0], [0, 0, 1], 1.8, 0.42)).style({ wobble: 0.7, hatch: { mode: "cross", angle: 22 } });
-  scene.add(new Torus([1.4, 0, 0], [0, 1, 0], 1.9, 0.42)).style({ wobble: 0.7, hatch: { mode: "cross", angle: -22 } });
-  save("11-tori", scene.render(cam).svg);
+  const build = (field: boolean): string => {
+    const scene = new Scene({ light: { direction: [-0.55, 0.5, -0.55] }, svg: { background: BG } });
+    scene.add(new Torus([0, 0, 0], [0, 0, 1], 1.8, 0.42)).style({ wobble: 0.7, hatch: { mode: "cross", angle: 22, field } });
+    scene.add(new Torus([1.4, 0, 0], [0, 1, 0], 1.9, 0.42)).style({ wobble: 0.7, hatch: { mode: "cross", angle: -22, field } });
+    return scene.render(cam).svg;
+  };
+  // columns = curved poloidal/toroidal field vs flat parallel hatch
+  save(
+    "11-tori",
+    gridStitch(cam.viewport.width, cam.viewport.height, [[build(true), build(false)]], [""], ["curved field", "flat"]),
+  );
 }
 
 // ---------------------------------------------------------------------------
