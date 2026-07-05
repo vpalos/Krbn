@@ -156,6 +156,25 @@ export function generateHatch(region: HatchRegion, opts: HatchOptions = {}): Seg
   return segments;
 }
 
+// ---------------------------------------------------------------------------
+// Pluggable strategy
+// ---------------------------------------------------------------------------
+
+/**
+ * A swappable hatch-pattern generator. Replace this to change how a region is
+ * filled (e.g. contour-following or stippled hatching) without touching the
+ * scene, styling, or visibility clipping — the scene consumes `Segment[]` and
+ * clips them to the visible surface regardless of how they were produced.
+ */
+export interface HatchStrategy {
+  generate(region: HatchRegion, opts: HatchOptions): Segment[];
+}
+
+/** The built-in parallel-line hatch. */
+export const defaultHatch: HatchStrategy = {
+  generate: (region, opts) => generateHatch(region, opts),
+};
+
 function dedupClose(pts: Vec2[]): Vec2[] {
   if (pts.length > 1) {
     const a = pts[0]!;

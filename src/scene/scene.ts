@@ -16,7 +16,8 @@ import type { StyleOverride, StyleSpec } from "../pipeline/style.js";
 import { Element, type ElementOptions } from "./element.js";
 import { classifyScene, isOccluded, sceneScale } from "../pipeline/visibility.js";
 import { emitStyledStroke, resolveStyle, ROLE_STYLE } from "../pipeline/style.js";
-import { generateHatch } from "../pipeline/hatch.js";
+import { defaultHatch, type HatchStrategy } from "../pipeline/hatch.js";
+import { defaultWobble, type WobbleStrategy } from "../pipeline/wobble.js";
 import { renderStrokesSVG } from "../backend/svg.js";
 import { unproject } from "../math/camera.js";
 import { normalize } from "../math/vec3.js";
@@ -31,6 +32,10 @@ export interface SceneOptions {
   style?: StyleOverride;
   sample?: SampleOptions;
   svg?: SvgOptions;
+  /** swappable line-perturbation algorithm (defaults to value-noise wobble) */
+  wobble?: WobbleStrategy;
+  /** swappable hatch-pattern generator (defaults to parallel-line hatch) */
+  hatch?: HatchStrategy;
 }
 
 export class Scene {
@@ -40,12 +45,16 @@ export class Scene {
   defaultStyle: StyleOverride;
   sample: SampleOptions | undefined;
   svgOptions: SvgOptions | undefined;
+  wobble: WobbleStrategy;
+  hatch: HatchStrategy;
 
   constructor(opts: SceneOptions = {}) {
     this.light = opts.light ?? { direction: normalize([-0.5, -1, -0.8]) };
     this.defaultStyle = { ...opts.style };
     this.sample = opts.sample;
     this.svgOptions = opts.svg;
+    this.wobble = opts.wobble ?? defaultWobble;
+    this.hatch = opts.hatch ?? defaultHatch;
   }
 
   /** Add a feature source to the scene; returns its element for configuration. */
@@ -74,7 +83,7 @@ export class Scene {
 
     const outlineStrokes: RenderStroke[] = [];
     for (const st of strokes) {
-      outlineStrokes.push(...emitStyledStroke(st, cam, this.resolveSpec(st.feature.owner), this.sample));
+      outlineStrokes.push(...emitStyledStroke(st, cam, this.resolveSpec(st.feature.owner), this.sample, this.wobble));
     }
 
     const hatchStrokes: RenderStroke[] = [];
@@ -83,7 +92,7 @@ export class Scene {
       if (!spec.hatch) continue;
       for (const region of el.source.hatchRegions(cam, this.light)) {
         const shaped = { ...region, mode: spec.hatch.mode, angle: spec.hatch.angle };
-        const segs = generateHatch(shaped, spec.hatch.spacingPx != null ? { spacingPx: spec.hatch.spacingPx } : {});
+        const segs = this.hatch.generate(shaped, spec.hatch.spacingPx != null ? { spacingPx: spec.hatch.spacingPx } : {});
         for (const seg of segs) {
           for (const run of clipHatchToVisible(seg, el.source, cam, sources, scale)) {
             hatchStrokes.push({ path: run, style: { weight: HATCH_WEIGHT, color: spec.color, opacity: HATCH_OPACITY } });

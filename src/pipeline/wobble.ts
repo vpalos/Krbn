@@ -9,12 +9,14 @@
 //   • anchored to geometry, not screen — a point on the curve keeps its offset as
 //     the camera moves (mild only; a fuller coherence pass is future work).
 
-import type { Vec2 } from "../math/types.js";
+import type { Vec2, Vec3 } from "../math/types.js";
 
 /** Peak lateral offset (px) at wobble = 1. */
 const AMPLITUDE_PX = 2.6;
 /** Noise cycles per world unit of arclength. */
 const FREQUENCY = 3.1;
+/** Default vertex spacing (px) when densifying a run so wobble has room to bend. */
+const WOBBLE_STEP_PX = 6;
 
 /** FNV-1a string hash → uint32, for turning a stroke identity into a seed. */
 export function hashSeed(s: string): number {
@@ -62,8 +64,20 @@ export function applyWobble(
   seed: number,
   amount: number,
 ): Vec2[] {
+  return wobblePath(path, arclength, seed, amount, AMPLITUDE_PX, FREQUENCY);
+}
+
+/** Core offsetter, parameterized so a strategy can tune amplitude/frequency. */
+function wobblePath(
+  path: readonly Vec2[],
+  arclength: readonly number[],
+  seed: number,
+  amount: number,
+  amplitudePx: number,
+  frequency: number,
+): Vec2[] {
   if (amount <= 0 || path.length < 2) return path.map((p) => [p[0], p[1]]);
-  const amp = amount * AMPLITUDE_PX;
+  const amp = amount * amplitudePx;
   const out: Vec2[] = [];
   for (let i = 0; i < path.length; i++) {
     const prev = path[Math.max(0, i - 1)]!;
@@ -80,7 +94,7 @@ export function applyWobble(
     // screen-space normal (perpendicular to the local tangent)
     const nx = -ty;
     const ny = tx;
-    const w = fbm(arclength[i]! * FREQUENCY, seed) * amp;
+    const w = fbm(arclength[i]! * frequency, seed) * amp;
     out.push([path[i]![0] + nx * w, path[i]![1] + ny * w]);
   }
   return out;
@@ -125,3 +139,52 @@ export function arclengthOf(points: readonly (readonly [number, number, number])
   }
   return s;
 }
+
+// ---------------------------------------------------------------------------
+// Pluggable strategy
+// ---------------------------------------------------------------------------
+
+/** Everything a wobble algorithm gets: the sampled screen run + its object-space
+ *  companion (for coherence), the identity seed, and the intensity. */
+export interface WobbleInput {
+  path: readonly Vec2[];
+  points3: readonly Vec3[];
+  /** seed derived from stroke identity (owner + feature type) */
+  seed: number;
+  /** 0 = ruler, ~1 = hero sketchy */
+  amount: number;
+}
+
+/**
+ * A swappable line-perturbation algorithm. Replace this to change the entire
+ * "hand-drawn" character without touching visibility, styling, or the backend
+ * (the layer only communicates through `WobbleInput` → screen polyline).
+ */
+export interface WobbleStrategy {
+  apply(input: WobbleInput): Vec2[];
+}
+
+export interface WobbleParams {
+  amplitudePx?: number;
+  frequency?: number;
+  /** densify spacing so straight runs have interior vertices to bend */
+  stepPx?: number;
+}
+
+/** The built-in value-noise wobble, with tunable amplitude/frequency/density. */
+export function createWobble(params: WobbleParams = {}): WobbleStrategy {
+  const amplitudePx = params.amplitudePx ?? AMPLITUDE_PX;
+  const frequency = params.frequency ?? FREQUENCY;
+  const stepPx = params.stepPx ?? WOBBLE_STEP_PX;
+  return {
+    apply({ path, points3, seed, amount }) {
+      if (amount <= 0 || path.length < 2) return path.map((p) => [p[0], p[1]]);
+      const dense = densify(path, points3, stepPx);
+      return wobblePath(dense.path, arclengthOf(dense.points3), seed, amount, amplitudePx, frequency);
+    },
+  };
+}
+
+/** Default wobble strategy (identical to the previous inline behaviour). */
+export const defaultWobble: WobbleStrategy = createWobble();
+

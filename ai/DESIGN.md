@@ -55,7 +55,10 @@ catalog are implemented and tested. What exists, by area (✅ done · 🚧 parti
   object-space arclength, continuous across visibility intervals), dash/ghost, and
   hatch generation clipped exactly to the outline and to the *visible* surface
   (gaps reveal what is behind — the alpha-free transparency of §0.3). Surface
-  hatching currently covers sphere/ellipsoid + polygons.
+  hatching currently covers sphere/ellipsoid + polygons. The wobble and hatch
+  algorithms are **pluggable strategies** (`WobbleStrategy` / `HatchStrategy`,
+  injectable via `Scene` options) so each layer can be swapped or tuned in
+  isolation without rewiring the rest.
 - ✅ **`Scene` / element / importance model** (`src/scene`, §2.8): elements wrap a
   `FeatureSource` with `importance`/`role`/style overrides; `Scene.render` runs
   the whole styled pipeline. `role` supplies styling defaults now; importance's

@@ -75,6 +75,9 @@ order and `.claude/rules/numerical-robustness.md` for the kernel's robustness ba
   polylines early — it throws away the exactness the primitive regime exists for.
 - **Wobble is a seeded, deterministic style parameter** (seed tied to primitive
   identity). Never re-randomize per frame — that breaks temporal coherence.
+- **Wobble and hatch are pluggable strategies** (`WobbleStrategy` / `HatchStrategy`,
+  injected via `Scene` options; defaults in `wobble.ts` / `hatch.ts`). Improve or
+  swap a layer by editing/replacing its strategy — don't reach across layers.
 - Keep the backend behind the emit stage; SVG is the first target.
 - Verify changes with `bun run typecheck`, `bun test`, `bun run build`.
 - Propose a short plan before non-trivial or multi-file work.

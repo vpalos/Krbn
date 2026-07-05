@@ -12,11 +12,8 @@ import type { HatchMode, RenderStroke, RenderStyle, Stroke } from "./types.js";
 import { buildFeatureModel } from "./feature-curve.js";
 import { projectionMatrix } from "../math/camera.js";
 import { sampleInterval } from "./emit.js";
-import { applyWobble, arclengthOf, densify, hashSeed } from "./wobble.js";
+import { defaultWobble, hashSeed, type WobbleStrategy } from "./wobble.js";
 import { DEFAULT_SAMPLE, type SampleOptions } from "../curve/sample.js";
-
-/** Target vertex spacing (px) when densifying a run for wobble. */
-const WOBBLE_STEP_PX = 6;
 
 export interface HatchSpec {
   mode: HatchMode;
@@ -89,6 +86,7 @@ export function emitStyledStroke(
   cam: Camera,
   spec: StyleSpec,
   opts: SampleOptions = DEFAULT_SAMPLE,
+  wobble: WobbleStrategy = defaultWobble,
 ): RenderStroke[] {
   const model = buildFeatureModel(stroke.feature.curve, cam);
   const P = projectionMatrix(cam);
@@ -101,9 +99,8 @@ export function emitStyledStroke(
     if (!style) continue;
     const sampled = sampleInterval(model, iv.t0, iv.t1, P, opts);
     if (sampled.path.length < 2) continue;
-    const dense = spec.wobble > 0 ? densify(sampled.path, sampled.points3, WOBBLE_STEP_PX) : sampled;
-    const wobbled = applyWobble(dense.path, arclengthOf(dense.points3), seed, spec.wobble);
-    out.push({ path: wobbled, style });
+    const path = wobble.apply({ path: sampled.path, points3: sampled.points3, seed, amount: spec.wobble });
+    if (path.length >= 2) out.push({ path, style });
   }
   return out;
 }
