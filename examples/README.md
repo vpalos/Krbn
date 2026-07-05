@@ -94,6 +94,15 @@ the far arc** where the tube hides it. Ray-torus is a genuine quartic. The tube 
 surface-hatched and shaded like the spheres, with the **hole left empty** (the
 hatch region is the annulus between the two loops, via an even–odd hole clip).
 
+### 11 · Two interlocking toruses
+
+![two toruses](gallery/11-tori.svg)
+
+Two toruses threaded through each other like chain links, each cross-hatched and
+wobbled. **Mutual occlusion** falls straight out of the visibility stage — each
+torus dashes the other's hidden silhouette and stops its hatch where the other is
+in front — so the compound figure reads correctly with no special handling.
+
 ## Rendering to PNG
 
 SVGs open in any browser. To rasterize (e.g. for a README), use any SVG tool:

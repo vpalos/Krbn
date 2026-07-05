@@ -369,6 +369,27 @@ function torusDemo(): void {
   save("10-torus", stackRows(build(0), build(0.6), cam.viewport.width, cam.viewport.height, "wobble: off", "wobble: on"));
 }
 
+// ---------------------------------------------------------------------------
+// 11. Two interlocking toruses (chain links) passing through each other, each
+//     cross-hatched and wobbled. Mutual occlusion falls out of the visibility
+//     stage — each torus dashes the other's hidden silhouette and stops its hatch
+//     where the other is in front.
+// ---------------------------------------------------------------------------
+function toriDemo(): void {
+  const cam: Camera = {
+    eye: [4.4, 3.2, 3.4],
+    target: [0.7, 0, 0.1],
+    up: [0, 0, 1],
+    projection: "perspective",
+    scale: Math.PI / 4.6,
+    viewport: { width: 680, height: 520 },
+  };
+  const scene = new Scene({ light: { direction: [-0.55, 0.5, -0.55] }, svg: { background: BG } });
+  scene.add(new Torus([0, 0, 0], [0, 0, 1], 1.8, 0.42)).style({ wobble: 0.7, hatch: { mode: "cross", angle: 22 } });
+  scene.add(new Torus([1.4, 0, 0], [0, 1, 0], 1.9, 0.42)).style({ wobble: 0.7, hatch: { mode: "cross", angle: -22 } });
+  save("11-tori", scene.render(cam).svg);
+}
+
 hiddenLines();
 hatching();
 depthHatching();
@@ -379,4 +400,5 @@ pointsDemo();
 quarticDemo();
 consolidationDemo();
 torusDemo();
+toriDemo();
 console.log("gallery complete");
