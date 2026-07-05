@@ -26,7 +26,9 @@ export interface HatchOptions {
 
 const DEG = Math.PI / 180;
 
-function anglesForMode(mode: HatchMode, angleDeg: number): number[] {
+/** The hatch angle set for a mode: 1 (single), 2 (cross), or 3 (triple) angles.
+ *  Also used by the scene to draw one *tonal layer* per angle. */
+export function hatchAngles(mode: HatchMode, angleDeg: number): number[] {
   switch (mode) {
     case "single":
       return [angleDeg];
@@ -133,7 +135,7 @@ export function generateHatch(region: HatchRegion, opts: HatchOptions = {}): Seg
   const poly = region.outline.kind === "polyline" ? dedupClose(pts) : pts;
 
   const segments: Segment[] = [];
-  for (const angleDeg of anglesForMode(region.mode, region.angle)) {
+  for (const angleDeg of hatchAngles(region.mode, region.angle)) {
     const a = angleDeg * DEG;
     const dir: Vec2 = [Math.cos(a), Math.sin(a)];
     const normal: Vec2 = [-Math.sin(a), Math.cos(a)];

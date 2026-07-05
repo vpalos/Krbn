@@ -34,6 +34,10 @@ export interface StyleSpec {
   hiddenDash: number[];
   visibleDash?: number[];
   hatch: HatchSpec | null;
+  /** stroke weight of hatch lines */
+  hatchWeight: number;
+  /** opacity of hatch lines (kept < 1 so cross-hatch layers read as tone) */
+  hatchOpacity: number;
 }
 
 export type StyleOverride = Partial<StyleSpec>;
@@ -48,6 +52,8 @@ export const BASE_STYLE: StyleSpec = {
   ghostOpacity: 0.32,
   hiddenDash: [4, 3],
   hatch: null,
+  hatchWeight: 0.7,
+  hatchOpacity: 0.55,
 };
 
 /** Role-driven default overrides (§2.8: context is quieter, subject is bolder). */

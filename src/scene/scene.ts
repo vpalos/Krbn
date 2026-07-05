@@ -6,7 +6,7 @@
 // Deferred (need intersection curves / more machinery, §2.5): `scene.intersect`
 // and `scene.highlight` from the design sketch are not implemented yet.
 
-import type { Camera, Vec2, Vec3 } from "../math/types.js";
+import type { Camera, Hit, Vec2, Vec3 } from "../math/types.js";
 import type { ElementId, Light, RenderStroke, Stroke } from "../pipeline/types.js";
 import type { FeatureSource } from "./feature-source.js";
 import type { SampleOptions } from "../curve/sample.js";
@@ -25,7 +25,7 @@ import {
 } from "../primitives/intersection.js";
 import { classifyScene, isOccluded, sceneScale } from "../pipeline/visibility.js";
 import { emitStyledStroke, resolveStyle, ROLE_STYLE } from "../pipeline/style.js";
-import { defaultHatch, type HatchStrategy } from "../pipeline/hatch.js";
+import { defaultHatch, hatchAngles, type HatchStrategy } from "../pipeline/hatch.js";
 import { defaultWobble, type WobbleStrategy } from "../pipeline/wobble.js";
 import { applyAbstraction, quantizeTone } from "../pipeline/abstract.js";
 import { renderStrokesSVG } from "../backend/svg.js";
@@ -33,8 +33,6 @@ import { unproject } from "../math/camera.js";
 import { distance, normalize } from "../math/vec3.js";
 import { EPS_DEPTH_REL } from "../curve/epsilon.js";
 
-const HATCH_WEIGHT = 0.7;
-const HATCH_OPACITY = 0.55;
 const HATCH_STEP_PX = 4; // sample spacing when clipping a hatch line to visibility
 
 export interface SceneOptions {
@@ -145,17 +143,26 @@ export class Scene {
     }
 
     const hatchStrokes: RenderStroke[] = [];
+    const lightDir = normalize(this.light.direction);
     for (const el of this.elements) {
       const spec = this.resolveSpec(el.id);
       if (!spec.hatch) continue;
       const levels = this.abstraction.toneLevels ?? 0;
+      const hstyle = { weight: spec.hatchWeight, color: spec.color, opacity: spec.hatchOpacity };
       for (const region of el.source.hatchRegions(cam, this.light)) {
         const tone = levels > 0 ? quantizeTone(region.tone, levels) : region.tone;
-        const shaped = { ...region, mode: spec.hatch.mode, angle: spec.hatch.angle, tone };
-        const segs = this.hatch.generate(shaped, spec.hatch.spacingPx != null ? { spacingPx: spec.hatch.spacingPx } : {});
-        for (const seg of segs) {
-          for (const run of clipHatchToVisible(seg, el.source, cam, sources, scale)) {
-            hatchStrokes.push({ path: run, style: { weight: HATCH_WEIGHT, color: spec.color, opacity: HATCH_OPACITY } });
+        const spacingOpts = spec.hatch.spacingPx != null ? { spacingPx: spec.hatch.spacingPx } : {};
+        // Tonal layering: draw one angle set per layer, each clipped to the part
+        // of the surface dark enough for that layer, so curved surfaces shade
+        // light→dark (flat faces get a uniform number of layers). §2.6
+        const angles = hatchAngles(spec.hatch.mode, spec.hatch.angle);
+        for (let layer = 0; layer < angles.length; layer++) {
+          const maxDiffuse = layerBrightness(layer, angles.length);
+          const single = { ...region, mode: "single" as const, angle: angles[layer]!, tone };
+          for (const seg of this.hatch.generate(single, spacingOpts)) {
+            for (const run of clipHatchTonal(seg, el.source, cam, sources, scale, lightDir, maxDiffuse)) {
+              hatchStrokes.push({ path: run, style: { ...hstyle } });
+            }
           }
         }
       }
@@ -173,26 +180,37 @@ export class Scene {
   }
 }
 
-/** The front surface point seen at a pixel on the owner source, or null. The
- *  depth floor is relative to scene scale (matches the QI self-hit skip). */
-function surfacePoint(source: FeatureSource, cam: Camera, pt: Vec2, scale: number): Vec3 | null {
+/** The front surface hit (point + normal) seen at a pixel on the owner source,
+ *  or null. The depth floor is relative to scene scale (matches the QI self-hit
+ *  skip). */
+function surfaceHit(source: FeatureSource, cam: Camera, pt: Vec2, scale: number): Hit | null {
   const hits = source.raycast(unproject(cam, pt));
   const floor = EPS_DEPTH_REL * scale;
-  for (const h of hits) if (h.t > floor) return h.point;
+  for (const h of hits) if (h.t > floor) return h;
   return null;
 }
 
+/** Brightness ceiling for tonal layer `i` of `n`: layer 0 covers all but the
+ *  brightest highlight, deeper layers only progressively darker surface. */
+function layerBrightness(i: number, n: number): number {
+  return 0.95 * ((n - i) / n);
+}
+
 /**
- * Split a hatch segment into the runs that are actually visible: on the owner's
- * front surface and not occluded by anything nearer. This is what makes hatching
- * stop at occlusion boundaries and its gaps reveal what is behind (§2.6).
+ * Split a hatch segment into the runs that survive both tests, sampled along the
+ * segment: (1) visible — on the owner's front surface and not occluded by
+ * anything nearer (gaps reveal what is behind, §2.6); (2) dark enough — the local
+ * Lambert term N·L is below `maxDiffuse`, which is what shades curved surfaces
+ * light→dark across the tonal layers.
  */
-function clipHatchToVisible(
+function clipHatchTonal(
   seg: readonly [Vec2, Vec2],
   owner: FeatureSource,
   cam: Camera,
   sources: readonly FeatureSource[],
   scale: number,
+  lightDir: Vec3,
+  maxDiffuse: number,
 ): Vec2[][] {
   const [a, b] = seg;
   const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
@@ -202,9 +220,13 @@ function clipHatchToVisible(
   for (let i = 0; i <= k; i++) {
     const t = i / k;
     const pt: Vec2 = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
-    const p3 = surfacePoint(owner, cam, pt, scale);
-    const visible = p3 !== null && !isOccluded(p3, cam, sources, scale);
-    if (visible) run.push(pt);
+    const hit = surfaceHit(owner, cam, pt, scale);
+    let keep = false;
+    if (hit && !isOccluded(hit.point, cam, sources, scale)) {
+      const diffuse = Math.max(0, -(hit.normal[0] * lightDir[0] + hit.normal[1] * lightDir[1] + hit.normal[2] * lightDir[2]));
+      keep = diffuse < maxDiffuse;
+    }
+    if (keep) run.push(pt);
     else {
       if (run.length >= 2) runs.push(run);
       run = [];

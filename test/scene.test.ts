@@ -70,6 +70,15 @@ describe("Scene hatching", () => {
     expect(hatchOf(scene.render(front).renderStrokes)).toHaveLength(0);
   });
 
+  test("hatch weight/opacity are style-driven and overridable", () => {
+    const scene = new Scene();
+    scene.add(sphere([0, 0, 0], 2)).style({ hatch: { mode: "single", angle: 0, spacingPx: 18 }, hatchWeight: 0.4, hatchOpacity: 0.9 });
+    const hatch = hatchOf(scene.render(front).renderStrokes);
+    expect(hatch.length).toBeGreaterThan(0);
+    expect(hatch[0]!.style.weight).toBeCloseTo(0.4);
+    expect(hatch[0]!.style.opacity).toBeCloseTo(0.9);
+  });
+
   test("a hatched sphere fills its disk, clipped to the silhouette", () => {
     const scene = new Scene();
     scene.add(sphere([0, 0, 0], 2)).style({ hatch: { mode: "single", angle: 0, spacingPx: 18 } });
@@ -100,5 +109,22 @@ describe("Scene hatching", () => {
     occluded.add(sphere([0, 0, 2], 1.2)); // sits in front, covering the middle
 
     expect(totalLength(occluded)).toBeLessThan(totalLength(far));
+  });
+
+  test("tonal shading: a dark-lit sphere hatches more than a bright-lit one", () => {
+    const totalLength = (scene: Scene) => {
+      let sum = 0;
+      for (const s of hatchOf(scene.render(front).renderStrokes))
+        for (let i = 1; i < s.path.length; i++)
+          sum += Math.hypot(s.path[i]![0] - s.path[i - 1]![0], s.path[i]![1] - s.path[i - 1]![1]);
+      return sum;
+    };
+    // light travelling toward −z lights the camera-facing front (bright, sparse);
+    // travelling toward +z leaves the front in shadow (dark, dense).
+    const bright = new Scene({ light: { direction: [0, 0, -1] } });
+    bright.add(sphere([0, 0, 0], 1)).style({ hatch: { mode: "triple", angle: 0, spacingPx: 10 } });
+    const dark = new Scene({ light: { direction: [0, 0, 1] } });
+    dark.add(sphere([0, 0, 0], 1)).style({ hatch: { mode: "triple", angle: 0, spacingPx: 10 } });
+    expect(totalLength(dark)).toBeGreaterThan(totalLength(bright) * 1.5);
   });
 });

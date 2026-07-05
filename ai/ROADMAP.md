@@ -25,10 +25,13 @@ renders. Before Phase 2 we are hardening Phase 1 — the ordered backlog:
    no magic numbers remain outside that module. The QI grazing/cusp safety-net now
    scans at a screen-relative resolution (~`SCAN_STEP_PX` px), with its miss bound
    documented; transversal boundaries stay exact via analytic crossings.
-2. ⬜ **Visual fidelity.** Coherent wobble that joins strokes at shared vertices
-   (no gaps where a ruling meets a rim); per-patch hatch tone so curved surfaces
-   shade light→dark instead of a flat single tone; hatch spacing and line-weight
-   refinement.
+2. ✅ **Visual fidelity.** Wobble is now a seeded 3-D noise field keyed on the
+   object-space point (per element), so strokes sharing a vertex — a ruling and
+   its rim, a cone's generators at the apex — receive the same offset and join
+   exactly. Hatching shades curved surfaces light→dark via tonal layering (each
+   angle set clipped to the surface region dark enough for it; flat faces stay
+   uniform). Hatch weight/opacity are style-driven. `wobble`/`hatch` remain
+   pluggable strategies.
 3. ⬜ **Feature gaps**, in order: cylinder/cone surface hatching (§2.6) →
    `scene.highlight` (§2.8) → `Point` primitive (§2.3) → cross-primitive
    consolidation (§2.7) → quadric ∩ quadric quartics (§2.5) → torus (§2.3).

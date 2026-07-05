@@ -27,9 +27,9 @@ const FREQUENCY = 3.1;
 const WOBBLE_STEP_PX = 6;
 
 /** Peak per-axis screen offset (px) at wobble = 1 for the spatial field. */
-const SPATIAL_AMPLITUDE_PX = 1.9;
+const SPATIAL_AMPLITUDE_PX = 2.7;
 /** Spatial-noise cycles per world unit. */
-const SPATIAL_FREQUENCY = 1.7;
+const SPATIAL_FREQUENCY = 2.1;
 
 /** FNV-1a string hash → uint32, for turning a stroke identity into a seed. */
 export function hashSeed(s: string): number {

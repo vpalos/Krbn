@@ -75,9 +75,12 @@ catalog are implemented and tested. What exists, by area (✅ done · 🚧 parti
 - ✅ **Numerical hygiene** (Phase-1 polish 1): every tolerance is centralized and
   documented in `curve/epsilon.ts`; the QI grazing/cusp scan is screen-relative
   with a documented miss bound.
-- ⬜ **Phase-1 polish remaining:** visual fidelity (coherent wobble joins,
-  per-patch hatch tone), cross-primitive consolidation, cylinder/cone surface
-  hatching, quadric ∩ quadric quartics, `scene.highlight`, torus.
+- ✅ **Visual fidelity** (Phase-1 polish 2): coherence-preserving wobble (seeded
+  3-D field keyed on the object-space point, per element) so strokes join at
+  shared vertices; per-patch hatch tone via tonal layering so curved surfaces
+  shade light→dark while flat faces stay uniform; style-driven hatch weight/opacity.
+- ⬜ **Phase-1 polish remaining:** cross-primitive consolidation, cylinder/cone
+  surface hatching, quadric ∩ quadric quartics, `scene.highlight`, torus.
 
 All nine Phase-1 build-order steps (§2.9) are implemented end to end.
 

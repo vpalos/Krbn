@@ -40,6 +40,24 @@ describe("WobbleStrategy is pluggable", () => {
     expect(maxDev(big)).toBeGreaterThan(maxDev(small) * 3);
   });
 
+  test("two strokes sharing a 3-D vertex join (same offset) under one seed", () => {
+    const w = createWobble();
+    const shared: [number, number, number] = [2, 1, 0.5];
+    const seed = 4242;
+    // both strokes pass through the shared point, which projects to (50,50)
+    const a = w.apply({ path: [[10, 10], [50, 50]], points3: [[0, 0, 0], shared], seed, amount: 0.8 });
+    const b = w.apply({ path: [[50, 50], [90, 12]], points3: [shared, [5, 0, 0]], seed, amount: 0.8 });
+    expect(a[a.length - 1]).toEqual(b[0]); // the shared vertex lands at the same wobbled point
+  });
+
+  test("different seeds do not join (independent fields)", () => {
+    const w = createWobble();
+    const shared: [number, number, number] = [2, 1, 0.5];
+    const a = w.apply({ path: [[10, 10], [50, 50]], points3: [[0, 0, 0], shared], seed: 1, amount: 0.8 });
+    const b = w.apply({ path: [[50, 50], [90, 12]], points3: [shared, [5, 0, 0]], seed: 2, amount: 0.8 });
+    expect(a[a.length - 1]).not.toEqual(b[0]);
+  });
+
   test("defaultWobble matches createWobble() defaults", () => {
     const straight: Vec2[] = Array.from({ length: 21 }, (_, i) => [i * 4, 0] as Vec2);
     const pts3 = straight.map((_, i) => [i * 4, 0, 0] as [number, number, number]);
