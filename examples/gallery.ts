@@ -17,6 +17,7 @@ import { Cone } from "../src/primitives/cone.js";
 import { Polygon } from "../src/primitives/polygon.js";
 import { Line } from "../src/primitives/line.js";
 import { Point } from "../src/primitives/point.js";
+import { projectionMatrix, projectPoint } from "../src/math/camera.js";
 
 // Defaults next to this file; overridable so a compiled copy can still target
 // the repo (KRBN_GALLERY_OUT). Normal `bun run` users need not set it.
@@ -27,6 +28,22 @@ const BG = "#faf9f5";
 function save(name: string, svg: string): void {
   writeFileSync(join(OUT, `${name}.svg`), svg);
   console.log(`wrote gallery/${name}.svg`);
+}
+
+/** A `<text>` label anchored at the screen projection of a world point. */
+function textAt(
+  cam: Camera,
+  world: [number, number, number],
+  text: string,
+  anchor: "start" | "middle" | "end" = "middle",
+): string {
+  const p = projectPoint(projectionMatrix(cam), world).point;
+  return `<text x="${p[0].toFixed(1)}" y="${p[1].toFixed(1)}" text-anchor="${anchor}" font-family="sans-serif" font-size="14" fill="#888">${text}</text>`;
+}
+
+/** Inject label `<text>` elements just before the closing tag of a rendered SVG. */
+function withLabels(svg: string, labels: readonly string[]): string {
+  return svg.replace(/<\/svg>\s*$/, `${labels.join("\n")}\n</svg>`);
 }
 
 // ---------------------------------------------------------------------------
@@ -81,7 +98,15 @@ function hatching(): void {
       [2.7, 0.9, 0],
     ]),
   ).style({ wobble: 0.2, hatch: { mode: "single", angle: 45 } });
-  save("02-hatching", scene.toSVG(cam));
+  save(
+    "02-hatching",
+    withLabels(scene.toSVG(cam), [
+      textAt(cam, [-2.9, -1.15, 0], "1 layer"),
+      textAt(cam, [-0.9, -1.15, 0], "2 layers"),
+      textAt(cam, [1.1, -1.15, 0], "3 layers"),
+      textAt(cam, [3.3, -1.15, 0], "flat"),
+    ]),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -169,14 +194,19 @@ function solidShading(): void {
     (x: number, z: number) => new Cylinder([x, 0, z - 0.75], [0, 0, 1.5], 0.65),
     (x: number, z: number) => sphere([x, 0, z], 0.7),
   ];
+  const rowZ = [2.3, 0, -2.3];
+  const rowLabel = ["1 layer", "2 layers", "3 layers"];
   modes.forEach((mode, r) => {
-    const z = 2.3 - r * 2.3; // top row single, then cross, then triple
+    const z = rowZ[r]!;
     makers.forEach((make, c) => {
       const x = -2.9 + c * 2.9;
       scene.add(make(x, z)).style({ wobble: 0.18, hatch: { mode, angle: 15 } });
     });
   });
-  save("05-solid-shading", scene.render(cam).svg);
+  save(
+    "05-solid-shading",
+    withLabels(scene.render(cam).svg, rowZ.map((z, r) => textAt(cam, [-4.35, 0, z], rowLabel[r]!, "start"))),
+  );
 }
 
 // ---------------------------------------------------------------------------

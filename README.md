@@ -9,16 +9,14 @@ and **hatch regions** from geometry, so a scene reads as if drawn by a technical
 artist: ghosted hidden lines, cross-hatched surfaces, emphasized/dashed contours,
 and deliberate reduction of detail.
 
-> **Status: pre-alpha, actively building (updated 2026-07-05).** The math kernel,
-> the **exact conic intersection kernel**, the full analytic **primitive catalog**
-> (Quadric → Sphere/Ellipsoid/Cylinder/Cone, Plane/Polygon, Line, ParametricCurve),
-> exact hidden-line visibility, styling (wobble, ghosted hidden lines, hatching),
-> the **`Scene` / importance model**, intersection-curve features
-> (`scene.intersect`), stage-3 abstraction, and an SVG backend are implemented and
-> tested — **all nine Phase-1 build-order steps are done**. See
-> [`examples/waterline.svg`](examples/waterline.svg). Remaining is Phase-1 polish
-> (consolidation, more hatch surfaces, quartics, highlight) and then Phase 2 (the
-> mesh regime). See [`ai/ROADMAP.md`](ai/ROADMAP.md) for the annotated status.
+![a ball half-submerged through a hatched plane](examples/gallery/03-depth-hatching.svg)
+
+_More in the [example gallery](examples/README.md)._
+
+> **Status & roadmap** live in one place, not here: **[`ai/ROADMAP.md`](ai/ROADMAP.md)**
+> holds the annotated build status and polish backlog, and
+> **[`ai/DESIGN.md`](ai/DESIGN.md)** holds the design, the implementation-status
+> breakdown, and the hard-parts registry. This README stays high-level.
 
 ## Why it works this way
 
@@ -69,14 +67,6 @@ bun run typecheck
 bun run build
 bun test
 ```
-
-## Next build target
-
-Phase 1 is feature-complete through its nine build-order steps. Next is **Phase-1
-polish** — cross-primitive stroke consolidation, cylinder/cone surface hatching,
-quadric ∩ quadric quartics and torus, and `scene.highlight` — and then **Phase 2**,
-the mesh/organ regime: one more `FeatureSource` behind the same seam, reusing
-everything from the stage-2 contract onward.
 
 ## License
 
