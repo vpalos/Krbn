@@ -20,14 +20,6 @@ It writes to `examples/gallery/`:
 | `03-depth-hatching.svg` | Hatching with depth + intersection curve | A ball half-submerged through a plane: the exact **waterline** (sphere ∩ plane) is bold and **dashed on its hidden back arc**; the plane's hatch **stops where the ball occludes it** (gaps reveal depth); hatch tone is quantized. |
 | `04-wobble.svg` | Seeded coherent wobble | The same cone at wobble `0 → 1` (ruler → hand-drawn). At every amount the **apex stays a single clean point** and rulings meet the rim exactly — the offset is a seeded field keyed on the 3-D point, so strokes sharing a vertex join. |
 
-## Standalone demos
-
-- `demo.ts` — a plain (un-styled) scene through the render facade.
-- `styled.ts` — wobble + hatching + importance via the `Scene` API.
-- `waterline.ts` — the sphere/plane intersection (same scene as `03`).
-
-Each writes an `.svg` next to itself, e.g. `bun run examples/styled.ts`.
-
 ## Rendering to PNG
 
 SVGs open in any browser. To rasterize (e.g. for a README), use any SVG tool:
