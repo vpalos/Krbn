@@ -40,8 +40,9 @@ export function hatchAngles(mode: HatchMode, angleDeg: number): number[] {
 }
 
 /** Darker regions hatch tighter. tone 0 → 11px, tone 1 → 3px (slightly denser
- *  than the original 14→4 so tonal bands read more strongly). */
-function toneToSpacing(tone: number): number {
+ *  than the original 14→4 so tonal bands read more strongly). Shared with the
+ *  scene so curved direction fields pick the same tone-driven spacing. */
+export function toneToSpacing(tone: number): number {
   const t = Math.max(0, Math.min(1, tone));
   return 11 - 8 * t;
 }

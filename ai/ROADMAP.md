@@ -45,11 +45,15 @@ renders. Before Phase 2 we are hardening Phase 1 — the ordered backlog:
    plane-sweep + conic∩conic and chained to polyline loops; `gallery/08`) →
    ✅ torus (§2.3, `src/primitives/torus.ts`: silhouette traced numerically from
    the implicit form as two contour loops; ray-torus via a real quartic solver;
-   `gallery/10`, surface-hatched as an annulus — even–odd hole clip leaves the
-   hole empty). **All feature gaps done.** Deferred refinements: curved (axial /
-   circumferential) hatch direction fields (§2.6) and a contour Newton-projection
-   so a *sampled* silhouette's grazing points can be visibility-tested without the
-   small nudge tolerance (matters for Phase-2 meshes).
+   `gallery/10`) → ✅ **curved hatch direction fields** (§2.6,
+   `FeatureSource.hatchField`: cylinder = rings + rulings, cone = rings +
+   generators, torus = poloidal + toroidal circles — exact iso-parameter curves
+   emitted as world samples with normals; the scene clips each to the
+   front-facing, unoccluded, tonally-dark surface via `clipHatchField`;
+   `gallery/12`, and now the default for `gallery/05/10/11`). **All feature gaps
+   done.** Deferred refinement: a contour Newton-projection so a *sampled*
+   silhouette's grazing points can be visibility-tested without the small nudge
+   tolerance (matters for Phase-2 meshes).
 4. ⬜ **Verification & DX**: golden-SVG snapshot regression tests → more
    adversarial property tests → a real-`bun` test/CI note → an API-ergonomics pass.
 
@@ -62,10 +66,7 @@ renders. Before Phase 2 we are hardening Phase 1 — the ordered backlog:
   contour. Path A (vector, crisp) needs a small polygon-union routine
   (Greiner–Hormann / Martinez); Path B (screen coverage mask + marching-squares)
   gives a softer halo more cheaply. Recommend A on the hull footprints as a good
-  approximation. Deferred until after Phase-1 polish.
-- **Curved hatch direction fields** — axial / circumferential (cylinder) and
-  radial / circumferential (cone) hatch lines instead of straight parallels
-  (§2.6). Would follow surface curvature for stronger form.
+  approximation. **Deferred until after Phase 2** (per direction call 2026-07-06).
 
 1. ✅ **Core math kernel** — `Vec3`/`Vec2`, `Basis`, `AABB`, `Camera` (ortho +
    perspective projection), `Ray`, and the `Curve`/`Curve2D` carriers, plus the

@@ -49,7 +49,8 @@ Past scaffold (as of 2026-07-05). **Done and tested:** the core math kernel
 (`src/math`), the exact conic kernel (`src/curve` — line–conic + conic–conic via
 the pencil/degenerate-split method, the most heavily tested module), the full
 analytic **primitive catalog** (`src/primitives`: `Quadric`→`Sphere`/`Ellipsoid`/
-`Cylinder`/`Cone`, `Plane`/`Polygon`, `Line`, `ParametricCurve`), and **stage 2 —
+`Cylinder`/`Cone`, `Plane`/`Polygon`, `Line`, `ParametricCurve`, `Point`, `Torus`),
+and **stage 2 —
 exact quantitative invisibility** (`src/pipeline/visibility.ts`: visible/hidden
 intervals via analytic silhouette crossings + closed-form depth `raycast`, with a
 bisection safety net for grazing cusps), a **runnable emit → SVG backend**
@@ -61,11 +62,15 @@ hatching), the **`Scene`/element/importance model** (`src/scene`),
 `scene.intersect`: quadric∩plane, sphere∩sphere, plane∩plane), and **stage-3
 abstraction** (`src/pipeline/abstract.ts`: importance-scaled screen-size
 thresholding + tone quantization). **All nine Phase-1 build-order steps are
-done.** Visual checks: `examples/demo.ts` (plain), `styled.ts` (wobble + hatch),
-`waterline.ts` (intersection + abstraction). **Phase-1 polish remaining:**
-cross-primitive consolidation, cylinder/cone surface hatching, quadric∩quadric
-quartics, `scene.highlight`, torus — then **Phase 2** (mesh regime). See
-`ai/ROADMAP.md` for the annotated build order and
+done**, and the **Phase-1 polish backlog is complete**: cross-primitive
+consolidation, cylinder/cone surface hatching, `scene.highlight` (+halo), `Point`,
+quadric∩quadric quartics, `Torus`, and **curved hatch direction fields**
+(`FeatureSource.hatchField`: cylinder rings+rulings, cone rings+generators, torus
+poloidal+toroidal — exact iso-parameter curves clipped to the visible surface by
+`clipHatchField`). Visual checks: the 12-demo `examples/gallery.ts` (regenerate to
+`examples/gallery/*.svg`). **Only deferred items remain** before Phase 2: a contour
+Newton-projection for sampled silhouettes (Phase-2-adjacent) and group-highlight
+(pushed to post-Phase-2). See `ai/ROADMAP.md` for the annotated build order and
 `.claude/rules/numerical-robustness.md` for the kernel's robustness bar.
 
 ## Rules

@@ -201,7 +201,9 @@ function solidShading(): void {
     const z = rowZ[r]!;
     makers.forEach((make, c) => {
       const x = -2.9 + c * 2.9;
-      scene.add(make(x, z)).style({ wobble: 0.18, hatch: { mode, angle: 15 } });
+      // straight parallel hatch (field: false) — the flat-shading baseline;
+      // the curved direction field gets its own showcase in demo 12
+      scene.add(make(x, z)).style({ wobble: 0.18, hatch: { mode, angle: 15, field: false } });
     });
   });
   save(
@@ -309,8 +311,13 @@ function stripSvg(svg: string): string {
 const label = (x: number, y: number, s: string): string =>
   `<text x="${x}" y="${y}" font-family="sans-serif" font-size="14" fill="#999">${s}</text>`;
 
-/** Arrange a grid of same-size panels; row labels top-left, dividers between. */
-function gridStitch(W: number, H: number, rows: string[][], rowLabels: string[]): string {
+/** A centered `<text>` (for column headers). */
+const labelC = (x: number, y: number, s: string): string =>
+  `<text x="${x}" y="${y}" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#999">${s}</text>`;
+
+/** Arrange a grid of same-size panels; row labels top-left, optional column
+ *  headers centered along the top, dividers between. */
+function gridStitch(W: number, H: number, rows: string[][], rowLabels: string[], colLabels?: string[]): string {
   const gapX = 22;
   const gapY = 18;
   const cols = rows[0]!.length;
@@ -331,6 +338,7 @@ function gridStitch(W: number, H: number, rows: string[][], rowLabels: string[])
     const x = c * (W + gapX) - gapX / 2;
     parts.push(`<line x1="${x}" y1="8" x2="${x}" y2="${totalH - 8}" stroke="#ddd" stroke-width="1" />`);
   }
+  if (colLabels) colLabels.forEach((s, c) => parts.push(labelC(c * (W + gapX) + W / 2, 20, s)));
   parts.push(`</svg>`);
   return parts.join("\n");
 }
@@ -425,6 +433,49 @@ function toriDemo(): void {
   save("11-tori", scene.render(cam).svg);
 }
 
+// ---------------------------------------------------------------------------
+// 12. Curved hatch direction fields — the hatch lines are the surface's *exact*
+//     iso-parameter curves, not straight parallels. Left column: one family
+//     (cylinder/cone rings, torus poloidal loops). Right column: cross-hatch —
+//     the second family added (axial rulings / apex generators / toroidal loops).
+//     Each curve's hidden half is dropped by the same front-face + occlusion test.
+// ---------------------------------------------------------------------------
+function directionFieldsDemo(): void {
+  const cam: Camera = {
+    eye: [3.6, 2.7, 2.2],
+    target: [0, 0, 0],
+    up: [0, 0, 1],
+    projection: "perspective",
+    scale: Math.PI / 4.4,
+    viewport: { width: 360, height: 320 },
+  };
+  const light = { direction: [-0.4, -0.45, -0.55] as [number, number, number] };
+  type Add = (s: Scene, mode: "single" | "cross") => void;
+  const panel = (add: Add, mode: "single" | "cross"): string => {
+    const scene = new Scene({ light, svg: { background: BG } });
+    add(scene, mode);
+    return scene.render(cam).svg;
+  };
+  const style = (mode: "single" | "cross") => ({ wobble: 0.35, hatch: { mode, angle: 0, spacingPx: 10 } });
+  const cyl: Add = (s, mode) => void s.add(new Cylinder([0, 0, -1], [0, 0, 2], 0.9)).style(style(mode));
+  const con: Add = (s, mode) => void s.add(new Cone([0, 0, 1.1], [0, 0, -2.2], 0.95)).style(style(mode));
+  const tor: Add = (s, mode) => void s.add(new Torus([0, 0, 0], [0, 0, 1], 1.2, 0.42)).style(style(mode));
+  save(
+    "12-direction-fields",
+    gridStitch(
+      cam.viewport.width,
+      cam.viewport.height,
+      [
+        [panel(cyl, "single"), panel(cyl, "cross")],
+        [panel(con, "single"), panel(con, "cross")],
+        [panel(tor, "single"), panel(tor, "cross")],
+      ],
+      ["cylinder", "cone", "torus"],
+      ["one family", "cross-hatch"],
+    ),
+  );
+}
+
 hiddenLines();
 hatching();
 depthHatching();
@@ -436,4 +487,5 @@ quarticDemo();
 consolidationDemo();
 torusDemo();
 toriDemo();
+directionFieldsDemo();
 console.log("gallery complete");

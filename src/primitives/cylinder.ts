@@ -8,13 +8,14 @@
 
 import type { AABB, Camera, Hit, Ray, Vec2, Vec3 } from "../math/types.js";
 import type { Curve2D } from "../curve/types.js";
-import type { ElementId, Feature, HatchRegion, Light } from "../pipeline/types.js";
+import type { ElementId, Feature, HatchFamily, HatchFieldOptions, HatchRegion, Light } from "../pipeline/types.js";
 import type { FeatureSource } from "../scene/feature-source.js";
 import { basisFromNormal } from "../math/basis.js";
 import { add, addScaled, cross, dot, length, normalize, sub } from "../math/vec3.js";
 import { cameraFrame, projectionMatrix, projectPoint } from "../math/camera.js";
 import { projectCircle } from "../math/project.js";
 import { convexHull } from "../math/hull.js";
+import { circleCurve, curveCount, screenDist, segmentCurve } from "./hatch-field.js";
 import { solveQuadratic } from "../curve/roots.js";
 import { EPS_ABS, EPS_REL } from "../curve/epsilon.js";
 
@@ -72,6 +73,47 @@ export class Cylinder implements FeatureSource {
     const outline = convexHull(pts);
     if (outline.length < 3) return [];
     return [{ owner: this.id, outline: { kind: "polyline", pts: outline }, mode: "single", angle: 0, tone: 0.5 }];
+  }
+
+  /** Exact curved direction field (§2.6): circumferential rings + axial rulings. */
+  hatchField(cam: Camera, opts: HatchFieldOptions): HatchFamily[] {
+    const plane = basisFromNormal(this.base, this.axis);
+    const top = this.top;
+    const families: HatchFamily[] = [];
+
+    // Family 0 — circumferential rings (constant height); normal is radial. The
+    // two end caps get concentric rings too (normal ±axis), so the field covers
+    // the whole surface (an axis-on view still shades the visible cap).
+    const nRings = curveCount(screenDist(cam, this.base, top), opts.spacingPx, 2, 40);
+    const rings = [];
+    for (let k = 0; k < nRings; k++) {
+      const s = ((k + 0.5) / nRings) * this.height;
+      const c = addScaled(this.base, this.axis, s);
+      rings.push(circleCurve(c, plane.x, plane.y, this.radius, (p) => sub(p, c), 96));
+    }
+    const rScreen = screenDist(cam, this.base, addScaled(this.base, plane.x, this.radius));
+    const nCap = curveCount(rScreen, opts.spacingPx, 2, 24);
+    for (const [c, sign] of [[this.base, -1], [top, 1]] as const) {
+      const nrm: Vec3 = [sign * this.axis[0], sign * this.axis[1], sign * this.axis[2]];
+      for (let k = 1; k <= nCap; k++) {
+        rings.push(circleCurve(c, plane.x, plane.y, (k / (nCap + 1)) * this.radius, () => nrm, 96));
+      }
+    }
+    families.push({ curves: rings });
+
+    if (opts.maxFamilies >= 2) {
+      // Family 1 — axial rulings (constant angle); normal is the radial offset dir.
+      const diam = screenDist(cam, addScaled(this.base, plane.x, this.radius), addScaled(this.base, plane.x, -this.radius));
+      const nRul = curveCount(Math.PI * diam, opts.spacingPx, 4, 64);
+      const rulings = [];
+      for (let j = 0; j < nRul; j++) {
+        const th = (2 * Math.PI * j) / nRul;
+        const off = add(addScaled([0, 0, 0], plane.x, this.radius * Math.cos(th)), addScaled([0, 0, 0], plane.y, this.radius * Math.sin(th)));
+        rulings.push(segmentCurve(add(this.base, off), add(top, off), off, 40));
+      }
+      families.push({ curves: rulings });
+    }
+    return families;
   }
 
   extractFeatures(cam: Camera): Feature[] {

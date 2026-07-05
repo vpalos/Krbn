@@ -10,13 +10,14 @@
 
 import type { AABB, Camera, Hit, Ray, Vec2, Vec3 } from "../math/types.js";
 import type { Curve2D } from "../curve/types.js";
-import type { ElementId, Feature, HatchRegion, Light } from "../pipeline/types.js";
+import type { ElementId, Feature, HatchFamily, HatchFieldOptions, HatchRegion, Light } from "../pipeline/types.js";
 import type { FeatureSource } from "../scene/feature-source.js";
 import { basisFromNormal } from "../math/basis.js";
 import { add, addScaled, dot, length, normalize, sub } from "../math/vec3.js";
 import { cameraFrame, projectionMatrix, projectPoint } from "../math/camera.js";
 import { projectCircle } from "../math/project.js";
 import { convexHull } from "../math/hull.js";
+import { circleCurve, curveCount, screenDist, segmentCurve } from "./hatch-field.js";
 import { solveQuadratic } from "../curve/roots.js";
 import { EPS_ABS } from "../curve/epsilon.js";
 
@@ -81,6 +82,49 @@ export class Cone implements FeatureSource {
     const outline = convexHull(pts);
     if (outline.length < 3) return [];
     return [{ owner: this.id, outline: { kind: "polyline", pts: outline }, mode: "single", angle: 0, tone: 0.5 }];
+  }
+
+  /** Exact curved direction field (§2.6): circumferential rings + apex generators. */
+  hatchField(cam: Camera, opts: HatchFieldOptions): HatchFamily[] {
+    const plane = basisFromNormal(this.baseCenter, this.axis);
+    const cos2 = this.cosA * this.cosA;
+    // outward cone normal at a lateral point p: rel·cos²α − axis·(rel·axis)
+    const coneNormal = (p: Vec3): Vec3 => {
+      const rel = sub(p, this.apex);
+      return sub(addScaled([0, 0, 0], rel, cos2), addScaled([0, 0, 0], this.axis, dot(rel, this.axis)));
+    };
+    const families: HatchFamily[] = [];
+
+    // Family 0 — circumferential rings; radius grows 0 → R from apex to base,
+    // then continues as concentric rings across the base cap (normal = axis), so
+    // the field covers the whole surface (an axis-on view still shades the cap).
+    const nRings = curveCount(screenDist(cam, this.apex, this.baseCenter), opts.spacingPx, 2, 40);
+    const rings = [];
+    for (let k = 1; k <= nRings; k++) {
+      const frac = k / (nRings + 1);
+      const c = addScaled(this.apex, this.axis, frac * this.height);
+      rings.push(circleCurve(c, plane.x, plane.y, frac * this.baseRadius, coneNormal, 96));
+    }
+    const rScreen = screenDist(cam, this.baseCenter, addScaled(this.baseCenter, plane.x, this.baseRadius));
+    const nCap = curveCount(rScreen, opts.spacingPx, 2, 24);
+    for (let k = 1; k <= nCap; k++) {
+      rings.push(circleCurve(this.baseCenter, plane.x, plane.y, (k / (nCap + 1)) * this.baseRadius, () => this.axis, 96));
+    }
+    families.push({ curves: rings });
+
+    if (opts.maxFamilies >= 2) {
+      // Family 1 — straight generators from the apex to the base rim.
+      const diam = screenDist(cam, addScaled(this.baseCenter, plane.x, this.baseRadius), addScaled(this.baseCenter, plane.x, -this.baseRadius));
+      const nGen = curveCount(Math.PI * diam, opts.spacingPx, 4, 64);
+      const gens = [];
+      for (let j = 0; j < nGen; j++) {
+        const th = (2 * Math.PI * j) / nGen;
+        const end = add(this.baseCenter, add(addScaled([0, 0, 0], plane.x, this.baseRadius * Math.cos(th)), addScaled([0, 0, 0], plane.y, this.baseRadius * Math.sin(th))));
+        gens.push(segmentCurve(this.apex, end, coneNormal(end), 40));
+      }
+      families.push({ curves: gens });
+    }
+    return families;
   }
 
   extractFeatures(cam: Camera): Feature[] {

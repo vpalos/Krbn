@@ -21,6 +21,12 @@ export interface HatchSpec {
   angle: number;
   /** line spacing in px; if omitted, derived from the region tone */
   spacingPx?: number;
+  /**
+   * Use the primitive's exact curved direction field (rings/rulings/poloidal…)
+   * when it offers one. Defaults to `true`; set `false` to force straight
+   * parallel hatch even on a cylinder/cone/torus. (ai/DESIGN.md §2.6)
+   */
+  field?: boolean;
 }
 
 export interface StyleSpec {

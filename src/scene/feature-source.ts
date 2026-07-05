@@ -1,6 +1,6 @@
 import type { AABB, Camera, Ray, Hit } from "../math/types.js";
 import type { Curve2D } from "../curve/types.js";
-import type { Feature, HatchRegion, Light } from "../pipeline/types.js";
+import type { Feature, HatchFamily, HatchFieldOptions, HatchRegion, Light } from "../pipeline/types.js";
 
 /**
  * The seam of the engine (ai/DESIGN.md §1.1).
@@ -18,6 +18,15 @@ export interface FeatureSource {
 
   /** per-frame: fillable surface regions */
   hatchRegions(cam: Camera, light: Light): HatchRegion[];
+
+  /**
+   * Optional: an *exact curved direction field* for hatching — the surface's
+   * iso-parameter curves (rings/rulings/poloidal circles) as world-space samples
+   * with normals, ordered families first. Sources with a natural parametrization
+   * (cylinder, cone, torus) provide it; the rest omit it and the scene falls back
+   * to straight parallel hatch over `hatchRegions`. (ai/DESIGN.md §2.6)
+   */
+  hatchField?(cam: Camera, opts: HatchFieldOptions): HatchFamily[];
 
   /** exact where possible; used by the visibility reference-point test */
   raycast(ray: Ray): Hit[];

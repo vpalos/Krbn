@@ -12,11 +12,12 @@
 
 import type { AABB, Basis, Camera, Hit, Ray, Vec2, Vec3 } from "../math/types.js";
 import type { Curve2D } from "../curve/types.js";
-import type { ElementId, Feature, HatchRegion, Light } from "../pipeline/types.js";
+import type { ElementId, Feature, HatchFamily, HatchFieldOptions, HatchRegion, Light } from "../pipeline/types.js";
 import type { FeatureSource } from "../scene/feature-source.js";
 import { basisFromNormal } from "../math/basis.js";
 import { addScaled, dot, normalize, sub } from "../math/vec3.js";
 import { cameraFrame, projectionMatrix, projectPoint } from "../math/camera.js";
+import { circleCurve, curveCount, screenDist } from "./hatch-field.js";
 import { solveQuarticReal } from "../curve/roots.js";
 import { chainPoints } from "../curve/chain.js";
 import { EPS_ABS } from "../curve/epsilon.js";
@@ -64,8 +65,8 @@ export class Torus implements FeatureSource {
 
   hatchRegions(cam: Camera, _light: Light): HatchRegion[] {
     // Footprint = the annulus between the two silhouette loops (outer outline
-    // minus the hole). Straight parallel hatching (like the sphere), shaded by the
-    // scene's per-sample N·L clip; the toroidal/poloidal direction field is future.
+    // minus the hole). Kept as the straight-hatch fallback; the scene prefers the
+    // exact toroidal/poloidal direction field from `hatchField` when hatching.
     const loops = this.silhouetteLoops(cam);
     if (loops.length === 0) return [];
     const P = projectionMatrix(cam);
@@ -86,6 +87,48 @@ export class Torus implements FeatureSource {
     if (outer.length < 3) return [];
     const holes: Curve2D[] = projected.slice(1).filter((h) => h.length >= 3).map((pts) => ({ kind: "polyline", pts }));
     return [{ owner: this.id, outline: { kind: "polyline", pts: outer }, holes, mode: "single", angle: 0, tone: 0.5 }];
+  }
+
+  /** Exact curved direction field (§2.6): poloidal (tube) + toroidal circles. */
+  hatchField(cam: Camera, opts: HatchFieldOptions): HatchFamily[] {
+    const c = this.center;
+    const R = this.majorRadius;
+    const r = this.minorRadius;
+    const { x: e1, y: e2, z: a } = this.frame;
+    // outward torus normal at any surface point: p − (its nearest tube-centre).
+    const torusNormal = (p: Vec3): Vec3 => {
+      const rel = sub(p, c);
+      const inPlane = sub(rel, addScaled([0, 0, 0], a, dot(rel, a)));
+      const rad = normalize(inPlane);
+      return sub(p, addScaled(c, rad, R));
+    };
+    const radial = (u: number): Vec3 => addScaled(addScaled([0, 0, 0], e1, Math.cos(u)), e2, Math.sin(u));
+    const families: HatchFamily[] = [];
+
+    // Family 0 — poloidal circles (tube cross-sections, one per toroidal angle u).
+    const majDiam = screenDist(cam, addScaled(c, e1, R), addScaled(c, e1, -R));
+    const nU = curveCount(Math.PI * majDiam, opts.spacingPx, 8, 72);
+    const poloidal = [];
+    for (let k = 0; k < nU; k++) {
+      const u = (TWO_PI * k) / nU;
+      const rad = radial(u);
+      poloidal.push(circleCurve(addScaled(c, rad, R), rad, a, r, torusNormal, 48));
+    }
+    families.push({ curves: poloidal });
+
+    if (opts.maxFamilies >= 2) {
+      // Family 1 — toroidal circles (around the axis, one per poloidal angle v).
+      const minDiam = screenDist(cam, addScaled(c, e1, R + r), addScaled(c, e1, R - r));
+      const nV = curveCount(Math.PI * minDiam, opts.spacingPx, 4, 48);
+      const toroidal = [];
+      for (let k = 0; k < nV; k++) {
+        const v = (TWO_PI * k) / nV;
+        const center = addScaled(c, a, r * Math.sin(v));
+        toroidal.push(circleCurve(center, e1, e2, R + r * Math.cos(v), torusNormal, 96));
+      }
+      families.push({ curves: toroidal });
+    }
+    return families;
   }
 
   extractFeatures(cam: Camera): Feature[] {

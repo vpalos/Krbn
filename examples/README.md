@@ -50,7 +50,9 @@ seeded field keyed on the 3-D point, so strokes sharing a vertex join.
 
 A 3×3 grid: **rows** are 1 / 2 / 3 layers (single / cross / triple), **columns**
 are cone / cylinder / sphere. Each is surface-hatched and shaded **light→dark** —
-adding layers deepens the tone.
+adding layers deepens the tone. This is the **straight-parallel** baseline
+(`hatch.field: false`); the curved direction field gets its own showcase in
+[demo 12](#12--curved-hatch-direction-fields).
 
 ### 06 · `scene.highlight` (x-ray emphasis)
 
@@ -93,17 +95,30 @@ Two rows (**wobble off / on**). The torus silhouette is a **quartic** image curv
 extracted numerically from the implicit form as two contour loops (outer + hole).
 The outer outline is solid; the hole rim is **solid on its near arc and dashed on
 the far arc** where the tube hides it. Ray-torus is a genuine quartic. The tube is
-surface-hatched and shaded like the spheres, with the **hole left empty** (the
-hatch region is the annulus between the two loops, via an even–odd hole clip).
+hatched along its **exact poloidal + toroidal direction field** (§2.6): the hatch
+lines are the surface's own iso-parameter circles, so they wrap the tube, and each
+one's hidden half drops out of the same front-face + occlusion test (the hole is
+left empty for free).
 
 ### 11 · Two interlocking toruses
 
 ![two toruses](gallery/11-tori.svg)
 
-Two toruses threaded through each other like chain links, each cross-hatched and
-wobbled. **Mutual occlusion** falls straight out of the visibility stage — each
-torus dashes the other's hidden silhouette and stops its hatch where the other is
-in front — so the compound figure reads correctly with no special handling.
+Two toruses threaded through each other like chain links, each cross-hatched with
+its surface-following poloidal/toroidal field and wobbled. **Mutual occlusion**
+falls straight out of the visibility stage — each torus dashes the other's hidden
+silhouette and stops its hatch where the other is in front — so the compound
+figure reads correctly with no special handling.
+
+### 12 · Curved hatch direction fields
+
+![direction fields](gallery/12-direction-fields.svg)
+
+The hatch lines are the surface's **exact iso-parameter curves**, not straight
+parallels. **Left**: one family (cylinder/cone rings, torus poloidal loops).
+**Right**: cross-hatch — the second family added (axial rulings, apex generators,
+toroidal loops). Each curve is drawn only where it is front-facing and unoccluded,
+so its hidden half drops out of the same visibility test as everything else.
 
 ## Rendering to PNG
 

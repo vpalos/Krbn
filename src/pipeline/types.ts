@@ -58,6 +58,41 @@ export interface HatchRegion {
   tone: number;
 }
 
+/**
+ * A curved hatch *direction field* (ai/DESIGN.md §2.6). Instead of straight
+ * parallel screen lines, a primitive can emit its exact iso-parameter curves
+ * (a cylinder's rings + rulings, a torus's poloidal/toroidal circles) as
+ * world-space samples carrying the surface normal. The scene projects each
+ * sample, keeps the runs that are front-facing, unoccluded, and dark enough for
+ * the tonal layer — so the field follows curvature and its hidden half falls out
+ * of the same visibility test as everything else.
+ */
+export interface HatchSample {
+  /** point on the surface, world space */
+  p: Vec3;
+  /** unit outward surface normal at `p` */
+  n: Vec3;
+}
+
+/** One iso-parameter curve of a direction field (already chained). */
+export interface HatchFieldCurve {
+  samples: HatchSample[];
+}
+
+/** One direction family; ordered families become successive cross-hatch layers
+ *  (family 0 is drawn for `single`, 0+1 for `cross`). */
+export interface HatchFamily {
+  curves: HatchFieldCurve[];
+}
+
+/** What the scene asks a source's `hatchField` for. */
+export interface HatchFieldOptions {
+  /** desired screen spacing between adjacent iso-curves, px */
+  spacingPx: number;
+  /** how many families the current hatch mode wants (1 single, 2 cross, 3 triple) */
+  maxFamilies: number;
+}
+
 /** Stage 4 → 5. Ready for the backend. */
 export interface RenderStroke {
   /** sampled, simplified, optionally wobbled */

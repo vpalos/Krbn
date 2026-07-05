@@ -7,7 +7,7 @@
 // and `scene.highlight` from the design sketch are not implemented yet.
 
 import type { Camera, Hit, Vec2, Vec3 } from "../math/types.js";
-import type { ElementId, Light, RenderStroke, Stroke } from "../pipeline/types.js";
+import type { ElementId, HatchFieldCurve, Light, RenderStroke, Stroke } from "../pipeline/types.js";
 import type { FeatureSource } from "./feature-source.js";
 import type { SampleOptions } from "../curve/sample.js";
 import type { SvgOptions } from "../backend/svg.js";
@@ -26,12 +26,12 @@ import {
 import { classifyFeature, classifyScene, isOccluded, sceneScale } from "../pipeline/visibility.js";
 import { consolidateLines } from "../pipeline/consolidate.js";
 import { emitStyledStroke, resolveStyle, ROLE_STYLE } from "../pipeline/style.js";
-import { defaultHatch, hatchAngles, type HatchStrategy } from "../pipeline/hatch.js";
+import { defaultHatch, hatchAngles, toneToSpacing, type HatchStrategy } from "../pipeline/hatch.js";
 import { defaultWobble, type WobbleStrategy } from "../pipeline/wobble.js";
 import { applyAbstraction, quantizeTone } from "../pipeline/abstract.js";
 import { renderItemsSVG, type SvgGroup, type SvgItem } from "../backend/svg.js";
-import { unproject } from "../math/camera.js";
-import { distance, normalize } from "../math/vec3.js";
+import { cameraFrame, projectionMatrix, projectPoint, unproject } from "../math/camera.js";
+import { distance, dot, normalize } from "../math/vec3.js";
 import { EPS_DEPTH_REL } from "../curve/epsilon.js";
 
 const HATCH_STEP_PX = 4; // sample spacing when clipping a hatch line to visibility
@@ -186,7 +186,31 @@ export class Scene {
       if (!spec.hatch) continue;
       const levels = this.abstraction.toneLevels ?? 0;
       const hstyle = { weight: spec.hatchWeight, color: spec.color, opacity: spec.hatchOpacity };
-      for (const region of el.source.hatchRegions(cam, this.light)) {
+      const nLayers = hatchAngles(spec.hatch.mode, spec.hatch.angle).length;
+
+      // Prefer a primitive's exact curved direction field (rings/rulings/…) when
+      // it exposes one; the iso-curves follow surface curvature and their hidden
+      // half falls out of the same front-face + occlusion test. Otherwise fall
+      // back to straight parallel hatch over the flat/quadric footprint. §2.6
+      const regions = el.source.hatchRegions(cam, this.light);
+      const baseTone = regions[0]?.tone ?? 0.5;
+      const fieldTone = levels > 0 ? quantizeTone(baseTone, levels) : baseTone;
+      const spacingPx = spec.hatch.spacingPx ?? toneToSpacing(fieldTone);
+      const field = spec.hatch.field === false ? undefined : el.source.hatchField?.(cam, { spacingPx, maxFamilies: nLayers });
+
+      if (field && field.length > 0) {
+        for (let layer = 0; layer < Math.min(nLayers, field.length); layer++) {
+          const maxDiffuse = layerBrightness(layer, nLayers);
+          for (const curve of field[layer]!.curves) {
+            for (const run of clipHatchField(curve, cam, sources, scale, lightDir, maxDiffuse)) {
+              hatchStrokes.push({ path: run, style: { ...hstyle } });
+            }
+          }
+        }
+        continue;
+      }
+
+      for (const region of regions) {
         const tone = levels > 0 ? quantizeTone(region.tone, levels) : region.tone;
         const spacingOpts = spec.hatch.spacingPx != null ? { spacingPx: spec.hatch.spacingPx } : {};
         // Tonal layering: draw one angle set per layer, each clipped to the part
@@ -299,6 +323,45 @@ function clipHatchTonal(
       keep = diffuse < maxDiffuse;
     }
     if (keep) run.push(pt);
+    else {
+      if (run.length >= 2) runs.push(run);
+      run = [];
+    }
+  }
+  if (run.length >= 2) runs.push(run);
+  return runs;
+}
+
+/**
+ * Clip one exact iso-parameter *field* curve (a ring, ruling, poloidal circle…)
+ * to the runs that render. Unlike straight hatch, each sample carries its own
+ * surface point + normal, so a point survives when it is (1) front-facing,
+ * (2) not occluded — by this surface or any other, which drops each curve's
+ * hidden half exactly — and (3) dark enough for the tonal layer (N·L below
+ * `maxDiffuse`). Surviving samples are projected and emitted as screen runs.
+ */
+function clipHatchField(
+  curve: HatchFieldCurve,
+  cam: Camera,
+  sources: readonly FeatureSource[],
+  scale: number,
+  lightDir: Vec3,
+  maxDiffuse: number,
+): Vec2[][] {
+  const P = projectionMatrix(cam);
+  const persp = cam.projection === "perspective";
+  const forward = cameraFrame(cam).forward;
+  const runs: Vec2[][] = [];
+  let run: Vec2[] = [];
+  for (const { p, n } of curve.samples) {
+    const view: Vec3 = persp ? normalize([p[0] - cam.eye[0], p[1] - cam.eye[1], p[2] - cam.eye[2]]) : forward;
+    const front = dot(n, view) < 0;
+    let keep = false;
+    if (front && !isOccluded(p, cam, sources, scale)) {
+      const diffuse = Math.max(0, -(n[0] * lightDir[0] + n[1] * lightDir[1] + n[2] * lightDir[2]));
+      keep = diffuse < maxDiffuse;
+    }
+    if (keep) run.push(projectPoint(P, p).point);
     else {
       if (run.length >= 2) runs.push(run);
       run = [];
