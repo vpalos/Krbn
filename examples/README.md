@@ -3,6 +3,12 @@
 Runnable demos that render Krbn scenes to SVG. All output is deterministic
 (wobble is seeded, no randomness), so the SVGs are stable and diffable.
 
+Two cross-cutting effects run through the whole gallery: the per-element **wobble**
+knob bends both **outlines and hatch** (one hand knob per object), and solid strokes
+are drawn as **variable-width ribbons** — a calligraphic end taper plus seeded
+pencil pressure (both riding the wobble knob), over an always-on **depth emphasis**
+that draws nearer contours bolder and receding ones thinner.
+
 ## Gallery
 
 Run with:
@@ -18,6 +24,9 @@ bun run examples/gallery.ts
 The cylinder's far rim halves are **dashed** (self-occlusion); the sphere's
 silhouette is **solid where it juts past** the cylinder and **dashed where
 hidden** behind it; the rod is dashed only where it passes through the body.
+These are ruler-clean (`wobble: 0`), so the only weight variation is **depth
+emphasis** — the nearer cylinder reads bolder than the receding sphere, and the
+rod thins as it travels away.
 
 ### 02 · Hatching + tonal shading (stage 4)
 
@@ -41,7 +50,9 @@ the ball occludes it** (gaps reveal depth); hatch tone is quantized.
 
 The same cone at wobble `0 → 1` (ruler → hand-drawn). At every amount the **apex
 stays a single clean point** and rulings meet the rim exactly — the offset is a
-seeded field keyed on the 3-D point, so strokes sharing a vertex join.
+seeded field keyed on the 3-D point, so strokes sharing a vertex join. As wobble
+rises the lines also gain **pencil width** — a taper toward the ends and a seeded
+pressure swell — since taper and pressure ride the same knob.
 
 ### 05 · Surface hatching on all quadric solids
 
@@ -99,7 +110,9 @@ curved column the tube is hatched along its **exact poloidal + toroidal directio
 field** (§2.6) — the hatch lines are the surface's own iso-parameter circles, so
 they wrap the tube and each one's hidden half drops out of the front-face +
 occlusion test; the flat column (`hatch.field: false`) shows the same shading with
-straight parallels for comparison.
+straight parallels for comparison. In the **wobble-on** row the hatch lines wobble
+with the outlines (same hand knob), and the silhouette is a **variable-width
+ribbon** — watch it swell and taper.
 
 ### 11 · Two interlocking toruses
 
@@ -111,7 +124,8 @@ occlusion** falls straight out of the visibility stage — each torus dashes the
 other's hidden silhouette and stops its hatch where the other is in front — so the
 compound figure reads correctly with no special handling. The curved field makes
 the linked tubes read as solid form; the flat hatch reads like a decal, which is
-exactly why the field matters.
+exactly why the field matters. Both are wobbled — hatch and outline alike — and the
+silhouettes are **variable-width pencil ribbons**.
 
 ### 12 · Curved hatch direction fields
 

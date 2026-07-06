@@ -129,7 +129,9 @@ everything from the stage-2 contract onward is reused. All ⬜.
 ## Cross-cutting
 
 Seeded/deterministic wobble ✅ (`src/pipeline/wobble.ts`; anchored to object-space
-arclength), temporal-coherence discipline 🚧 (wobble is deterministic per
+arclength; bends outlines **and** hatch from one knob), variable stroke width ✅
+(`src/pipeline/width.ts`; filled ribbons = emphasis × camera-depth × taper ×
+pressure), temporal-coherence discipline 🚧 (wobble is deterministic per
 identity; fully coherent chains/silhouettes across frames are future),
 SVG-first backend ✅ (`src/backend/svg.ts`), optional alpha as a pure drawing op
 ⬜, and a declarative authoring language that later deserializes into the same

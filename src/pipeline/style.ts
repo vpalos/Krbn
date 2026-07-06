@@ -10,10 +10,10 @@
 import type { Camera } from "../math/types.js";
 import type { HatchMode, RenderStroke, RenderStyle, Stroke } from "./types.js";
 import { buildFeatureModel } from "./feature-curve.js";
-import { projectionMatrix } from "../math/camera.js";
+import { cameraFrame, projectionMatrix } from "../math/camera.js";
 import { sampleInterval } from "./emit.js";
 import { defaultWobble, hashSeed, type WobbleStrategy } from "./wobble.js";
-import { defaultWidth, type WidthStrategy } from "./width.js";
+import { defaultWidth, depthEmphasis, type WidthStrategy } from "./width.js";
 import { DEFAULT_SAMPLE, type SampleOptions } from "../curve/sample.js";
 
 export interface HatchSpec {
@@ -108,15 +108,27 @@ export function emitStyledStroke(
   // Seed per element (owner), NOT per feature type — so an element's silhouette,
   // rims, generators, etc. share one field and join at their common vertices.
   const seed = hashSeed(stroke.feature.owner);
+  // Camera-space depth reference for the depth-emphasis cue (eye→target = focus).
+  const fwd = cameraFrame(cam).forward;
+  const eye = cam.eye;
+  const camDepth = (p: readonly [number, number, number]): number =>
+    (p[0] - eye[0]) * fwd[0] + (p[1] - eye[1]) * fwd[1] + (p[2] - eye[2]) * fwd[2];
+  const refDepth = camDepth(cam.target);
 
   const out: RenderStroke[] = [];
   for (const iv of stroke.intervals) {
-    const style = iv.visible ? styles.visible : styles.hidden;
-    if (!style) continue;
+    const base = iv.visible ? styles.visible : styles.hidden;
+    if (!base) continue;
     const sampled = sampleInterval(model, iv.t0, iv.t1, P, opts);
     if (sampled.path.length < 2) continue;
     const path = wobble.apply({ path: sampled.path, points3: sampled.points3, seed, amount: spec.wobble });
     if (path.length < 2) continue;
+    // Depth emphasis (always on): nearer strokes bolder, farther thinner — folded
+    // into the weight so it shows on ruler strokes and ribbons alike.
+    let sum = 0;
+    for (const p of sampled.points3) sum += camDepth(p);
+    const depthScale = depthEmphasis(sum / sampled.points3.length, refDepth);
+    const style = depthScale === 1 ? base : { ...base, weight: base.weight * depthScale };
     // Variable width rides the same hand knob and only the solid, non-dashed runs
     // (a filled ribbon can't be dashed); hidden/ghost runs stay uniform strokes.
     const w =

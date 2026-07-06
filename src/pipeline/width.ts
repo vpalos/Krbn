@@ -17,6 +17,23 @@ const PRESSURE_AMP = 0.35;
 /** pressure-noise cycles per screen pixel (a swell roughly every ~30px) */
 const PRESSURE_FREQ = 0.03;
 
+/** how strongly camera depth bends the weight (0 = off). */
+const DEPTH_EXP = 0.55;
+/** clamp so far strokes stay legible and near ones don't blow up. */
+const DEPTH_MIN = 0.55;
+const DEPTH_MAX = 1.6;
+
+/**
+ * Depth-emphasis multiplier for a stroke at camera-space `depth`, relative to the
+ * focal plane `refDepth` (eye→target). Nearer than the focus ⇒ bolder (> 1),
+ * farther ⇒ thinner (< 1), clamped. A perception cue, independent of the hand
+ * knob — it applies even to ruler-clean (`wobble: 0`) lines.
+ */
+export function depthEmphasis(depth: number, refDepth: number): number {
+  if (!(depth > 0) || !(refDepth > 0)) return 1;
+  return Math.max(DEPTH_MIN, Math.min(DEPTH_MAX, Math.pow(refDepth / depth, DEPTH_EXP)));
+}
+
 /** integer-lattice hash → [-1, 1] (self-contained, matches wobble's family). */
 function lattice(i: number, seed: number): number {
   let h = Math.imul((i | 0) ^ seed, 2246822519);

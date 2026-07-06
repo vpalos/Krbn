@@ -83,6 +83,12 @@ catalog are implemented and tested. What exists, by area (✅ done · 🚧 parti
   3-D field keyed on the object-space point, per element) so strokes join at
   shared vertices; per-patch hatch tone via tonal layering so curved surfaces
   shade light→dark while flat faces stay uniform; style-driven hatch weight/opacity.
+  The one wobble knob bends outlines **and** hatch (`clipHatchField`/`clipHatchTonal`
+  carry each run's object-space companion). **Variable stroke width**
+  (`src/pipeline/width.ts`, `WidthStrategy`): solid runs render as filled *ribbons*
+  whose width = emphasis (role/importance × camera-depth — nearer bolder) × end
+  taper × seeded pressure, the taper/pressure scaled by the same wobble knob; dashed
+  hidden runs stay uniform strokes.
 - ✅ **Phase-1 polish complete:** consolidation, cylinder/cone surface hatching,
   `scene.highlight` (+ halo), `Point`, quadric ∩ quadric quartics, the
   **torus** (`src/primitives/torus.ts`: numerical silhouette as two contour loops

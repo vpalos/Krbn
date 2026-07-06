@@ -82,8 +82,10 @@ describe("emitStyledStroke", () => {
     const line = new Line([-3, 0, -2], [3, 0, -2]);
     const stroke = classifyFeature(line.extractFeatures(front)[0]!, front, [s, line]);
     const rs = emitStyledStroke(stroke, front, resolveStyle({ wobble: 0.8, weight: 2 }));
+    const thin = emitStyledStroke(stroke, front, resolveStyle({ wobble: 0.8, weight: 1 }));
     expect(rs).toHaveLength(3);
-    expect(rs[0]!.style.weight).toBe(2);
+    // weight tracks the spec; depth emphasis scales both equally, so it cancels
+    expect(rs[0]!.style.weight / thin[0]!.style.weight).toBeCloseTo(2, 5);
     // wobble subdivides + perturbs: the straight run is no longer exactly 2 points
     expect(rs[0]!.path.length).toBeGreaterThan(2);
     // hidden middle run is ghosted
