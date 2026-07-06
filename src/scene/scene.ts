@@ -28,6 +28,7 @@ import { consolidateLines } from "../pipeline/consolidate.js";
 import { emitStyledStroke, resolveStyle, ROLE_STYLE } from "../pipeline/style.js";
 import { defaultHatch, hatchAngles, toneToSpacing, type HatchStrategy } from "../pipeline/hatch.js";
 import { defaultWobble, hashSeed, type WobbleStrategy } from "../pipeline/wobble.js";
+import { defaultWidth, type WidthStrategy } from "../pipeline/width.js";
 import { applyAbstraction, quantizeTone } from "../pipeline/abstract.js";
 import { renderItemsSVG, type SvgGroup, type SvgItem } from "../backend/svg.js";
 import { cameraFrame, projectionMatrix, projectPoint, unproject } from "../math/camera.js";
@@ -52,6 +53,8 @@ export interface SceneOptions {
   svg?: SvgOptions;
   /** swappable line-perturbation algorithm (defaults to value-noise wobble) */
   wobble?: WobbleStrategy;
+  /** swappable stroke-width profile (defaults to the pencil taper + pressure) */
+  width?: WidthStrategy;
   /** swappable hatch-pattern generator (defaults to parallel-line hatch) */
   hatch?: HatchStrategy;
   /** stage-3 abstraction (off by default) */
@@ -86,6 +89,7 @@ export class Scene {
   sample: SampleOptions | undefined;
   svgOptions: SvgOptions | undefined;
   wobble: WobbleStrategy;
+  width: WidthStrategy;
   hatch: HatchStrategy;
   abstraction: AbstractionSettings;
 
@@ -95,6 +99,7 @@ export class Scene {
     this.sample = opts.sample;
     this.svgOptions = opts.svg;
     this.wobble = opts.wobble ?? defaultWobble;
+    this.width = opts.width ?? defaultWidth;
     this.hatch = opts.hatch ?? defaultHatch;
     this.abstraction = opts.abstraction ?? {};
   }
@@ -184,7 +189,7 @@ export class Scene {
 
     const outlineStrokes: RenderStroke[] = [];
     for (const st of strokes) {
-      outlineStrokes.push(...emitStyledStroke(st, cam, this.resolveSpec(st.feature.owner), this.sample, this.wobble));
+      outlineStrokes.push(...emitStyledStroke(st, cam, this.resolveSpec(st.feature.owner), this.sample, this.wobble, this.width));
     }
 
     const hatchStrokes: RenderStroke[] = [];
@@ -203,11 +208,16 @@ export class Scene {
       const ownerSeed = hashSeed(el.id);
       let hatchLine = 0;
       const emitHatch = (run: HatchRun): void => {
-        const path =
-          wobbleAmt > 0 && run.path.length >= 2
-            ? this.wobble.apply({ path: run.path, points3: run.points3, seed: ownerSeed ^ Math.imul(hatchLine++, 0x9e3779b1), amount: wobbleAmt })
-            : run.path;
-        hatchStrokes.push({ path, style: { ...hstyle } });
+        if (run.path.length < 2) return;
+        if (wobbleAmt <= 0) {
+          hatchStrokes.push({ path: run.path, style: { ...hstyle } });
+          return;
+        }
+        const seed = ownerSeed ^ Math.imul(hatchLine++, 0x9e3779b1);
+        const path = this.wobble.apply({ path: run.path, points3: run.points3, seed, amount: wobbleAmt });
+        // hatch width rides the same (scaled) hand knob as its wobble
+        const width = this.width.widths({ path, seed, baseWidth: hstyle.weight, amount: wobbleAmt });
+        hatchStrokes.push({ path, style: { ...hstyle }, width });
       };
 
       // Prefer a primitive's exact curved direction field (rings/rulings/…) when
@@ -276,7 +286,7 @@ export class Scene {
             haloMembers.push({ path: rs.path, style: { weight: rs.style.weight, color: rs.style.color, opacity: 1 } });
           }
         }
-        crispStrokes.push(...emitStyledStroke(stroke, cam, spec, this.sample, this.wobble));
+        crispStrokes.push(...emitStyledStroke(stroke, cam, spec, this.sample, this.wobble, this.width));
       }
       if (haloMembers.length) haloGroups.push({ opacity: halo?.opacity ?? 0.25, strokes: haloMembers });
     }

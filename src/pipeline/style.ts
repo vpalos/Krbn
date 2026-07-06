@@ -13,6 +13,7 @@ import { buildFeatureModel } from "./feature-curve.js";
 import { projectionMatrix } from "../math/camera.js";
 import { sampleInterval } from "./emit.js";
 import { defaultWobble, hashSeed, type WobbleStrategy } from "./wobble.js";
+import { defaultWidth, type WidthStrategy } from "./width.js";
 import { DEFAULT_SAMPLE, type SampleOptions } from "../curve/sample.js";
 
 export interface HatchSpec {
@@ -99,6 +100,7 @@ export function emitStyledStroke(
   spec: StyleSpec,
   opts: SampleOptions = DEFAULT_SAMPLE,
   wobble: WobbleStrategy = defaultWobble,
+  width: WidthStrategy = defaultWidth,
 ): RenderStroke[] {
   const model = buildFeatureModel(stroke.feature.curve, cam);
   const P = projectionMatrix(cam);
@@ -114,7 +116,14 @@ export function emitStyledStroke(
     const sampled = sampleInterval(model, iv.t0, iv.t1, P, opts);
     if (sampled.path.length < 2) continue;
     const path = wobble.apply({ path: sampled.path, points3: sampled.points3, seed, amount: spec.wobble });
-    if (path.length >= 2) out.push({ path, style });
+    if (path.length < 2) continue;
+    // Variable width rides the same hand knob and only the solid, non-dashed runs
+    // (a filled ribbon can't be dashed); hidden/ghost runs stay uniform strokes.
+    const w =
+      spec.wobble > 0 && iv.visible && !style.dash
+        ? width.widths({ path, seed, baseWidth: style.weight, amount: spec.wobble })
+        : undefined;
+    out.push(w ? { path, style, width: w } : { path, style });
   }
   return out;
 }

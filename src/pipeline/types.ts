@@ -98,6 +98,12 @@ export interface RenderStroke {
   /** sampled, simplified, optionally wobbled */
   path: readonly Vec2Tuple[];
   style: RenderStyle;
+  /**
+   * Optional per-vertex stroke width (px), same length as `path`. When present
+   * (and the stroke is solid), the backend draws a filled *ribbon* of varying
+   * width instead of a uniform stroke. (ai/DESIGN.md §4)
+   */
+  width?: readonly number[];
 }
 
 type Vec2Tuple = readonly [number, number];

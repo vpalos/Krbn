@@ -46,6 +46,59 @@ function polyline(s: RenderStroke, prec: number, indent: string): string {
   return `${indent}<polyline ${attrs.join(" ")} />`;
 }
 
+/**
+ * A variable-width stroke as a filled ribbon: offset each vertex by ±w/2 along the
+ * local screen normal and fill the resulting band. Gives smooth taper/pressure
+ * that SVG's uniform `stroke-width` can't. The centreline stays dense (post-wobble)
+ * so the outline reads as smooth.
+ */
+function ribbon(s: RenderStroke, prec: number, indent: string): string {
+  const p = s.path;
+  const w = s.width!;
+  const n = p.length;
+  const left: [number, number][] = [];
+  const right: [number, number][] = [];
+  for (let i = 0; i < n; i++) {
+    const prev = p[Math.max(0, i - 1)]!;
+    const next = p[Math.min(n - 1, i + 1)]!;
+    let tx = next[0] - prev[0];
+    let ty = next[1] - prev[1];
+    const len = Math.hypot(tx, ty) || 1;
+    tx /= len;
+    ty /= len;
+    const nx = -ty;
+    const ny = tx;
+    const h = (w[i] ?? w[n - 1] ?? s.style.weight) / 2;
+    left.push([p[i]![0] + nx * h, p[i]![1] + ny * h]);
+    right.push([p[i]![0] - nx * h, p[i]![1] - ny * h]);
+  }
+  const pt = (q: [number, number]): string => `${fmt(q[0], prec)},${fmt(q[1], prec)}`;
+  const d = [
+    `M ${pt(left[0]!)}`,
+    ...left.slice(1).map((q) => `L ${pt(q)}`),
+    ...right.reverse().map((q) => `L ${pt(q)}`),
+    "Z",
+  ].join(" ");
+  const st = s.style;
+  const attrs = [
+    `d="${d}"`,
+    `fill="${st.color}"`,
+    st.opacity !== 1 ? `fill-opacity="${fmt(st.opacity, 3)}"` : "",
+    // a hairline stroke of the same colour smooths the faceted ribbon edges
+    `stroke="${st.color}"`,
+    `stroke-width="0.4"`,
+    st.opacity !== 1 ? `stroke-opacity="${fmt(st.opacity, 3)}"` : "",
+    `stroke-linejoin="round"`,
+  ].filter(Boolean);
+  return `${indent}<path ${attrs.join(" ")} />`;
+}
+
+/** A solid variable-width stroke renders as a ribbon; everything else as a stroke. */
+function strokeSVG(s: RenderStroke, prec: number, indent: string): string {
+  const dashed = s.style.dash && s.style.dash.length;
+  return s.width && s.width.length === s.path.length && !dashed ? ribbon(s, prec, indent) : polyline(s, prec, indent);
+}
+
 /** Render styled strokes (and opacity groups) to a standalone SVG document. */
 export function renderItemsSVG(
   items: readonly SvgItem[],
@@ -64,10 +117,10 @@ export function renderItemsSVG(
       const members = item.strokes.filter((s) => s.path.length >= 2);
       if (members.length === 0) continue;
       body.push(`  <g opacity="${fmt(item.opacity, 3)}">`);
-      for (const s of members) body.push(polyline(s, prec, "    "));
+      for (const s of members) body.push(strokeSVG(s, prec, "    "));
       body.push(`  </g>`);
     } else if (item.path.length >= 2) {
-      body.push(polyline(item, prec, "  "));
+      body.push(strokeSVG(item, prec, "  "));
     }
   }
   body.push(`</svg>`);
