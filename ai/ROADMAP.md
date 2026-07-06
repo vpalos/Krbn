@@ -114,17 +114,28 @@ renders. Before Phase 2 we are hardening Phase 1 — the ordered backlog:
 9. ✅ Stage 5: SVG backend (`src/backend/svg.ts`) with adaptive sampling of
    analytic curves at emit (`src/pipeline/emit.ts`, `curve/sample.ts`).
 
-## Phase 2 — Mesh / organ regime (deferred, not lost)
+## Phase 2 — Mesh / organ regime (underway)
 
 One more `FeatureSource` implementation + the numerical machinery behind it;
-everything from the stage-2 contract onward is reused. All ⬜.
+everything from the stage-2 contract onward is reused.
 
-1. Static scaffold — half-edge, normals, dihedral, crease/boundary tagging.
-2. Curvature precompute (principal curvatures + derivative).
-3. Silhouette as interpolated zero-set + chaining.
-4. Suggestive contours.
-5. Visibility — hybrid (depth-buffer-seeded) → fully analytic QI.
-6. Temporal coherence for animation.
+1. ✅ **Static scaffold** (`src/mesh/halfedge.ts`, `shapes.ts`) — half-edge
+   topology from indexed triangles (twin/next/face, boundary detection,
+   non-manifold flagging, optional vertex weld at load), face normals + areas,
+   angle-weighted vertex normals, per-edge dihedral + convex/concave sign, and
+   crease (dihedral > θ) / boundary tagging. Verified on tetra / cube / open grid
+   (Euler χ, mutual twins, outward normals, 90°/109.47° dihedrals, weld, non-manifold).
+2. ✅ **Curvature precompute** (`src/mesh/curvature.ts`) — Rusinkiewicz per-face
+   least-squares fit of the second (and third) fundamental form from vertex-normal
+   variation, rotated into each vertex's tangent frame and mixed-Voronoi-area
+   averaged; diagonalized to principal curvatures κ1/κ2 + directions, plus the
+   derivative tensor `dcurv` (for suggestive contours). Verified against plane
+   (0), sphere (κ=1/R, K>0, dcurv≈0), and cylinder (κ_max=1/R, κ_min=0 along axis,
+   K≈0).
+3. ⬜ Silhouette as interpolated zero-set + chaining.
+4. ⬜ Suggestive contours.
+5. ⬜ Visibility — hybrid (depth-buffer-seeded) → fully analytic QI.
+6. ⬜ Temporal coherence for animation.
 
 ## Cross-cutting
 

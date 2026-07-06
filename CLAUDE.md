@@ -40,7 +40,7 @@ line/conic + screen intersection) + adaptive sampler · `src/pipeline` inter-sta
 contract, stage-2 visibility, stage-4 styling (wobble/hatch), emit, render facade ·
 `src/scene` the `FeatureSource` seam + `Scene`/element/importance model ·
 `src/primitives` analytic primitives (implemented) · `src/backend` renderers
-(SVG implemented) · `src/mesh` deferred Phase-2 regime · `examples/` runnable
+(SVG implemented) · `src/mesh` Phase-2 mesh regime (half-edge scaffold so far) · `examples/` runnable
 demos → SVG (`demo.ts` plain, `styled.ts` wobble + hatch).
 
 ## Current status & next target
@@ -120,7 +120,19 @@ bun test   # etc.
 npm itself is not blocked — it reaches the registry fine; the only issues were the
 unwritable global prefix and bun not being preinstalled.
 
+## Phase 2 — mesh/organ regime (underway)
+
+The mesh `FeatureSource` is one more implementation of the same seam. **Steps 1–2
+done:** the static half-edge scaffold (`src/mesh/halfedge.ts`, `shapes.ts`) —
+topology + normals + dihedral + crease/boundary tags — and **curvature precompute**
+(`src/mesh/curvature.ts`: Rusinkiewicz principal curvatures + directions + the
+`dcurv` derivative tensor, validated on plane/sphere/cylinder). Both
+view-independent, paid once. Next per `ai/ROADMAP.md`: silhouette zero-set +
+chaining → the `Mesh` source → suggestive contours → hybrid→analytic visibility →
+temporal coherence. Keep it behind the *same* `FeatureSource` interface; do not
+fork the pipeline.
+
 ## Deferred — don't build unless asked
 
-Mesh/organ regime (Phase 2), the declarative authoring language, alpha
-compositing, paper grain. All are roadmapped in `ai/DESIGN.md`.
+The declarative authoring language, alpha compositing, paper grain. All are
+roadmapped in `ai/DESIGN.md`.
