@@ -235,7 +235,7 @@ export class Sphere extends Quadric {
       const curves: HatchFieldCurve[] = [];
       for (const s of dyadicLadder(span / spacing, { min: 3, max: 40 })) {
         const phi = -Math.PI / 2 + Math.PI * s.t;
-        curves.push(tagCurve(circleCurve(addScaled(c, axis, r * Math.sin(phi)), plane.x, plane.y, r * Math.cos(phi), radialN, 96), `${prefix}:${s.key}`, s.fade));
+        curves.push(tagCurve(circleCurve(addScaled(c, axis, r * Math.sin(phi)), plane.x, plane.y, r * Math.cos(phi), radialN, 96), `${prefix}:${s.key}`));
       }
       return curves;
     };
@@ -253,7 +253,7 @@ export class Sphere extends Quadric {
       for (const s of dyadicLadder((Math.PI * diam) / 2 / spacing, { periodic: true, min: 2, max: 32 })) {
         const th = Math.PI * s.t;
         const m = add(addScaled([0, 0, 0], plane.x, Math.cos(th)), addScaled([0, 0, 0], plane.y, Math.sin(th)));
-        meridians.push(tagCurve(circleCurve(c, m, this.axis, r, radialN, 96), `m:${s.key}`, s.fade));
+        meridians.push(tagCurve(circleCurve(c, m, this.axis, r, radialN, 96), `m:${s.key}`));
       }
       families.push({ curves: meridians });
     }
@@ -321,7 +321,7 @@ export class Ellipsoid extends Quadric {
     const parallels: HatchFieldCurve[] = [];
     for (const s of dyadicLadder(span / spacing, { min: 3, max: 40 })) {
       const ph = -Math.PI / 2 + Math.PI * s.t;
-      parallels.push(tagCurve(paramCurve((t) => at(2 * Math.PI * t, ph), 96), `p:${s.key}`, s.fade));
+      parallels.push(tagCurve(paramCurve((t) => at(2 * Math.PI * t, ph), 96), `p:${s.key}`));
     }
     const families: HatchFamily[] = [{ curves: parallels }];
 
@@ -332,7 +332,7 @@ export class Ellipsoid extends Quadric {
       const meridians: HatchFieldCurve[] = [];
       for (const s of dyadicLadder((Math.PI * diam) / 2 / spacing, { periodic: true, min: 2, max: 32 })) {
         const th = Math.PI * s.t;
-        meridians.push(tagCurve(paramCurve((t) => at(th, 2 * Math.PI * t), 96), `m:${s.key}`, s.fade));
+        meridians.push(tagCurve(paramCurve((t) => at(th, 2 * Math.PI * t), 96), `m:${s.key}`));
       }
       families.push({ curves: meridians });
     }
@@ -344,7 +344,7 @@ export class Ellipsoid extends Quadric {
       const diagonal: HatchFieldCurve[] = [];
       for (const s of dyadicLadder((Math.PI * diam) / Math.SQRT2 / spacing, { periodic: true, min: 4, max: 48 })) {
         const th0 = 2 * Math.PI * s.t;
-        diagonal.push(tagCurve(paramCurve((t) => at(th0 + 2 * Math.PI * t, -Math.PI / 2 + Math.PI * t), 96), `d:${s.key}`, s.fade));
+        diagonal.push(tagCurve(paramCurve((t) => at(th0 + 2 * Math.PI * t, -Math.PI / 2 + Math.PI * t), 96), `d:${s.key}`));
       }
       families.push({ curves: diagonal });
     }

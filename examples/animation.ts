@@ -12,10 +12,11 @@
 //
 // What to look for while it plays: silhouettes slide smoothly (persistent ids,
 // canonical orientation), hatch lines pan *with* the surfaces (object-anchored
-// phase, static streamline atlas, dyadic iso-ladders), each line keeps its
-// hand-drawn character (identity-keyed wobble seeds), and detail thins by
-// fading, never popping (threshold + LOD fades). The per-frame coherence report
-// is printed so churn (born/died/reversed) is visible at a glance.
+// phase, static streamline atlas, dyadic iso-ladders at complete levels), each
+// line keeps its hand-drawn character (identity-keyed wobble seeds), and
+// feature detail thins by fading, never popping (threshold fades). The
+// per-frame coherence report is printed so churn (born/died/reversed) is
+// visible at a glance.
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";

@@ -236,20 +236,17 @@ export class Scene {
       // change (visibility clip, region growth) cannot re-deal every line's
       // wobble (temporal coherence). Runs clipped from one line share the seed;
       // the object-anchored wobble field keeps them mutually coherent.
-      const emitHatch = (run: HatchRun, lineKey: string, fade = 1): void => {
-        if (run.path.length < 2 || fade <= 0) return;
-        // LOD fade (temporal coherence): a curve on the newest density level
-        // dissolves in/out with the fractional level demand instead of popping.
-        const style = fade < 1 ? { ...hstyle, opacity: hstyle.opacity * fade } : { ...hstyle };
+      const emitHatch = (run: HatchRun, lineKey: string): void => {
+        if (run.path.length < 2) return;
         if (wobbleAmt <= 0) {
-          hatchStrokes.push({ path: run.path, style });
+          hatchStrokes.push({ path: run.path, style: { ...hstyle } });
           return;
         }
         const seed = ownerSeed ^ hashSeed(lineKey);
         const path = this.wobble.apply({ path: run.path, points3: run.points3, seed, amount: wobbleAmt });
         // hatch width rides the same (scaled) hand knob as its wobble
         const width = this.width.widths({ path, seed, baseWidth: hstyle.weight, amount: wobbleAmt });
-        hatchStrokes.push({ path, style, width });
+        hatchStrokes.push({ path, style: { ...hstyle }, width });
       };
 
       // Prefer a primitive's exact curved direction field (rings/rulings/…) when
@@ -281,7 +278,7 @@ export class Scene {
           for (let ci = 0; ci < curves.length; ci++) {
             const curve = curves[ci]!;
             const lineKey = `f${layer}:${curve.key ?? ci}`;
-            for (const run of clipHatchField(curve, cam, sources, scale, lightDir, maxDiffuse)) emitHatch(run, lineKey, curve.fade ?? 1);
+            for (const run of clipHatchField(curve, cam, sources, scale, lightDir, maxDiffuse)) emitHatch(run, lineKey);
           }
         }
         continue;

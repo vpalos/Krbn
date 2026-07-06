@@ -302,25 +302,24 @@ export class StreamlineAtlas {
     readonly maxLevels = 6,
   ) {}
 
-  /** The continuous density demand: level k = log2(base/desired), unclamped
-   *  below, clamped to the ladder above. Full levels are 0..floor; the level
-   *  above fades in with the fractional part. */
+  /** The complete level whose density best matches the demand: round(log2
+   *  (base/desired)), clamped to the ladder. Discrete on purpose — a partially
+   *  drawn interleaving level cannot look right in a still (faded by opacity it
+   *  banded gray/black, by weight thick/thin, arriving line-by-line it paired
+   *  lines with gaps — the artifact just moves channels; all were tried).
+   *  Smoothing a zoom-driven level *switch* is cross-frame-state territory (a
+   *  session-side crossfade), not a per-frame concern. */
   levelFor(desiredSpacing: number): number {
     if (!(desiredSpacing > 0) || !(this.baseSpacing > 0)) return 0;
-    return Math.min(this.maxLevels - 1, Math.max(0, Math.log2(this.baseSpacing / desiredSpacing)));
+    return Math.round(Math.min(this.maxLevels - 1, Math.max(0, Math.log2(this.baseSpacing / desiredSpacing))));
   }
 
-  /** All streamlines of levels 0..floor(levelFor), with stable keys
-   *  (`m<family>:<level>:<i>`), plus the next level *fading in* with the
-   *  fractional demand (shallow copies carrying `fade`; cached curves are never
-   *  mutated). A zoom therefore dissolves the finest level in or out instead of
-   *  popping it (temporal coherence). Levels are traced once and cached. */
+  /** All streamlines of levels 0..levelFor(desiredSpacing), with stable keys
+   *  (`m<family>:<level>:<i>`). Levels are traced once and cached; the camera
+   *  only selects how many complete levels to draw. */
   curvesFor(desiredSpacing: number): HatchFieldCurve[] {
-    const f = this.levelFor(desiredSpacing);
-    const kFull = Math.floor(f);
-    const frac = f - kFull;
-    const kTop = frac > 0 && kFull + 1 < this.maxLevels ? kFull + 1 : kFull;
-    while (this.levels.length <= kTop) {
+    const k = this.levelFor(desiredSpacing);
+    while (this.levels.length <= k) {
       const lvl = this.levels.length;
       const curves = meshHatchField(this.mesh, this.curv, {
         spacing: this.baseSpacing / 2 ** lvl,
@@ -331,8 +330,6 @@ export class StreamlineAtlas {
       this.levels.push(curves);
       for (const c of curves) this.occupied.push(...c.samples);
     }
-    const out = this.levels.slice(0, kFull + 1).flat();
-    if (kTop > kFull) for (const c of this.levels[kTop]!) out.push({ ...c, fade: frac });
-    return out;
+    return this.levels.slice(0, k + 1).flat();
   }
 }

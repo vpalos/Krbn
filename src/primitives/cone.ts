@@ -100,16 +100,16 @@ export class Cone implements FeatureSource {
     // then continues as concentric rings across the base cap (normal = axis), so
     // the field covers the whole surface (an axis-on view still shades the cap).
     // Iso-values sit on a dyadic ladder (temporal coherence): a density change
-    // adds/fades curves, it never moves the existing ones.
+    // adds or removes complete levels, never moving existing curves.
     const spacing = Math.max(1, opts.spacingPx);
     const rings = [];
     for (const s of dyadicLadder(screenDist(cam, this.apex, this.baseCenter) / spacing, { min: 2, max: 40 })) {
       const c = addScaled(this.apex, this.axis, s.t * this.height);
-      rings.push(tagCurve(circleCurve(c, plane.x, plane.y, s.t * this.baseRadius, coneNormal, 96), `r:${s.key}`, s.fade));
+      rings.push(tagCurve(circleCurve(c, plane.x, plane.y, s.t * this.baseRadius, coneNormal, 96), `r:${s.key}`));
     }
     const rScreen = screenDist(cam, this.baseCenter, addScaled(this.baseCenter, plane.x, this.baseRadius));
     for (const s of dyadicLadder(rScreen / spacing, { min: 2, max: 24 })) {
-      rings.push(tagCurve(circleCurve(this.baseCenter, plane.x, plane.y, s.t * this.baseRadius, () => this.axis, 96), `c:${s.key}`, s.fade));
+      rings.push(tagCurve(circleCurve(this.baseCenter, plane.x, plane.y, s.t * this.baseRadius, () => this.axis, 96), `c:${s.key}`));
     }
     families.push({ curves: rings });
 
@@ -120,7 +120,7 @@ export class Cone implements FeatureSource {
       for (const s of dyadicLadder((Math.PI * diam) / spacing, { periodic: true, min: 4, max: 64 })) {
         const th = TWO_PI * s.t;
         const end = add(this.baseCenter, add(addScaled([0, 0, 0], plane.x, this.baseRadius * Math.cos(th)), addScaled([0, 0, 0], plane.y, this.baseRadius * Math.sin(th))));
-        gens.push(tagCurve(segmentCurve(this.apex, end, coneNormal(end), 40), `g:${s.key}`, s.fade));
+        gens.push(tagCurve(segmentCurve(this.apex, end, coneNormal(end), 40), `g:${s.key}`));
       }
       families.push({ curves: gens });
     }
@@ -148,7 +148,7 @@ export class Cone implements FeatureSource {
               return { p, n };
             }, 48),
             `s:${s.key}`,
-            s.fade,
+            
           ),
         );
       }

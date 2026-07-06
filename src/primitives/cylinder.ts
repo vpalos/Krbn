@@ -87,18 +87,18 @@ export class Cylinder implements FeatureSource {
     // two end caps get concentric rings too (normal ±axis), so the field covers
     // the whole surface (an axis-on view still shades the visible cap).
     // Iso-values sit on a dyadic ladder (temporal coherence): a density change
-    // adds/fades curves, it never moves the existing ones.
+    // adds or removes complete levels, never moving existing curves.
     const spacing = Math.max(1, opts.spacingPx);
     const rings = [];
     for (const s of dyadicLadder(screenDist(cam, this.base, top) / spacing, { min: 2, max: 40 })) {
       const c = addScaled(this.base, this.axis, s.t * this.height);
-      rings.push(tagCurve(circleCurve(c, plane.x, plane.y, this.radius, (p) => sub(p, c), 96), `r:${s.key}`, s.fade));
+      rings.push(tagCurve(circleCurve(c, plane.x, plane.y, this.radius, (p) => sub(p, c), 96), `r:${s.key}`));
     }
     const rScreen = screenDist(cam, this.base, addScaled(this.base, plane.x, this.radius));
     for (const [ci, [c, sign]] of ([[this.base, -1], [top, 1]] as const).entries()) {
       const nrm: Vec3 = [sign * this.axis[0], sign * this.axis[1], sign * this.axis[2]];
       for (const s of dyadicLadder(rScreen / spacing, { min: 2, max: 24 })) {
-        rings.push(tagCurve(circleCurve(c, plane.x, plane.y, s.t * this.radius, () => nrm, 96), `c${ci}:${s.key}`, s.fade));
+        rings.push(tagCurve(circleCurve(c, plane.x, plane.y, s.t * this.radius, () => nrm, 96), `c${ci}:${s.key}`));
       }
     }
     families.push({ curves: rings });
@@ -109,7 +109,7 @@ export class Cylinder implements FeatureSource {
       for (const s of dyadicLadder((Math.PI * diam) / spacing, { periodic: true, min: 4, max: 64 })) {
         const th = TWO_PI * s.t;
         const off = add(addScaled([0, 0, 0], plane.x, this.radius * Math.cos(th)), addScaled([0, 0, 0], plane.y, this.radius * Math.sin(th)));
-        rulings.push(tagCurve(segmentCurve(add(this.base, off), add(top, off), off, 40), `g:${s.key}`, s.fade));
+        rulings.push(tagCurve(segmentCurve(add(this.base, off), add(top, off), off, 40), `g:${s.key}`));
       }
       families.push({ curves: rulings });
     }
@@ -133,7 +133,7 @@ export class Cylinder implements FeatureSource {
               return { p: add(addScaled(this.base, this.axis, t * this.height), off), n: off };
             }, segs),
             `h:${s.key}`,
-            s.fade,
+            
           ),
         );
       }

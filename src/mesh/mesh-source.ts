@@ -16,7 +16,7 @@ import type { Curve2D } from "../curve/types.js";
 import type { ElementId, Feature, HatchFamily, HatchFieldOptions, HatchRegion, Light } from "../pipeline/types.js";
 import type { FeatureSource } from "../scene/feature-source.js";
 import { cross, dot, normalize, sub } from "../math/vec3.js";
-import { projectionMatrix, projectPoint } from "../math/camera.js";
+import { cameraFrame, projectionMatrix, projectPoint } from "../math/camera.js";
 import { HalfEdgeMesh, type BuildOptions, type MeshInput } from "./halfedge.js";
 import { chainVertexEdges, facetedSilhouetteLoops, silhouetteChains, silhouetteLoops } from "./silhouette.js";
 import { computeCurvature, type CurvatureField } from "./curvature.js";
@@ -190,18 +190,19 @@ export class Mesh implements FeatureSource {
   }
 
   /** Convert a desired on-screen hatch spacing (px) to a world-space separation,
-   *  by measuring screen pixels per world unit at the object centre (max over the
-   *  three axes, so a near-view-aligned axis doesn't collapse the estimate). */
+   *  by measuring screen pixels per world unit at the object centre. The probe
+   *  runs along the camera's *right* axis, so the estimate is exact for ortho
+   *  and, for perspective, depends only on the distance to the object — not on
+   *  the view direction. That matters for the discrete atlas level: an orbit at
+   *  constant distance must not jitter the demand across a level boundary. */
   private screenToWorldSpacing(cam: Camera, spacingPx: number): number {
     const P = projectionMatrix(cam);
     const b = this.aabb;
     const c: Vec3 = [(b.min[0] + b.max[0]) / 2, (b.min[1] + b.max[1]) / 2, (b.min[2] + b.max[2]) / 2];
     const sc = projectPoint(P, c).point;
-    let pxPerWorld = 0;
-    for (const ax of [[1, 0, 0], [0, 1, 0], [0, 0, 1]] as const) {
-      const q = projectPoint(P, [c[0] + ax[0], c[1] + ax[1], c[2] + ax[2]]).point;
-      pxPerWorld = Math.max(pxPerWorld, Math.hypot(q[0] - sc[0], q[1] - sc[1]));
-    }
+    const r = cameraFrame(cam).right;
+    const q = projectPoint(P, [c[0] + r[0], c[1] + r[1], c[2] + r[2]]).point;
+    const pxPerWorld = Math.hypot(q[0] - sc[0], q[1] - sc[1]);
     return spacingPx / (pxPerWorld || 1);
   }
 

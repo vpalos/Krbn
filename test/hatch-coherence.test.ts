@@ -107,16 +107,15 @@ describe("dyadic ladder — nested iso-values with stable identities", () => {
     }
   });
 
-  test("a fractional demand fades in only the newest level", () => {
-    const stops = dyadicLadder(10); // between levels 2 (7 curves) and 3 (15)
-    const fading = stops.filter((s) => s.fade < 1);
-    const full = stops.filter((s) => s.fade === 1);
-    expect(full.length).toBe(7);
-    expect(fading.length).toBe(8);
-    const f = fading[0]!.fade;
-    expect(f).toBeGreaterThan(0);
-    expect(f).toBeLessThan(1);
-    expect(fading.every((s) => s.fade === f)).toBe(true);
+  test("demand snaps to the nearest complete level — no partial levels", () => {
+    // partial interleaving levels always read as a periodic artifact in stills
+    // (gray/black, thick/thin, or pair/gap — whatever channel carries the fade),
+    // so the ladder emits complete levels only
+    expect(dyadicLadder(10).length).toBe(7); // log2(11)-1 ≈ 2.46 → level 2
+    expect(dyadicLadder(12).length).toBe(15); // log2(13)-1 ≈ 2.70 → level 3
+    // and a complete level is evenly spaced end to end
+    const t = dyadicLadder(12).map((s) => s.t).sort((a, b) => a - b);
+    for (let i = 1; i < t.length; i++) expect(t[i]! - t[i - 1]!).toBeCloseTo(1 / 16, 9);
   });
 });
 
@@ -154,7 +153,6 @@ describe("analytic hatchField — iso-curves hold still under camera motion", ()
     const nearByKey = new Map(near[0]!.curves.map((c) => [c.key, c]));
     expect(near[0]!.curves.length).toBeGreaterThan(far[0]!.curves.length);
     for (const c of far[0]!.curves) {
-      if ((c.fade ?? 1) < 1) continue; // the far view's fading tail may retire
       const m = nearByKey.get(c.key);
       expect(m).toBeDefined();
       expect(m!.samples[0]!.p).toEqual(c.samples[0]!.p);
@@ -189,19 +187,11 @@ describe("Mesh.hatchField — camera picks a level, never re-seeds", () => {
     }
   });
 
-  test("zooming in only ever *adds* curves (coarse set is a stable prefix), newest level fades", () => {
+  test("zooming in only ever *adds* complete levels (coarse set is a stable prefix)", () => {
     const far = src.hatchField(ortho([10, 0, 0], 0.02), { spacingPx: 6, maxFamilies: 1 });
     const near = src.hatchField(ortho([10, 0, 0], 0.005), { spacingPx: 6, maxFamilies: 1 });
-    expect(near[0]!.curves.length).toBeGreaterThanOrEqual(far[0]!.curves.length);
-    const nearKeys = new Set(near[0]!.curves.map((c) => c.key));
-    for (const c of far[0]!.curves) {
-      if ((c.fade ?? 1) < 1) continue; // far view's fading tail may drop out when zooming in? no — zooming IN raises demand; keep the check strict below
-      expect(nearKeys.has(c.key)).toBe(true);
-    }
-    // fully-committed far curves stay identical objects at the front
-    const farFull = far[0]!.curves.filter((c) => (c.fade ?? 1) >= 1);
-    for (let i = 0; i < farFull.length; i++) expect(near[0]!.curves[i]).toBe(farFull[i]!);
-    // any fade values are in (0, 1) and only on the newest level
-    for (const c of near[0]!.curves) if (c.fade !== undefined) expect(c.fade).toBeGreaterThan(0);
+    expect(near[0]!.curves.length).toBeGreaterThan(far[0]!.curves.length);
+    // the far view's curves reappear as the identical atlas objects, in order
+    for (let i = 0; i < far[0]!.curves.length; i++) expect(near[0]!.curves[i]).toBe(far[0]!.curves[i]!);
   });
 });

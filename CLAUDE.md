@@ -169,8 +169,10 @@ identity, and dyadic iso-parameter ladders for all five analytic `hatchField`
 primitives (`dyadicLadder`, `src/primitives/hatch-field.ts`: density changes
 add/fade curves, never move them). **Stateless threshold fades** —
 `Stroke.fade` (abstraction cull band), `Feature.attrs.strength` (suggestive
-`D_w κ_r` margin), `HatchFieldCurve.fade` (fractional LOD), and
-consolidation-merged strokes anchored on their minimal member id. **The
+`D_w κ_r` margin), and consolidation-merged strokes anchored on their minimal
+member id; hatch LOD deliberately does **not** fade — it snaps to complete
+levels (a partial interleaving level reads as a periodic artifact in any fade
+channel; see ROADMAP item 6.5). **The
 animation harness** — `examples/animation.ts` (48-frame orbit →
 `examples/animation/` SVG frames + a flipbook.html, gitignored; zero churn end
 to end) and `test/animation-coherence.test.ts` (no id churn, bounded per-step

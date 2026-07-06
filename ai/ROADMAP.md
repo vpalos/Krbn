@@ -240,16 +240,24 @@ hatch, empty (→ straight-hatch fallback) where isotropic.
         threshold maps a chain's mean margin to `Feature.attrs.strength`
         (`SuggestiveChain`, `src/mesh/suggestive.ts`); styling multiplies
         opacity by `fade × strength` (`emitStyledStroke`);
-      · hatch LOD: the streamline atlas exposes a *fractional* level — full
-        levels draw at 1, the next level fades in with the fractional density
-        demand (`HatchFieldCurve.fade`, shallow copies so cached curves stay
-        immutable) — and the **analytic hatch fields now sit on dyadic
-        iso-parameter ladders** (`dyadicLadder`/`tagCurve`,
-        `src/primitives/hatch-field.ts`; wired into cylinder/cone/torus/
-        sphere/ellipsoid): iso-values live on a fixed dyadic grid so a density
-        change adds/fades curves but *never moves or renames* existing ones —
-        this kills the per-frame respacing of all five analytic fields, with
-        per-curve fraction keys for wobble seeding;
+      · hatch LOD: **complete levels only, snapped to the nearest** (atlas
+        `levelFor` rounds; `dyadicLadder` likewise) — and the **analytic hatch
+        fields now sit on dyadic iso-parameter ladders**
+        (`dyadicLadder`/`tagCurve`, `src/primitives/hatch-field.ts`; wired into
+        cylinder/cone/torus/sphere/ellipsoid): iso-values live on a fixed
+        dyadic grid so a density change adds/removes complete levels but
+        *never moves or renames* existing curves — this kills the per-frame
+        respacing of all five analytic fields, with per-curve fraction keys
+        for wobble seeding. **Fractional LOD fades were tried and rejected**:
+        a partially-arrived interleaving level reads as a periodic artifact in
+        any channel — opacity fades banded gray/black, weight fades banded
+        thick/thin, staggered line-by-line arrival made pair/gap spacing (all
+        three observed on gallery 12/15). Sparse, individually visible hatch
+        lines must come in complete levels; smoothing a *zoom-driven level
+        switch* is future session-side work (a short temporal crossfade), not
+        a per-frame concern. The mesh's px→world spacing probe now measures
+        along the camera right axis at the bounds centre, so an orbit at
+        constant distance cannot jitter the demand across a level boundary;
       · consolidation: merged strokes now carry an identity anchored on their
         minimal member id (`MergedLine.memberIds`) — a persistent id when a
         `FrameSession` drives.

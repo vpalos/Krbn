@@ -117,10 +117,6 @@ export interface HatchFieldCurve {
    *  moves. Static atlases (mesh streamlines) guarantee it; per-frame generators
    *  should derive it from the curve's iso-parameter, not enumeration order. */
   key?: string;
-  /** 0..1 opacity multiplier for LOD fading: the newest (finest) density level
-   *  fades in as the continuous density demand crosses it, so a level switch is
-   *  a dissolve, not a pop (temporal coherence). Absent = 1. */
-  fade?: number;
 }
 
 /** One direction family; ordered families become successive cross-hatch layers

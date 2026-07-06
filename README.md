@@ -44,6 +44,16 @@ variable-width strokes. It is MIT-licensed and written in TypeScript — see the
 full **[example gallery](examples/README.md)**, and open a discussion if this
 problem space interests you.
 
+## Disclaimer — built with AI, unapologetically
+
+Krbn was developed with heavy AI assistance, and there is no reason to hide it.
+It started as an experiment: how far could a carefully directed human–AI
+collaboration get on a hard rendering problem? The answer turned out to be —
+far. The direction, the architecture, and the standards (exactness as a value,
+degenerate cases as the spec) are human; much of the code was written in
+collaboration with AI, then reviewed and tested like any other code. The
+results above speak for themselves.
+
 > **Status & roadmap** live in one place, not here: **[`ai/ROADMAP.md`](ai/ROADMAP.md)**
 > holds the annotated build status and polish backlog, and
 > **[`ai/DESIGN.md`](ai/DESIGN.md)** holds the design, the implementation-status
@@ -148,6 +158,13 @@ bun run typecheck
 bun run build
 bun test
 ```
+
+## About the author
+
+I build tools that make math visible. Krbn is the open-source half; the other
+is **[AhaBlitz](https://ahablitz.ro)** — an interactive math-missions platform
+for Romanian students (Evaluare Națională and Bacalaureat), built on
+hand-crafted simulators and expert-authored content.
 
 ## License
 

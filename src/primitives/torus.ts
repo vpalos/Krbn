@@ -108,13 +108,13 @@ export class Torus implements FeatureSource {
 
     // Family 0 — poloidal circles (tube cross-sections, one per toroidal angle u).
     // Iso-values sit on a dyadic ladder (temporal coherence): a density change
-    // adds/fades curves, it never moves the existing ones.
+    // adds or removes complete levels, never moving existing curves.
     const spacing = Math.max(1, opts.spacingPx);
     const majDiam = screenDist(cam, addScaled(c, e1, R), addScaled(c, e1, -R));
     const poloidal = [];
     for (const s of dyadicLadder((Math.PI * majDiam) / spacing, { periodic: true, min: 8, max: 72 })) {
       const rad = radial(TWO_PI * s.t);
-      poloidal.push(tagCurve(circleCurve(addScaled(c, rad, R), rad, a, r, torusNormal, 48), `p:${s.key}`, s.fade));
+      poloidal.push(tagCurve(circleCurve(addScaled(c, rad, R), rad, a, r, torusNormal, 48), `p:${s.key}`));
     }
     families.push({ curves: poloidal });
 
@@ -125,7 +125,7 @@ export class Torus implements FeatureSource {
       for (const s of dyadicLadder((Math.PI * minDiam) / spacing, { periodic: true, min: 4, max: 48 })) {
         const v = TWO_PI * s.t;
         const center = addScaled(c, a, r * Math.sin(v));
-        toroidal.push(tagCurve(circleCurve(center, e1, e2, R + r * Math.cos(v), torusNormal, 96), `t:${s.key}`, s.fade));
+        toroidal.push(tagCurve(circleCurve(center, e1, e2, R + r * Math.cos(v), torusNormal, 96), `t:${s.key}`));
       }
       families.push({ curves: toroidal });
     }
@@ -150,7 +150,7 @@ export class Torus implements FeatureSource {
               return { p, n };
             }, 128),
             `d:${s.key}`,
-            s.fade,
+            
           ),
         );
       }

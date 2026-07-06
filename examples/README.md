@@ -266,9 +266,12 @@ What to look for while it plays — each is one piece of the coherence work:
 - **Every line keeps its hand-drawn character.** Wobble seeds key on stable
   line identity (streamline id, ladder fraction, offset index), not emission
   order, so a visibility clip can't re-deal the jitter.
-- **Detail thins by fading, never popping.** The abstraction cull, suggestive
-  contours, and hatch LOD levels all dissolve through stateless opacity fades
-  (`Stroke.fade`, `attrs.strength`, `HatchFieldCurve.fade`).
+- **Feature detail thins by fading, never popping.** The abstraction cull and
+  suggestive contours dissolve through stateless opacity fades (`Stroke.fade`,
+  `attrs.strength`). Hatch density is the one deliberate exception: it snaps
+  between *complete* dyadic levels (a partially-drawn interleaving level reads
+  as a periodic banding artifact in stills), and the level demand is
+  rotation-invariant, so an orbit never triggers a switch.
 
 The matching property tests live in `test/animation-coherence.test.ts`: zero id
 churn between adjacent frames, bounded per-step stroke displacement, steady

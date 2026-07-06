@@ -32,8 +32,6 @@ export interface LadderStop {
   t: number;
   /** stable identity — the dyadic fraction, e.g. "3/8" */
   key: string;
-  /** 0..1; < 1 only on the newest, fading-in level */
-  fade: number;
 }
 
 /**
@@ -43,9 +41,16 @@ export interface LadderStop {
  * iso-values live on a fixed dyadic grid: level 0 = {1/2} (open) or {0}
  * (periodic), and each level adds the midpoints between existing values — so
  * the union over levels 0..L is evenly spaced, refining never moves a curve,
- * and each value's fraction is a stable identity for wobble seeding. The
- * continuous density demand fades the newest level in/out (`fade`), so a
- * density change is a dissolve, not a pop.
+ * and each value's fraction is a stable identity for wobble seeding.
+ *
+ * The density demand is **rounded to the nearest complete level** — partial
+ * levels are never emitted. A partially-arrived interleaving level cannot look
+ * right in a still: faded by opacity it reads as gray/black banding, by weight
+ * as thick/thin banding, and arriving line-by-line as pair/gap spacing — the
+ * artifact just moves channels (this was tried; see ROADMAP Phase-2 item 6.5).
+ * The cost is a discrete switch when a *zoom* crosses a level boundary;
+ * smoothing that transition is cross-frame-state territory (a session-side
+ * crossfade), not a per-frame concern.
  *
  * `min`/`max` are *approximate* curve-count clamps, honoured as ladder levels:
  * counts are 2^(L+1)−1 (open) / 2^L (periodic).
@@ -55,27 +60,22 @@ export function dyadicLadder(desired: number, opts: { periodic?: boolean; min?: 
   const toLevel = (n: number) => (periodic ? Math.log2(Math.max(1, n)) : Math.log2(Math.max(1, n) + 1) - 1);
   const minL = Math.max(0, Math.ceil(toLevel(opts.min ?? 1) - 1e-9));
   const maxL = Math.max(minL, Math.floor(toLevel(opts.max ?? 4096) + 1e-9));
-  const f = Math.min(maxL, Math.max(minL, toLevel(desired)));
-  const kFull = Math.floor(f);
-  const frac = f - kFull;
-  const kTop = frac > 1e-9 && kFull + 1 <= maxL ? kFull + 1 : kFull;
+  const k = Math.round(Math.min(maxL, Math.max(minL, toLevel(desired))));
   const stops: LadderStop[] = [];
-  for (let L = 0; L <= kTop; L++) {
-    const fade = L === kTop && kTop > kFull ? frac : 1;
+  for (let L = 0; L <= k; L++) {
     if (periodic && L === 0) {
-      stops.push({ t: 0, key: "0/1", fade });
+      stops.push({ t: 0, key: "0/1" });
       continue;
     }
     const den = 2 ** (periodic ? L : L + 1);
-    for (let num = 1; num < den; num += 2) stops.push({ t: num / den, key: `${num}/${den}`, fade });
+    for (let num = 1; num < den; num += 2) stops.push({ t: num / den, key: `${num}/${den}` });
   }
   return stops;
 }
 
-/** Tag a field curve with its ladder identity + fade (in place, for chaining). */
-export function tagCurve(curve: HatchFieldCurve, key: string, fade: number): HatchFieldCurve {
+/** Tag a field curve with its ladder identity (in place, for chaining). */
+export function tagCurve(curve: HatchFieldCurve, key: string): HatchFieldCurve {
   curve.key = key;
-  if (fade < 1) curve.fade = fade;
   return curve;
 }
 
