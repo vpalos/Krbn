@@ -152,12 +152,18 @@ hatch, empty (→ straight-hatch fallback) where isotropic.
    shared `zeroSetLoops`. Opt-in on the `Mesh` source (`{ suggestive }`), drawn as
    lighter form lines dropped where hidden. Verified: none on a convex sphere,
    present + front-facing on a torus (`gallery/14`).
-5. 🚧 Visibility — the shared QI now renders meshes correctly: a `FeatureSource`
-   may declare a **self-nudge** (`Mesh.selfNudge` ≈ 1.5× mean edge length) so a
-   grazing faceted silhouette clears its neighbouring triangles (owner self-hits
-   nearer than the nudge are skipped) while genuine self-occlusion is still caught
-   — fixing the stipple on `gallery/13`. The analytic path is byte-identical.
-   Fully-analytic mesh QI (vs this hybrid tolerance) is still future.
+5. ✅ Visibility — the shared QI decision (`isOccluded`) is now an **exact
+   depth-buffer test**: cast the primary ray (eye → the point's pixel), re-condition
+   its origin to just before the scene's bounding sphere (so analytic quartics keep
+   their roots from a far eye), and occlude iff a surface is hit strictly nearer
+   than the point — no ray-nudge heuristic. A source's own hits are "self" up to a
+   per-owner depth tolerance: a small floor (`EPS_NUDGE_REL·scale`) for smooth
+   surfaces, since a raycast's grazing tangent root at a silhouette is only good to
+   ~that precision (a torus is a quartic); widened to the facet scale
+   (`selfNudge` ≈ 0.75× edge length) for a mesh, since a silhouette point on one
+   triangle can be a chord-sagitta nearer than the next facet. Occlusion by *other*
+   sources is compared exactly. Verified: analytic occlusion robust from a far
+   viewpoint; analytic + mesh silhouettes intact (`gallery/10–13,15`).
 6. ⬜ Temporal coherence for animation.
 
 ## Cross-cutting

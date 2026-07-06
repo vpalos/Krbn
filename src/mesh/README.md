@@ -36,10 +36,14 @@ it. See **ai/DESIGN.md §3** for the phased plan and hard-parts registry.
   generators, plus `translate` / `rotate` for composing scenes. All CCW-outward. The
   two knotted tubes of `gallery/15` and the warped sheet of `gallery/16` use these.
 
-**Mesh-visibility robustness (§3.3.6) is in:** `Mesh.selfNudge()` (≈1.5× mean edge
-length) lets the shared QI clear a grazing faceted silhouette's neighbouring
-triangles instead of stippling it (see `pipeline/visibility.ts` `isOccluded`), with
-the analytic path byte-identical.
+**Visibility (§3.3.6) is an exact depth-buffer test:** the shared
+`pipeline/visibility.ts` `isOccluded` casts the primary ray (eye → the point's
+pixel, origin re-conditioned near the scene so analytic quartics keep their roots)
+and occludes iff a surface is hit strictly nearer than the point — no ray-nudge.
+The only irreducible tolerance is faceting: a mesh declares `selfNudge()` (≈0.75×
+edge length) as the depth within which its own hits are "self", since a silhouette
+point on one triangle can be a chord-sagitta nearer than the next facet. Smooth
+analytic sources declare none and compare exactly.
 
 - **`suggestive.ts` — suggestive contours (§3.3.5).** `suggestiveContours(mesh, cam,
   curvature)` extracts the zero-set of radial curvature on the front-facing surface
@@ -57,5 +61,6 @@ the analytic path byte-identical.
 
 ## Next (not yet built)
 
-Fully-analytic mesh QI (vs today's hybrid edge-length tolerance) → temporal
-coherence (§3.3.7).
+Temporal coherence (§3.3.7) — stable chain identity + coherent silhouettes across
+frames. (An exact *contour projection* would let the depth-buffer QI drop even the
+facet self-tolerance, but that's a smooth-surface refinement, not a blocker.)

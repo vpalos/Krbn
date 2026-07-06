@@ -35,12 +35,12 @@ export interface FeatureSource {
   projectedSilhouettes(cam: Camera): Curve2D[];
 
   /**
-   * Optional: the distance to step a reference point off *this* source's surface
-   * before an occlusion ray, and the radius within which the source's own hits
-   * count as "self" rather than occlusion. Smooth analytic surfaces omit it (the
-   * tiny default nudge suffices); a faceted mesh returns ~its edge length, so a
-   * grazing silhouette point clears its neighbouring triangles while genuine
-   * (far) self-occlusion is still caught. (ai/DESIGN.md §3.3.6)
+   * Optional depth tolerance (world units) within which *this* source's own hits
+   * count as "self" rather than occlusion, in the exact depth-buffer visibility
+   * test. A smooth analytic surface omits it (its silhouette lies exactly on the
+   * surface); a faceted mesh returns ≈ its edge length, since a silhouette point on
+   * one facet can be a chord-sagitta nearer than an adjacent facet — a tolerance
+   * inherent to discrete surfaces. (ai/DESIGN.md §3.3.6)
    */
   selfNudge?(): number;
 }

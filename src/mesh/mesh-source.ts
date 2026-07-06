@@ -101,12 +101,12 @@ export class Mesh implements FeatureSource {
     return this.aabb;
   }
 
-  /** A grazing mesh silhouette point sits on a triangle edge; step off by ~1.5
-   *  edge lengths so the occlusion ray clears the neighbouring facets, while
-   *  genuine self-occlusion (a nearer part of the surface) is much farther and
-   *  still caught. (ai/DESIGN.md §3.3.6) */
+  /** Self-occlusion depth tolerance for the exact depth-buffer QI: a silhouette
+   *  point on one triangle can be up to ~a facet's chord-sagitta nearer or farther
+   *  than an adjacent facet, so only self-hits beyond ~an edge length count as a
+   *  genuine (separate-sheet) occlusion. (ai/DESIGN.md §3.3.6) */
   selfNudge(): number {
-    return 1.5 * this.he.meanEdgeLength;
+    return 0.75 * this.he.meanEdgeLength;
   }
 
   extractFeatures(cam: Camera): Feature[] {

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { Camera } from "../src/math/types.js";
 import { Torus } from "../src/primitives/torus.js";
 import { Point } from "../src/primitives/point.js";
-import { classifyFeature } from "../src/pipeline/visibility.js";
+import { classifyFeature, isOccluded, sceneScale } from "../src/pipeline/visibility.js";
 import { Scene } from "../src/scene/scene.js";
 
 // torus centred at origin, axis +z, major R = 2, minor r = 0.5
@@ -118,5 +118,40 @@ describe("Torus — visibility in a scene", () => {
     scene.add(torus);
     const res = scene.render(front);
     expect(res.strokes.filter((s) => s.feature.type === "silhouette").length).toBeGreaterThanOrEqual(2);
+  });
+
+  test("the near outer silhouette is not self-occluded from an angled view (quartic-tangent floor)", () => {
+    // the whole outer contour of a torus is exposed; a too-tight self-tolerance let
+    // the ray-torus quartic's grazing-tangent root read as an occluder and dropped
+    // the near arc — this guards that regression.
+    const angled: Camera = { eye: [4, 3, 2.7], target: [0, 0, 0], up: [0, 0, 1], projection: "perspective", scale: Math.PI / 4.6, viewport: { width: 600, height: 400 } };
+    const scale = sceneScale([torus]);
+    const sils = torus.extractFeatures(angled).filter((f) => f.type === "silhouette");
+    const strokes = sils.map((f) => classifyFeature(f, angled, [torus], scale, torus));
+    const bboxDiag = (s: (typeof strokes)[number]) => {
+      if (s.screen.kind !== "polyline") return 0;
+      let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity;
+      for (const [x, y] of s.screen.pts) { a = Math.min(a, x); b = Math.min(b, y); c = Math.max(c, x); d = Math.max(d, y); }
+      return Math.hypot(c - a, d - b);
+    };
+    const visFrac = (s: (typeof strokes)[number]) => {
+      let v = 0, t = 0;
+      for (const iv of s.intervals) { const dd = iv.t1 - iv.t0; t += dd; if (iv.visible) v += dd; }
+      return t > 0 ? v / t : 1;
+    };
+    const outer = strokes.reduce((best, s) => (bboxDiag(s) > bboxDiag(best) ? s : best), strokes[0]!);
+    expect(visFrac(outer)).toBeGreaterThan(0.95);
+  });
+
+  test("depth-buffer occlusion has no spurious holes behind a solid (far-origin quartic conditioning)", () => {
+    // The eye is far, so the ray-torus quartic would drop roots if cast from the
+    // eye origin; the occlusion test re-conditions the origin near the scene. A
+    // whole patch behind the x=2 tube must be uniformly occluded — no stipple.
+    const scale = sceneScale([torus]);
+    for (let dx = -0.08; dx <= 0.0801; dx += 0.02) {
+      for (let dy = -0.08; dy <= 0.0801; dy += 0.02) {
+        expect(isOccluded([2 + dx, dy, -5], front, [torus], scale)).toBe(true);
+      }
+    }
   });
 });

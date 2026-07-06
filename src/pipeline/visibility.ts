@@ -1,12 +1,13 @@
-// Stage 2 — exact quantitative invisibility (ai/DESIGN.md §2.4).
+// Stage 2 — exact quantitative invisibility (ai/DESIGN.md §2.4, §3.3.6).
 //
 // For each feature curve we (1) collect every screen crossing with an occluder's
 // apparent contour — these are the only parameters at which visibility can
-// change — then (2) decide each resulting sub-interval with a single exact depth
-// test: shoot a ray from the sampled 3-D point toward the eye; if any surface
-// lies strictly in front, the point is hidden. Correctness rests on closed-form
-// `raycast`, and self-occlusion needs no special case — the feature's own point
-// is excluded by a depth epsilon.
+// change — then (2) decide each resulting sub-interval with an exact depth-buffer
+// test (`isOccluded`): cast the primary ray from the eye through the sampled
+// point's pixel and check whether any surface is hit strictly nearer than the
+// point. Correctness rests on closed-form `raycast`; self-occlusion needs no
+// special case — the point's own surface registers at its own depth. (Faceted
+// meshes keep one small depth tolerance, declared per source; see `isOccluded`.)
 //
 // The crossing set only has to be a *superset* of the true change points: extra
 // boundaries merge away, and none are missed because each primitive's
@@ -17,8 +18,8 @@ import type { FeatureSource } from "../scene/feature-source.js";
 import type { Feature, Stroke, VisibilityInterval } from "./types.js";
 import { buildFeatureModel } from "./feature-curve.js";
 import { crossScreenCurves } from "../curve/intersect2d.js";
-import { cameraFrame, projectionMatrix, projectPoint } from "../math/camera.js";
-import { addScaled, distance, normalize, sub } from "../math/vec3.js";
+import { projectionMatrix, projectPoint, unproject } from "../math/camera.js";
+import { distance } from "../math/vec3.js";
 import { EPS_DEPTH_REL, EPS_NUDGE_REL, EPS_PARAM_REL } from "../curve/epsilon.js";
 
 /** Scene diameter, for scaling the depth/parameter tolerances. */
@@ -32,13 +33,20 @@ export function sceneScale(sources: readonly FeatureSource[]): number {
 }
 
 /**
- * Is the world point `p` hidden by any surface in the scene? We step `p` a hair
- * *toward the viewer* (off its own surface) and cast toward the eye: an occluder
- * is any surface hit strictly between there and the eye. The nudge is what makes
- * this robust at silhouettes — a contour point is a grazing/tangent point of its
- * own view ray, whose self-hit is a near-tangent double root; nudging off the
- * surface pushes that self-hit *behind* the ray origin (t < 0, ignored) while
- * keeping the origin near `p` so the ray stays well-conditioned.
+ * Is the world point `p` hidden by any surface in the scene? An exact depth-buffer
+ * test (ai/DESIGN.md §3.3.6): cast the *primary* ray — from the eye through `p`'s
+ * pixel — and ask whether any surface is hit strictly nearer than `p`. `p`'s own
+ * surface registers at its own depth (`t ≈ dp`) and so never self-occludes; a
+ * genuinely nearer surface — the front of a fold, or another object — is caught by
+ * an exact `t < dp` comparison. No ray-nudge heuristic.
+ *
+ * A source's own hits near the point are "self" and don't occlude it: excluded up
+ * to a per-owner depth tolerance. Smooth analytic surfaces still need a small floor
+ * (`EPS_NUDGE_REL·scale`) because a raycast's grazing tangent root at a silhouette
+ * is only good to ~that precision (a torus is a quartic); a *faceted* mesh declares
+ * a larger one (`selfNudge`, ≈ its edge length) since a silhouette point on one
+ * triangle can be a chord-sagitta nearer than the next facet. Occlusion by *other*
+ * sources is compared exactly.
  */
 export function isOccluded(
   p: Vec3,
@@ -46,34 +54,54 @@ export function isOccluded(
   sources: readonly FeatureSource[],
   scale: number,
   owner?: FeatureSource,
-  ownerNudge?: number,
+  ownerTol?: number,
 ): boolean {
-  const epsSkip = EPS_DEPTH_REL * scale;
-  // Step off `p`'s own surface by the owner's self-nudge (mesh: ~edge length) so a
-  // grazing faceted silhouette clears its neighbouring triangles; smooth sources
-  // fall back to the tiny default. Hits from the owner nearer than this count as
-  // "self"; genuine (far) self-occlusion is still caught.
-  const meshNudge = ownerNudge !== undefined && ownerNudge > 0;
-  const nudge = meshNudge ? ownerNudge : EPS_NUDGE_REL * scale;
-  const ownerSkip = meshNudge ? Math.max(epsSkip, ownerNudge) : epsSkip;
-  let toEye: Vec3;
-  let tMax: number;
-  if (cam.projection === "perspective") {
-    toEye = normalize(sub(cam.eye, p));
-    tMax = distance(cam.eye, p) - nudge;
-  } else {
-    const f = cameraFrame(cam).forward;
-    toEye = [-f[0], -f[1], -f[2]];
-    tMax = Infinity;
-  }
-  const ray = { origin: addScaled(p, toEye, nudge), dir: toEye };
+  const sp = projectPoint(projectionMatrix(cam), p).point;
+  const eyeRay = unproject(cam, sp); // eye → p's pixel (unit dir, so t is world distance)
+  const dir = eyeRay.dir;
+  const dpEye = (p[0] - eyeRay.origin[0]) * dir[0] + (p[1] - eyeRay.origin[1]) * dir[1] + (p[2] - eyeRay.origin[2]) * dir[2];
+
+  // Advance the ray origin to just before the scene's bounding sphere so the
+  // per-source raycasts stay well-conditioned (analytic quartics lose roots from a
+  // far origin). Depths are compared in this shifted frame.
+  const { center, radius } = sceneSphere(sources);
+  const toC = (center[0] - eyeRay.origin[0]) * dir[0] + (center[1] - eyeRay.origin[1]) * dir[1] + (center[2] - eyeRay.origin[2]) * dir[2];
+  const advance = Math.max(0, toC - radius);
+  const origin: Vec3 = [eyeRay.origin[0] + dir[0] * advance, eyeRay.origin[1] + dir[1] * advance, eyeRay.origin[2] + dir[2] * advance];
+  const ray = { origin, dir };
+  const dp = dpEye - advance;
+
+  const baseTol = EPS_DEPTH_REL * scale;
+  // the owner's own hits are "self" up to a floor that absorbs its raycast's
+  // grazing-tangent precision, widened to the mesh facet scale when it declares one
+  const selfTol = Math.max(EPS_NUDGE_REL * scale, ownerTol ?? 0);
   for (const s of sources) {
-    const skip = s === owner ? ownerSkip : epsSkip;
+    const dFront = dp - (s === owner ? selfTol : baseTol);
     for (const h of s.raycast(ray)) {
-      if (h.t > skip && h.t < tMax) return true;
+      if (h.t > baseTol && h.t < dFront) return true; // a surface strictly in front of `p`
     }
   }
   return false;
+}
+
+/** Bounding sphere of the scene (from the sources' AABBs), for conditioning the
+ *  occlusion ray. */
+function sceneSphere(sources: readonly FeatureSource[]): { center: Vec3; radius: number } {
+  let minX = Infinity, minY = Infinity, minZ = Infinity;
+  let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+  for (const s of sources) {
+    const b = s.bounds();
+    minX = Math.min(minX, b.min[0]);
+    minY = Math.min(minY, b.min[1]);
+    minZ = Math.min(minZ, b.min[2]);
+    maxX = Math.max(maxX, b.max[0]);
+    maxY = Math.max(maxY, b.max[1]);
+    maxZ = Math.max(maxZ, b.max[2]);
+  }
+  if (!(maxX >= minX)) return { center: [0, 0, 0], radius: 1 };
+  const center: Vec3 = [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2];
+  const radius = 0.5 * Math.hypot(maxX - minX, maxY - minY, maxZ - minZ);
+  return { center, radius };
 }
 
 // Grazing/cusp scan resolution. The scan seeds tangential visibility changes
@@ -113,8 +141,8 @@ export function classifyFeature(
   const model = buildFeatureModel(feature.curve, cam);
   const span = model.t1 - model.t0;
   const epsT = EPS_PARAM_REL * (span || 1);
-  const ownerNudge = owner?.selfNudge?.();
-  const occ = (t: number): boolean => isOccluded(model.point3(t), cam, sources, scale, owner, ownerNudge);
+  const ownerTol = owner?.selfNudge?.();
+  const occ = (t: number): boolean => isOccluded(model.point3(t), cam, sources, scale, owner, ownerTol);
 
   // 1a) exact analytic crossings — transversal visibility changes land here
   // precisely (a superset; extra boundaries merge away harmlessly).
@@ -161,7 +189,7 @@ export function classifyFeature(
     const ta = bounds[i]!;
     const tb = bounds[i + 1]!;
     if (tb - ta <= epsT) continue;
-    const visible = !isOccluded(model.point3(0.5 * (ta + tb)), cam, sources, scale, owner, ownerNudge);
+    const visible = !isOccluded(model.point3(0.5 * (ta + tb)), cam, sources, scale, owner, ownerTol);
     raw.push({ t0: ta, t1: tb, visible });
   }
 
@@ -174,7 +202,7 @@ export function classifyFeature(
   }
   if (intervals.length === 0) {
     // No crossings and no midpoint (degenerate span): treat as a single sample.
-    const visible = !isOccluded(model.point3(0.5 * (model.t0 + model.t1)), cam, sources, scale, owner, ownerNudge);
+    const visible = !isOccluded(model.point3(0.5 * (model.t0 + model.t1)), cam, sources, scale, owner, ownerTol);
     intervals.push({ t0: model.t0, t1: model.t1, visible });
   }
 

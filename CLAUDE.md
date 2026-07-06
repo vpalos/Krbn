@@ -133,18 +133,23 @@ loops/paths), and the **`Mesh` `FeatureSource`** (`src/mesh/mesh-source.ts`:
 extractFeatures = silhouette + chained creases + boundaries; projectedSilhouettes;
 Möller–Trumbore raycast) — so a **mesh now renders end-to-end through the existing
 pipeline with hidden-line visibility, wobble, variable width, and shading**
-(`gallery/13`), no fork. **Mesh-visibility robustness is in:** a `FeatureSource`
-may declare a `selfNudge()` (mesh ≈ 1.5× mean edge length) so the shared QI clears
-a grazing faceted silhouette's neighbouring triangles instead of stippling it, with
-the analytic path byte-identical. **Suggestive contours** are in
+(`gallery/13`), no fork. **Visibility is an exact depth-buffer test** (`isOccluded`
+casts eye→pixel with the origin re-conditioned near the scene bounding sphere so
+analytic quartics keep their roots, and occludes iff a surface is hit strictly
+nearer than the point — no ray-nudge). A source's own hits are "self" up to a
+per-owner depth tolerance: a small floor (`EPS_NUDGE_REL·scale`) for smooth
+surfaces (a raycast's grazing tangent root is only good to ~that — a torus is a
+quartic), widened to `selfNudge()` (≈0.75× edge length) for a faceted mesh.
+Occlusion by other sources is exact.
+**Suggestive contours** are in
 (`src/mesh/suggestive.ts`, DeCarlo et al.: front-facing zero-set of radial
 curvature with D_w κ_r > threshold, opt-in via `new Mesh(input, { suggestive })`,
 drawn as lighter form lines; `gallery/14`), and a **curvature-driven mesh hatch
 field** (`src/mesh/mesh-hatch.ts`: evenly-spaced Jobard–Lefebvre streamlines of the
 principal-direction field, returned via `Mesh.hatchField`; empty on isotropic
 surfaces so the scene falls back to straight hatch). Next per `ai/ROADMAP.md`:
-fully-analytic mesh QI → temporal coherence. Keep it behind the *same*
-`FeatureSource` interface; do not fork the pipeline.
+temporal coherence. Keep it behind the *same* `FeatureSource` interface; do not
+fork the pipeline.
 
 ## Deferred — don't build unless asked
 
