@@ -93,6 +93,31 @@ Newton-projection for sampled silhouettes (Phase-2-adjacent) and group-highlight
 - Verify changes with `bun run typecheck`, `bun test`, `bun run build`.
 - Propose a short plan before non-trivial or multi-file work.
 
+## Sandbox setup (ephemeral AI/CI Linux shells) — READ FIRST if using bun
+
+The isolated sandbox has Node+npm but **not `bun`**, and this project runs
+everything through bun. Before running any `bun …` command in a fresh sandbox,
+bootstrap it once:
+
+```bash
+bash scripts/setup-sandbox.sh
+```
+
+This repoints npm's global prefix to `$HOME/.npm-global` (the default `/usr`
+prefix is not writable → `EACCES`) and installs bun there. It's idempotent, so
+running it at the start of a session is safe and near-instant if bun is present.
+
+**Every shell call is independent and does NOT source `~/.bashrc`**, so bun won't
+be on `PATH` automatically. Prefix bun commands (or export once per call):
+
+```bash
+export PATH="$HOME/.npm-global/bin:$PATH"
+bun test   # etc.
+```
+
+npm itself is not blocked — it reaches the registry fine; the only issues were the
+unwritable global prefix and bun not being preinstalled.
+
 ## Deferred — don't build unless asked
 
 Mesh/organ regime (Phase 2), the declarative authoring language, alpha
