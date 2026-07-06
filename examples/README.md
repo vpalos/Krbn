@@ -216,6 +216,21 @@ hatches to a uniform tone set by its own orientation to the light, so the planes
 read as facets. Creases come straight from the half-edge dihedral tags; no special
 casing.
 
+### 19 · Hidden lines — ghost vs drop
+
+![hidden ghost vs drop](gallery/19-hidden-modes.svg)
+
+The same scene — a cube with a sphere behind it — under the two treatments of an
+occluded contour, as **wireframe** (top) and **cross-hatch** (bottom). **Left,
+`hidden: "ghost"`** (the default): hidden runs stay as faint dashes, an **x-ray**
+reading where the cube's three back edges and the whole sphere show through — even
+over the hatched faces — which is what a wireframe/technical drawing wants.
+**Right, `hidden: "drop"`**: hidden runs are omitted, so the solids read as
+**opaque** — the cube hides its own back edges and cleanly cuts the sphere's
+outline. The visibility classification underneath is identical; only the styling of
+the hidden intervals changes. Drop is what the [gravity well](#16--gravity-well)
+uses, so an opaque surface doesn't ghost its own far side back through itself.
+
 ## Rendering to PNG
 
 SVGs open in any browser. To rasterize (e.g. for a README), use any SVG tool:

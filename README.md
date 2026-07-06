@@ -35,8 +35,9 @@ Each links to a demo in the [gallery](examples/README.md).
   ([knots](examples/gallery/15-mesh-showcase.svg),
   [creases](examples/gallery/18-creases.svg))
 - **Exact hidden lines** — every contour is split into visible and hidden runs, the
-  hidden parts ghosted or dashed so depth reads at a glance. Even points are
-  occludable. ([hidden lines](examples/gallery/01-hidden-lines.svg))
+  hidden parts either ghosted (x-ray) or dropped (opaque) so depth reads at a glance.
+  Even points are occludable. ([hidden lines](examples/gallery/01-hidden-lines.svg),
+  [ghost vs drop](examples/gallery/19-hidden-modes.svg))
 - **Intersection curves** — where two surfaces meet (a ball through a plane, two
   quadrics), the seam is drawn as its own contour.
   ([waterline](examples/gallery/03-depth-hatching.svg),
