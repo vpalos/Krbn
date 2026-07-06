@@ -288,6 +288,11 @@ what is behind (alpha-free transparency):
   unoccluded (self **and** other — so each curve's hidden half drops out), and dark
   enough for the layer. Ordered families become the successive cross-hatch layers.
 
+Both regimes carry each run's object-space companion points, so the element's
+**wobble** field bends the hatch too (scaled by `HATCH_WOBBLE_SCALE`, seeded per
+hatch line so adjacent lines vary independently rather than warping as one sheet).
+There is a single wobble knob per element — outlines and hatch share it.
+
 ### 2.7 Abstraction is lighter here
 
 An analytic arc is already one confident stroke, so simplify/consolidate is largely

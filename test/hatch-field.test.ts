@@ -189,6 +189,20 @@ describe("hatchField — scene integration", () => {
     expect(JSON.stringify(curved)).not.toBe(JSON.stringify(straight));
   });
 
+  test("the element's wobble bends the hatch too (curved + flat), deterministically", () => {
+    const hatchPaths = (wobble: number, field: boolean) => {
+      const scene = new Scene({ light: { direction: [-0.5, -0.4, -0.6] } });
+      // fixed id so the wobble seed (tied to element identity) is stable across builds
+      scene.add(new Cylinder([0, 0, 0], [0, 0, 2], 1, "cyl")).style({ wobble, hatch: { mode: "single", angle: 0, spacingPx: 12, field } });
+      return JSON.stringify(scene.render(cam).renderStrokes.filter((s) => s.style.weight < 1).map((s) => s.path));
+    };
+    // one knob: turning up the element wobble perturbs the hatch geometry…
+    expect(hatchPaths(0.8, true)).not.toBe(hatchPaths(0, true)); // curved field
+    expect(hatchPaths(0.8, false)).not.toBe(hatchPaths(0, false)); // straight fallback
+    // …and it stays deterministic (same identity ⇒ same seeded wobble)
+    expect(hatchPaths(0.8, true)).toBe(hatchPaths(0.8, true));
+  });
+
   test("the hidden (back) half of each ring is dropped by occlusion", () => {
     // side-on ortho view of a cylinder along +x: the axis is z, so the front half
     // (y < 0, toward the eye) survives and the back half (y > 0) must be gone.

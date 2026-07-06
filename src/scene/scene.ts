@@ -27,7 +27,7 @@ import { classifyFeature, classifyScene, isOccluded, sceneScale } from "../pipel
 import { consolidateLines } from "../pipeline/consolidate.js";
 import { emitStyledStroke, resolveStyle, ROLE_STYLE } from "../pipeline/style.js";
 import { defaultHatch, hatchAngles, toneToSpacing, type HatchStrategy } from "../pipeline/hatch.js";
-import { defaultWobble, type WobbleStrategy } from "../pipeline/wobble.js";
+import { defaultWobble, hashSeed, type WobbleStrategy } from "../pipeline/wobble.js";
 import { applyAbstraction, quantizeTone } from "../pipeline/abstract.js";
 import { renderItemsSVG, type SvgGroup, type SvgItem } from "../backend/svg.js";
 import { cameraFrame, projectionMatrix, projectPoint, unproject } from "../math/camera.js";
@@ -35,6 +35,14 @@ import { distance, dot, normalize } from "../math/vec3.js";
 import { EPS_DEPTH_REL } from "../curve/epsilon.js";
 
 const HATCH_STEP_PX = 4; // sample spacing when clipping a hatch line to visibility
+const HATCH_WOBBLE_SCALE = 0.6; // hatch wobble is subtler than the outline's
+
+/** A clipped hatch run: the screen polyline plus its object-space companion, so
+ *  the same seeded 3-D wobble field that bends outlines can bend hatch too. */
+interface HatchRun {
+  path: Vec2[];
+  points3: Vec3[];
+}
 
 export interface SceneOptions {
   light?: Light;
@@ -188,6 +196,20 @@ export class Scene {
       const hstyle = { weight: spec.hatchWeight, color: spec.color, opacity: spec.hatchOpacity };
       const nLayers = hatchAngles(spec.hatch.mode, spec.hatch.angle).length;
 
+      // Hatch shares the outline's coherent wobble field, scaled down (finer
+      // lines) and seeded *per hatch line* so adjacent lines vary independently
+      // instead of warping in lockstep. Off (amount 0) leaves the run crisp.
+      const wobbleAmt = spec.wobble * HATCH_WOBBLE_SCALE;
+      const ownerSeed = hashSeed(el.id);
+      let hatchLine = 0;
+      const emitHatch = (run: HatchRun): void => {
+        const path =
+          wobbleAmt > 0 && run.path.length >= 2
+            ? this.wobble.apply({ path: run.path, points3: run.points3, seed: ownerSeed ^ Math.imul(hatchLine++, 0x9e3779b1), amount: wobbleAmt })
+            : run.path;
+        hatchStrokes.push({ path, style: { ...hstyle } });
+      };
+
       // Prefer a primitive's exact curved direction field (rings/rulings/…) when
       // it exposes one; the iso-curves follow surface curvature and their hidden
       // half falls out of the same front-face + occlusion test. Otherwise fall
@@ -202,9 +224,7 @@ export class Scene {
         for (let layer = 0; layer < Math.min(nLayers, field.length); layer++) {
           const maxDiffuse = layerBrightness(layer, nLayers);
           for (const curve of field[layer]!.curves) {
-            for (const run of clipHatchField(curve, cam, sources, scale, lightDir, maxDiffuse)) {
-              hatchStrokes.push({ path: run, style: { ...hstyle } });
-            }
+            for (const run of clipHatchField(curve, cam, sources, scale, lightDir, maxDiffuse)) emitHatch(run);
           }
         }
         continue;
@@ -221,9 +241,7 @@ export class Scene {
           const maxDiffuse = layerBrightness(layer, angles.length);
           const single = { ...region, mode: "single" as const, angle: angles[layer]!, tone };
           for (const seg of this.hatch.generate(single, spacingOpts)) {
-            for (const run of clipHatchTonal(seg, el.source, cam, sources, scale, lightDir, maxDiffuse)) {
-              hatchStrokes.push({ path: run, style: { ...hstyle } });
-            }
+            for (const run of clipHatchTonal(seg, el.source, cam, sources, scale, lightDir, maxDiffuse)) emitHatch(run);
           }
         }
       }
@@ -307,12 +325,12 @@ function clipHatchTonal(
   scale: number,
   lightDir: Vec3,
   maxDiffuse: number,
-): Vec2[][] {
+): HatchRun[] {
   const [a, b] = seg;
   const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
   const k = Math.max(2, Math.ceil(len / HATCH_STEP_PX));
-  const runs: Vec2[][] = [];
-  let run: Vec2[] = [];
+  const runs: HatchRun[] = [];
+  let run: HatchRun = { path: [], points3: [] };
   for (let i = 0; i <= k; i++) {
     const t = i / k;
     const pt: Vec2 = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
@@ -322,13 +340,15 @@ function clipHatchTonal(
       const diffuse = Math.max(0, -(hit.normal[0] * lightDir[0] + hit.normal[1] * lightDir[1] + hit.normal[2] * lightDir[2]));
       keep = diffuse < maxDiffuse;
     }
-    if (keep) run.push(pt);
-    else {
-      if (run.length >= 2) runs.push(run);
-      run = [];
+    if (keep && hit) {
+      run.path.push(pt);
+      run.points3.push(hit.point);
+    } else {
+      if (run.path.length >= 2) runs.push(run);
+      run = { path: [], points3: [] };
     }
   }
-  if (run.length >= 2) runs.push(run);
+  if (run.path.length >= 2) runs.push(run);
   return runs;
 }
 
@@ -347,12 +367,12 @@ function clipHatchField(
   scale: number,
   lightDir: Vec3,
   maxDiffuse: number,
-): Vec2[][] {
+): HatchRun[] {
   const P = projectionMatrix(cam);
   const persp = cam.projection === "perspective";
   const forward = cameraFrame(cam).forward;
-  const runs: Vec2[][] = [];
-  let run: Vec2[] = [];
+  const runs: HatchRun[] = [];
+  let run: HatchRun = { path: [], points3: [] };
   for (const { p, n } of curve.samples) {
     const view: Vec3 = persp ? normalize([p[0] - cam.eye[0], p[1] - cam.eye[1], p[2] - cam.eye[2]]) : forward;
     const front = dot(n, view) < 0;
@@ -361,12 +381,14 @@ function clipHatchField(
       const diffuse = Math.max(0, -(n[0] * lightDir[0] + n[1] * lightDir[1] + n[2] * lightDir[2]));
       keep = diffuse < maxDiffuse;
     }
-    if (keep) run.push(projectPoint(P, p).point);
-    else {
-      if (run.length >= 2) runs.push(run);
-      run = [];
+    if (keep) {
+      run.path.push(projectPoint(P, p).point);
+      run.points3.push([p[0], p[1], p[2]]);
+    } else {
+      if (run.path.length >= 2) runs.push(run);
+      run = { path: [], points3: [] };
     }
   }
-  if (run.length >= 2) runs.push(run);
+  if (run.path.length >= 2) runs.push(run);
   return runs;
 }

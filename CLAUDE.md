@@ -56,8 +56,9 @@ intervals via analytic silhouette crossings + closed-form depth `raycast`, with 
 bisection safety net for grazing cusps), a **runnable emit → SVG backend**
 (`src/pipeline/emit.ts`, `src/backend/svg.ts`, `src/pipeline/render.ts`) drawing
 ghosted hidden lines, **stage-4 styling** (`src/pipeline/style.ts`, `wobble.ts`,
-`hatch.ts`: per-element style, seeded wobble, dash/ghost, visibility-clipped
-hatching), the **`Scene`/element/importance model** (`src/scene`),
+`hatch.ts`: per-element style, seeded wobble — which bends outlines *and* hatch
+from the one per-element knob — dash/ghost, visibility-clipped hatching), the
+**`Scene`/element/importance model** (`src/scene`),
 **intersection-curve features** (`src/primitives/intersection.ts`,
 `scene.intersect`: quadric∩plane, sphere∩sphere, plane∩plane), and **stage-3
 abstraction** (`src/pipeline/abstract.ts`: importance-scaled screen-size
