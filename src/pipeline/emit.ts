@@ -27,6 +27,16 @@ export function sampleInterval(
   opts: SampleOptions = DEFAULT_SAMPLE,
 ): { path: Vec2[]; points3: Vec3[] } {
   const project = (p: Vec3): Vec2 => projectPoint(P, p).point;
+  // A polyline model carries its own vertices (`knots`): it is piecewise-linear,
+  // so sampling *at* the vertices in [t0,t1] reproduces it exactly. Re-running the
+  // adaptive sampler over it would be lossy — a single-midpoint flatness test can
+  // skip vertices and collapse a symmetric shape (a plotted sine, an S-curve) to a
+  // straight chord. Analytic curves have no knots and stay adaptive.
+  if (model.knots) {
+    const params = [t0, ...model.knots.filter((k) => k > t0 && k < t1), t1];
+    const points = params.map((t) => model.point3(t));
+    return { path: points.map(project), points3: points };
+  }
   const { points } = adaptiveSample((t) => model.point3(t), t0, t1, project, opts);
   return { path: points.map(project), points3: points };
 }

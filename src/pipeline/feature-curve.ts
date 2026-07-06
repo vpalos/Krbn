@@ -28,6 +28,14 @@ export interface FeatureCurveModel {
   screen: Curve2D;
   /** feature parameter at a screen point, or null if it does not fall on the curve */
   paramOf(pt: Vec2): number | null;
+  /**
+   * Natural sample parameters, if the curve is already a discrete polyline (the
+   * vertex params 0…n). Present ⇒ the curve is piecewise-linear and emit samples
+   * it *at these vertices* rather than adaptively re-sampling `point3` — which
+   * would be both wasteful and lossy (a re-sample can skip vertices and alias a
+   * symmetric shape flat). Absent ⇒ an analytic curve, sampled adaptively.
+   */
+  knots?: readonly number[];
 }
 
 const SAMPLE_FALLBACK = 96;
@@ -130,9 +138,13 @@ export function buildFeatureModel(curve: Curve, cam: Camera): FeatureCurveModel 
       // exception for genuinely free curves, ai/DESIGN.md §2.3) and reuse the
       // polyline model.
       const project = (p: Vec3): Vec2 => projectPoint(P, p).point;
+      // minDepth floor: a Bézier whose t=0.5 point lands on the P0–P3 chord (any
+      // centre-symmetric S) would otherwise pass the single-midpoint flatness test
+      // and collapse to a straight line.
       const { points } = adaptiveSample((t) => deCasteljau(curve.pts, t), 0, 1, project, {
         tolerancePx: 0.3,
         maxDepth: 18,
+        minDepth: 4,
       });
       return buildPolylineModel(points, cam, P);
     }
@@ -144,6 +156,7 @@ export function buildFeatureModel(curve: Curve, cam: Camera): FeatureCurveModel 
 
 function buildPolylineModel(pts: readonly Vec3[], cam: Camera, P: Proj): FeatureCurveModel {
   const n = pts.length - 1;
+  const knots = Array.from({ length: n + 1 }, (_, i) => i);
   const point3 = (t: number): Vec3 => {
     const clamped = Math.max(0, Math.min(n, t));
     const i = Math.min(n - 1, Math.floor(clamped));
@@ -157,6 +170,7 @@ function buildPolylineModel(pts: readonly Vec3[], cam: Camera, P: Proj): Feature
     t1: n,
     closed: false,
     point3,
+    knots,
     screen: { kind: "polyline", pts: pts.map((p) => projectPoint(P, p).point) },
     paramOf: (pt) => {
       const ray = unproject(cam, pt);

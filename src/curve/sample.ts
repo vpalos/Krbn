@@ -11,6 +11,16 @@ export interface SampleOptions {
   tolerancePx: number;
   /** recursion guard */
   maxDepth: number;
+  /**
+   * Force uniform subdivision to at least this depth (2^minDepth segments) before
+   * the deviation test can stop. Guards against *midpoint aliasing*: a curve that
+   * is symmetric about an interval's centre has its midpoint sitting on the chord
+   * (deviation ≈ 0), so a single-midpoint test would wrongly declare it flat and
+   * collapse an oscillation (or a symmetric Bézier) to a straight line. A small
+   * floor breaks that symmetry so the adaptive pass sees the real shape. Default 0
+   * (pure adaptive) for curves with no such symmetry — e.g. conic emit sampling.
+   */
+  minDepth?: number;
 }
 
 export const DEFAULT_SAMPLE: SampleOptions = { tolerancePx: 0.3, maxDepth: 20 };
@@ -46,11 +56,13 @@ export function adaptiveSample(
   const ts: number[] = [t0];
   const points: Vec3[] = [f(t0)];
 
+  const minDepth = opts.minDepth ?? 0;
   const recurse = (ta: number, pa: Vec3, tb: number, pb: Vec3, depth: number): void => {
     const tm = 0.5 * (ta + tb);
     const pm = f(tm);
     const dev = segmentDistance(project(pm), project(pa), project(pb));
-    if (dev > opts.tolerancePx && depth < opts.maxDepth) {
+    // subdivide while below the uniform floor, then only where the chord strays
+    if ((depth < minDepth || dev > opts.tolerancePx) && depth < opts.maxDepth) {
       recurse(ta, pa, tm, pm, depth + 1);
       ts.push(tm);
       points.push(pm);

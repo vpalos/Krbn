@@ -2,6 +2,9 @@ import { describe, expect, test } from "bun:test";
 import type { Camera, Vec2, Vec3 } from "../src/math/types.js";
 import { adaptiveSample, deCasteljau, DEFAULT_SAMPLE } from "../src/curve/sample.js";
 import { BezierCurve, ParametricCurve, helix, functionPlot } from "../src/primitives/parametric.js";
+import { buildFeatureModel } from "../src/pipeline/feature-curve.js";
+import { sampleInterval } from "../src/pipeline/emit.js";
+import { projectionMatrix } from "../src/math/camera.js";
 
 const ortho: Camera = {
   eye: [0, 0, 10],
@@ -36,6 +39,36 @@ describe("adaptive sampler", () => {
     const coarse = adaptiveSample(f, 0, Math.PI, project, { tolerancePx: 2, maxDepth: 20 });
     const fine = adaptiveSample(f, 0, Math.PI, project, { tolerancePx: 0.05, maxDepth: 20 });
     expect(fine.points.length).toBeGreaterThan(coarse.points.length);
+  });
+
+  test("a centre-symmetric oscillation is NOT aliased away by the midpoint test", () => {
+    // sin over a symmetric interval: the midpoint (t=0) sits exactly on the chord
+    // between the endpoints, so a pure single-midpoint test declares it flat and
+    // returns just 2 points. The minDepth floor must break that symmetry.
+    const f = (t: number): Vec3 => [t, Math.sin(3 * t), 0];
+    const aliased = adaptiveSample(f, -Math.PI, Math.PI, project, { tolerancePx: 0.3, maxDepth: 20 });
+    expect(aliased.points).toHaveLength(2); // documents the aliasing failure mode
+
+    const fixed = adaptiveSample(f, -Math.PI, Math.PI, project, { tolerancePx: 0.3, maxDepth: 20, minDepth: 5 });
+    expect(fixed.points.length).toBeGreaterThan(20);
+    // the polyline must actually reach the sine's peaks (amplitude ≈ 1), not stay flat
+    const maxY = Math.max(...fixed.points.map((p) => p[1]));
+    expect(maxY).toBeGreaterThan(0.9);
+  });
+});
+
+describe("emit sampling of a polyline feature", () => {
+  test("a symmetric plotted curve keeps its amplitude (not re-flattened at emit)", () => {
+    // functionPlot produces a polyline feature; emit must sample it at its own
+    // vertices, not adaptively re-sample (which would collapse the symmetric sine).
+    const g = (x: number) => 1.8 * Math.exp(-0.15 * x * x) * Math.sin(3 * x);
+    const feat = functionPlot(g, -3.3, 3.3).extractFeatures(ortho)[0]!;
+    const model = buildFeatureModel(feat.curve, ortho);
+    expect(model.knots).toBeDefined();
+    const P = projectionMatrix(ortho);
+    const { points3 } = sampleInterval(model, model.t0, model.t1, P);
+    const maxAbsY = Math.max(...points3.map((p) => Math.abs(p[1]!)));
+    expect(maxAbsY).toBeGreaterThan(1.5); // the true peak is ~1.8
   });
 });
 

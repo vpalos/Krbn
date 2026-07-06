@@ -187,6 +187,35 @@ flat outskirts. The sphere is an **analytic primitive** sitting in the dip, occl
 the well behind it — a mesh and a primitive mixed in one scene, classified by the
 same visibility stage.
 
+### 17 · Parametric curves
+
+![parametric curves](gallery/17-parametric-curves.svg)
+
+The free-form primitive — no closed-form silhouette, so it is the one place
+per-frame **adaptive sampling** is sanctioned. **Left**: a **helix** wound just
+outside a cylinder — a 1-D curve doesn't occlude, but it *is* occludable, so the
+back of every turn is **dashed** where the cylinder hides it and the coil reads in
+depth. **Middle**: a cubic **Bézier** carried *exactly* as its control points (the
+faint control polygon + dots); the smooth curve threads an S the straight handles
+can't fake, and it is only sampled to a polyline at emit. **Right**: a **function
+plot** `y = g(x)`, a damped sine over an axis cross. The sampler carries a small
+uniform floor (`minDepth`) so a curve that is symmetric about its centre can't
+alias to a straight chord — a real hazard for oscillations and symmetric Béziers.
+
+### 18 · Mesh creases (faceted solids)
+
+![creases](gallery/18-creases.svg)
+
+Where two facets meet above the crease angle, the shared edge is a **permanent,
+view-independent feature** — unlike the silhouette, which slides across the surface
+as the camera moves. A faceted **cube** (all 90° ridges) and **tetrahedron** (all
+~70.5°): every edge is a crease. **Left**: creases + silhouette with hidden-line —
+near edges **solid**, the three edges hiding behind each solid **dashed** (the
+classic hidden-cube). **Right**: the same solids **flat-shaded** — each facet
+hatches to a uniform tone set by its own orientation to the light, so the planes
+read as facets. Creases come straight from the half-edge dihedral tags; no special
+casing.
+
 ## Rendering to PNG
 
 SVGs open in any browser. To rasterize (e.g. for a README), use any SVG tool:

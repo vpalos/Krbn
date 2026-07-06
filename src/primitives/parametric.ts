@@ -9,10 +9,15 @@ import type { ElementId, Feature, HatchRegion, Light } from "../pipeline/types.j
 import type { FeatureSource } from "../scene/feature-source.js";
 import { aabbFromPoints } from "../math/aabb.js";
 import { projectionMatrix, projectPoint } from "../math/camera.js";
-import { adaptiveSample, deCasteljau, DEFAULT_SAMPLE, type SampleOptions } from "../curve/sample.js";
+import { adaptiveSample, deCasteljau, type SampleOptions } from "../curve/sample.js";
 
 let autoId = 0;
 const nextId = (prefix: string): ElementId => `${prefix}-${autoId++}`;
+
+/** A general parametric curve is sampled with a uniform floor (`minDepth`) so a
+ *  symmetric oscillation (a helix seen edge-on, a plotted sine) can't alias to a
+ *  straight chord; adaptive refinement then resolves the tight bends. */
+const PARAM_SAMPLE: SampleOptions = { tolerancePx: 0.3, maxDepth: 20, minDepth: 5 };
 
 /** A curve x = f(t), t ∈ [t0, t1], sampled adaptively to a polyline per frame. */
 export class ParametricCurve implements FeatureSource {
@@ -27,7 +32,7 @@ export class ParametricCurve implements FeatureSource {
     t0: number,
     t1: number,
     id: ElementId = nextId("param"),
-    opts: SampleOptions = DEFAULT_SAMPLE,
+    opts: SampleOptions = PARAM_SAMPLE,
   ) {
     this.f = f;
     this.t0 = t0;

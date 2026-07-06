@@ -23,12 +23,17 @@ _More in the [example gallery](examples/README.md)._
 Each links to a demo in the [gallery](examples/README.md).
 
 - **Analytic primitives** — sphere, ellipsoid, cylinder, cone, plane, polygon,
-  line, parametric curves, points, and a torus, each with an *exact* silhouette
-  (conics; the torus a quartic). ([solids](examples/gallery/05-solid-shading.svg),
+  line, points, and a torus, each with an *exact* silhouette (conics; the torus a
+  quartic). ([solids](examples/gallery/05-solid-shading.svg),
   [torus](examples/gallery/10-torus.svg))
+- **Free-form curves** — helices, Bézier curves (carried exactly as control
+  points), and function plots, sampled adaptively and occludable like anything else.
+  ([curves](examples/gallery/17-parametric-curves.svg))
 - **Triangle meshes** — arbitrary organic geometry renders through the *same*
   pipeline as the primitives, no fork: silhouette, shading, hidden-line, all shared.
-  ([knots](examples/gallery/15-mesh-showcase.svg))
+  Sharp **creases** on faceted solids are permanent view-independent edges.
+  ([knots](examples/gallery/15-mesh-showcase.svg),
+  [creases](examples/gallery/18-creases.svg))
 - **Exact hidden lines** — every contour is split into visible and hidden runs, the
   hidden parts ghosted or dashed so depth reads at a glance. Even points are
   occludable. ([hidden lines](examples/gallery/01-hidden-lines.svg))
