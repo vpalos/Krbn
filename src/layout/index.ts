@@ -160,3 +160,92 @@ export function stack(
 ): Drawing {
   return raw(stackRows(top, bottom, vp.width, vp.height, labels.top, labels.bottom));
 }
+
+// ---------------------------------------------------------------------------
+// Animation deliverable: a sequence of frames, each an ordinary Drawing.
+// ---------------------------------------------------------------------------
+
+/** A multi-frame deliverable. Each frame is a normal rendered `Drawing`, so a
+ *  frame composes with the very same `view`/`grid`/`stack`/`shapes` helpers as a
+ *  still — the only thing "animation" adds is a driven sequence. The render CLI
+ *  writes the frames beside the source and drops in a `flipbook()` viewer. */
+export interface Film {
+  /** ordered frames, already rendered to SVG (name = `frame-000.svg` …). */
+  readonly frames: { name: string; svg: string }[];
+  /** stage size for the flipbook viewer (defaults to 640×480). */
+  readonly viewport?: Camera["viewport"];
+  /** flipbook playback rate (default 12 fps). */
+  readonly fps?: number;
+}
+
+/**
+ * Build a `Film` from a frame function. `frame(k)` returns the `k`-th frame as a
+ * `Drawing` (compose it however you like — a single `view`, a `grid`, …). Frames
+ * are rendered eagerly and in order, so a stateful driver (a `FrameSession`) steps
+ * correctly. This is the whole "animation" seam: successive frame generation over
+ * the same static-frame machinery.
+ */
+export function film(
+  count: number,
+  frame: (k: number) => Drawing,
+  opts: { viewport?: Camera["viewport"]; fps?: number; onFrame?: (k: number) => void } = {},
+): Film {
+  const frames: { name: string; svg: string }[] = [];
+  for (let k = 0; k < count; k++) {
+    frames.push({ name: `frame-${String(k).padStart(3, "0")}.svg`, svg: frame(k).toSvg() });
+    // per-frame hook (progress, coherence report, …), fired after the frame renders
+    opts.onFrame?.(k);
+  }
+  return {
+    frames,
+    ...(opts.viewport ? { viewport: opts.viewport } : {}),
+    ...(opts.fps !== undefined ? { fps: opts.fps } : {}),
+  };
+}
+
+/** A one-file flipbook viewer that *references* the sibling `frame-###.svg` files
+ *  (so the frames stay reusable on their own). Preloads them for instant scrub. */
+export function flipbook(f: Film): string {
+  const N = f.frames.length;
+  const W = f.viewport?.width ?? 640;
+  const H = f.viewport?.height ?? 480;
+  const fps = f.fps ?? 12;
+  return `<!doctype html>
+<meta charset="utf-8">
+<title>Krbn — flipbook</title>
+<style>
+  body { margin: 0; background: #faf9f5; font: 13px system-ui, sans-serif; color: #444;
+         display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px; }
+  #stage { width: ${W}px; height: ${H}px; border: 1px solid #ddd; }
+  #frame { display: block; width: 100%; height: 100%; }
+  #bar { display: flex; gap: 10px; align-items: center; }
+  input[type=range] { width: ${Math.max(120, W - 160)}px; }
+  button { font: inherit; padding: 2px 12px; }
+</style>
+<div id="stage"><img id="frame" alt="frame"></div>
+<div id="bar">
+  <button id="play">play</button>
+  <input id="scrub" type="range" min="0" max="${N - 1}" value="0" step="1">
+  <span id="label">0 / ${N - 1}</span>
+</div>
+<script>
+  const N = ${N}, FPS = ${fps};
+  const src = (k) => "frame-" + String(k).padStart(3, "0") + ".svg";
+  // preload so scrubbing is instant and playback doesn't flicker
+  for (let k = 0; k < N; k++) { const im = new Image(); im.src = src(k); }
+  const frame = document.getElementById("frame");
+  const scrub = document.getElementById("scrub");
+  const label = document.getElementById("label");
+  const play = document.getElementById("play");
+  let timer = null;
+  const show = (k) => { frame.src = src(k); scrub.value = k; label.textContent = k + " / " + (N - 1); };
+  const stop = () => { if (timer) { clearInterval(timer); timer = null; play.textContent = "play"; } };
+  scrub.addEventListener("input", () => { stop(); show(+scrub.value); });
+  play.addEventListener("click", () => {
+    if (timer) return stop();
+    play.textContent = "stop";
+    timer = setInterval(() => show((+scrub.value + 1) % N), 1000 / FPS);
+  });
+  show(0);
+</script>`;
+}

@@ -19,7 +19,7 @@ default-exports a `Drawing` (see [`src/layout`](../src/layout)). Render them all
 SVG — each written beside its source — with:
 
 ```bash
-bun run render:all
+bun run render:gallery
 ```
 
 or render one at a time:
@@ -247,14 +247,17 @@ uses, so an opaque surface doesn't ghost its own far side back through itself.
 
 ## Animation — temporal coherence
 
-Run with:
+`animation.krbn.ts` default-exports a `film(...)` — a sequence of frames, each an
+ordinary `Drawing` (here `raw(session.render(cam).svg)`), so a frame composes with
+the same helpers as a still. Render it with:
 
 ```bash
-bun run examples/animation.ts
+bun run render:animation
 ```
 
-Writes `animation/frame-000.svg … frame-047.svg` plus a one-file
-**`animation/flipbook.html`** — open it in a browser and scrub or press play.
+Writes `animation/frame-000.svg … frame-059.svg` plus an
+**`animation/flipbook.html`** viewer that references those frame files — open it in
+a browser and scrub or press play.
 (The output directory is gitignored; regenerate at will. Like the gallery, the
 sequence is deterministic: the same run always produces byte-identical frames.)
 

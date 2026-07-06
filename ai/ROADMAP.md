@@ -266,13 +266,14 @@ hatch, empty (→ straight-hatch fallback) where isotropic.
       geometry animate. Verified: `test/threshold-fades.test.ts`,
       `test/hatch-coherence.test.ts` (ladder suites); gallery regenerated +
       visually checked.
-   6. ✅ **Animation verification harness** — `examples/animation.ts`: a
-      48-frame, 60° camera orbit of a mixed analytic + mesh scene (wobble,
+   6. ✅ **Animation verification harness** — `examples/animation.krbn.ts`: a
+      60-frame, 120° camera orbit of a mixed analytic + mesh scene (wobble,
       hatch, abstraction, suggestive contours all on) rendered through a
-      `FrameSession` to `examples/animation/frame-###.svg` + a one-file
-      `flipbook.html` (scrub/play); prints the per-frame coherence report
-      (zero born/died/reversed over the whole orbit). Output directory is
-      gitignored — regenerate with `bun run examples/animation.ts`. Property
+      `FrameSession`. It default-exports a `film(...)` — a sequence of frames,
+      each an ordinary `Drawing` — so the render CLI writes
+      `examples/animation/frame-###.svg` + a `flipbook.html` viewer that
+      references them (scrub/play). Output directory is gitignored — regenerate
+      with `bun run render examples/animation.krbn.ts`. Property
       tests (`test/animation-coherence.test.ts`): zero id churn between
       adjacent frames, identical persistent-id sets across the orbit, small
       camera step ⇒ bounded stroke displacement (<5 px), steady hatch volume

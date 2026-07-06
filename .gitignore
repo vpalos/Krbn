@@ -1,7 +1,7 @@
 node_modules/
 dist/
 coverage/
-# generated frame sequences (regenerate: bun run examples/animation.ts)
+# generated frame sequences (regenerate: bun run render examples/animation.krbn.ts)
 examples/animation/
 *.log
 *.tsbuildinfo

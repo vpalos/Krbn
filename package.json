@@ -46,7 +46,8 @@
     "test": "bun test",
     "test:watch": "bun test --watch",
     "render": "bun run src/cli/render.ts",
-    "render:all": "bun run src/cli/render.ts examples/gallery/*.krbn.ts"
+    "render:gallery": "bun run src/cli/render.ts examples/gallery/*.krbn.ts",
+    "render:animation": "bun run src/cli/render.ts examples/animation.krbn.ts"
   },
   "devDependencies": {
     "@types/bun": "^1.1.0",

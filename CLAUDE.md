@@ -73,7 +73,7 @@ each with a diagonal third family for `triple` (45° helices / spiral generators
 (1,1) loops / tilted circles / chart spirals) — exact iso-parameter curves
 clipped to the visible surface by `clipHatchField`). Visual checks: the gallery is
 a set of standalone `examples/gallery/*.krbn.ts` scene files (each default-exports a
-`Drawing` from `src/layout`); regenerate the `*.svg` with `bun run render:all` (or
+`Drawing` from `src/layout`); regenerate the `*.svg` with `bun run render:gallery` (or
 `bun run render <file.krbn.ts>` for one — each renders in its own process, so a
 scene is deterministic regardless of how many render together). **Only deferred items remain** before Phase 2: a contour
 Newton-projection for sampled silhouettes (Phase-2-adjacent) and group-highlight
@@ -176,8 +176,9 @@ add/fade curves, never move them). **Stateless threshold fades** —
 member id; hatch LOD deliberately does **not** fade — it snaps to complete
 levels (a partial interleaving level reads as a periodic artifact in any fade
 channel; see ROADMAP item 6.5). **The
-animation harness** — `examples/animation.ts` (48-frame orbit →
-`examples/animation/` SVG frames + a flipbook.html, gitignored; zero churn end
+animation harness** — `examples/animation.krbn.ts` (a `film(...)` of frames, each
+an ordinary `Drawing`, driven by a `FrameSession`; `bun run render` it →
+`examples/animation/` frame SVGs + a flipbook.html, gitignored; zero churn end
 to end) and `test/animation-coherence.test.ts` (no id churn, bounded per-step
 displacement, byte-identical replays). For animated output, drive rendering
 through a `FrameSession`; keep new sources behind the *same* `FeatureSource`
