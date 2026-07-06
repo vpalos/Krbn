@@ -66,9 +66,11 @@ done**, and the **Phase-1 polish backlog is complete**: cross-primitive
 consolidation, cylinder/cone surface hatching, `scene.highlight` (+halo), `Point`,
 quadric∩quadric quartics, `Torus`, and **curved hatch direction fields**
 (`FeatureSource.hatchField`: cylinder rings+rulings, cone rings+generators, torus
-poloidal+toroidal — exact iso-parameter curves clipped to the visible surface by
-`clipHatchField`). Visual checks: the 12-demo `examples/gallery.ts` (regenerate to
-`examples/gallery/*.svg`). **Only deferred items remain** before Phase 2: a contour
+poloidal+toroidal, sphere parallels+meridians, ellipsoid chart iso-ellipses —
+each with a diagonal third family for `triple` (45° helices / spiral generators /
+(1,1) loops / tilted circles / chart spirals) — exact iso-parameter curves
+clipped to the visible surface by `clipHatchField`). Visual checks: the 12-demo
+`examples/gallery.ts` (regenerate to `examples/gallery/*.svg`). **Only deferred items remain** before Phase 2: a contour
 Newton-projection for sampled silhouettes (Phase-2-adjacent) and group-highlight
 (pushed to post-Phase-2). See `ai/ROADMAP.md` for the annotated build order and
 `.claude/rules/numerical-robustness.md` for the kernel's robustness bar.

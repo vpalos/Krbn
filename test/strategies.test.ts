@@ -82,7 +82,9 @@ describe("HatchStrategy is pluggable", () => {
       },
     };
     const scene = new Scene({ hatch: marker });
-    scene.add(sphere([0, 0, 0], 1)).style({ hatch: { mode: "single", angle: 0 } });
+    // field: false — the pluggable strategy fills *regions*; a curved direction
+    // field would bypass it by design
+    scene.add(sphere([0, 0, 0], 1)).style({ hatch: { mode: "single", angle: 0, field: false } });
     const res = scene.render(front);
     expect(calls).toBeGreaterThan(0);
     // our fixed segment (both endpoints on the visible front hemisphere) survives clipping

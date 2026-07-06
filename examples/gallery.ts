@@ -87,9 +87,11 @@ function hatching(): void {
   };
   const scene = new Scene({ light: { direction: [-0.6, -0.5, -0.65] }, svg: { background: BG } });
   const r = 0.85;
-  scene.add(sphere([-2.9, 0, 0], r)).style({ wobble: 0.25, hatch: { mode: "single", angle: 20 } });
-  scene.add(sphere([-0.9, 0, 0], r)).style({ wobble: 0.25, hatch: { mode: "cross", angle: 20 } });
-  scene.add(sphere([1.1, 0, 0], r)).style({ wobble: 0.25, hatch: { mode: "triple", angle: 20 } });
+  // field: false — this demo is the straight-hatch baseline; the sphere's own
+  // iso-parameter field gets its showcase in demo 12
+  scene.add(sphere([-2.9, 0, 0], r)).style({ wobble: 0.25, hatch: { mode: "single", angle: 20, field: false } });
+  scene.add(sphere([-0.9, 0, 0], r)).style({ wobble: 0.25, hatch: { mode: "cross", angle: 20, field: false } });
+  scene.add(sphere([1.1, 0, 0], r)).style({ wobble: 0.25, hatch: { mode: "triple", angle: 20, field: false } });
   // a flat quad (seen face-on so it fills), single-hatched → uniform tone
   scene.add(
     new Polygon([
@@ -133,7 +135,7 @@ function depthHatching(): void {
   const ball = scene
     .add(sphere([0, 0, 0.55], 1))
     .setImportance(1, { role: "subject" })
-    .style({ wobble: 0.35, hatch: { mode: "cross", angle: 25 } });
+    .style({ wobble: 0.35, hatch: { mode: "cross", angle: 25, field: false } });
   const water = scene
     .add(
       new Polygon([
@@ -268,7 +270,9 @@ function pointsDemo(): void {
 // 8. Quadric ∩ quadric quartic — an ellipsoid meeting a sphere. Their
 //    intersection is a quartic space curve, traced via plane-sweep + the exact
 //    conic∩conic kernel and drawn as a bold loop, solid where visible and dashed
-//    where it passes behind the surfaces.
+//    where it passes behind the surfaces. Columns: wireframe / straight triple
+//    hatch / the surfaces' own iso-parameter fields (triple: parallels +
+//    meridians + the diagonal third family).
 // ---------------------------------------------------------------------------
 function quarticDemo(): void {
   const cam: Camera = {
@@ -279,22 +283,30 @@ function quarticDemo(): void {
     scale: Math.PI / 4.4,
     viewport: { width: 560, height: 420 },
   };
-  // rows = wobble off / on; columns = wireframe / shaded (hatched)
-  const build = (wobble: number, shaded: boolean): string => {
+  // rows = wobble off / on; columns = wireframe / flat hatch / curved field
+  type Shade = "wire" | "flat" | "field";
+  const build = (wobble: number, shade: Shade): string => {
     // front-lit (from the camera side, upper) so the highlight faces the viewer
     const scene = new Scene({ light: { direction: [-0.4, -0.45, -0.55] }, svg: { background: BG } });
-    const style = shaded ? { wobble, hatch: { mode: "triple" as const, angle: 20, spacingPx: 6 } } : { wobble };
+    const style =
+      shade === "wire"
+        ? { wobble }
+        : { wobble, hatch: { mode: "triple" as const, angle: 20, spacingPx: 6, field: shade === "field" } };
     const a = scene.add(ellipsoid([-0.55, 0, 0], [1.3, 0.8, 0.85])).setImportance(0.3, { role: "context" }).style(style);
     const b = scene.add(sphere([0.7, 0.1, 0.15], 0.9)).setImportance(0.3, { role: "context" }).style(style);
     scene.intersect(a, b, { emphasis: "bold" }).style({ wobble });
     return scene.render(cam).svg;
   };
+  const shades: Shade[] = ["wire", "flat", "field"];
   save(
     "08-quartic",
-    gridStitch(cam.viewport.width, cam.viewport.height, [
-      [build(0, false), build(0, true)],
-      [build(0.7, false), build(0.7, true)],
-    ], ["wobble: off", "wobble: on"]),
+    gridStitch(
+      cam.viewport.width,
+      cam.viewport.height,
+      [0, 1].map((w) => shades.map((s) => build(w, s))),
+      ["wobble: off", "wobble: on"],
+      ["wireframe", "flat", "curved field"],
+    ),
   );
 }
 
@@ -455,10 +467,12 @@ function toriDemo(): void {
 
 // ---------------------------------------------------------------------------
 // 12. Curved hatch direction fields — the hatch lines are the surface's *exact*
-//     iso-parameter curves, not straight parallels. Left column: one family
-//     (cylinder/cone rings, torus poloidal loops). Right column: cross-hatch —
-//     the second family added (axial rulings / apex generators / toroidal loops).
-//     Each curve's hidden half is dropped by the same front-face + occlusion test.
+//     iso-parameter curves, not straight parallels. Columns add families: one
+//     (cylinder/cone rings, torus poloidal loops, sphere parallels), cross-hatch
+//     (axial rulings / apex generators / toroidal loops / meridians), triple —
+//     the diagonal third family (45° helices / spiral generators / (1,1) loops /
+//     tilted-axis circles) as the darkest tonal band. Each curve's hidden half is
+//     dropped by the same front-face + occlusion test.
 // ---------------------------------------------------------------------------
 function directionFieldsDemo(): void {
   const cam: Camera = {
@@ -470,28 +484,28 @@ function directionFieldsDemo(): void {
     viewport: { width: 360, height: 320 },
   };
   const light = { direction: [-0.4, -0.45, -0.55] as [number, number, number] };
-  type Add = (s: Scene, mode: "single" | "cross") => void;
-  const panel = (add: Add, mode: "single" | "cross"): string => {
+  type Mode = "single" | "cross" | "triple";
+  type Add = (s: Scene, mode: Mode) => void;
+  const panel = (add: Add, mode: Mode): string => {
     const scene = new Scene({ light, svg: { background: BG } });
     add(scene, mode);
     return scene.render(cam).svg;
   };
-  const style = (mode: "single" | "cross") => ({ wobble: 0.35, hatch: { mode, angle: 0, spacingPx: 10 } });
+  const style = (mode: Mode) => ({ wobble: 0.35, hatch: { mode, angle: 0, spacingPx: 10 } });
   const cyl: Add = (s, mode) => void s.add(new Cylinder([0, 0, -1], [0, 0, 2], 0.9)).style(style(mode));
   const con: Add = (s, mode) => void s.add(new Cone([0, 0, 1.1], [0, 0, -2.2], 0.95)).style(style(mode));
   const tor: Add = (s, mode) => void s.add(new Torus([0, 0, 0], [0, 0, 1], 1.2, 0.42)).style(style(mode));
+  const sph: Add = (s, mode) => void s.add(sphere([0, 0, 0], 1.25)).style(style(mode));
+  const rows = [cyl, con, tor, sph];
+  const modes: Mode[] = ["single", "cross", "triple"];
   save(
     "12-direction-fields",
     gridStitch(
       cam.viewport.width,
       cam.viewport.height,
-      [
-        [panel(cyl, "single"), panel(cyl, "cross")],
-        [panel(con, "single"), panel(con, "cross")],
-        [panel(tor, "single"), panel(tor, "cross")],
-      ],
-      ["cylinder", "cone", "torus"],
-      ["one family", "cross-hatch"],
+      rows.map((add) => modes.map((mode) => panel(add, mode))),
+      ["cylinder", "cone", "torus", "sphere"],
+      ["one family", "cross-hatch", "triple"],
     ),
   );
 }

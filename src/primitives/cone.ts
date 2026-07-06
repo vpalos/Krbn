@@ -17,7 +17,7 @@ import { add, addScaled, dot, length, normalize, sub } from "../math/vec3.js";
 import { cameraFrame, projectionMatrix, projectPoint } from "../math/camera.js";
 import { projectCircle } from "../math/project.js";
 import { convexHull } from "../math/hull.js";
-import { circleCurve, curveCount, screenDist, segmentCurve } from "./hatch-field.js";
+import { circleCurve, curveCount, paramCurve, screenDist, segmentCurve } from "./hatch-field.js";
 import { solveQuadratic } from "../curve/roots.js";
 import { EPS_ABS } from "../curve/epsilon.js";
 
@@ -84,7 +84,8 @@ export class Cone implements FeatureSource {
     return [{ owner: this.id, outline: { kind: "polyline", pts: outline }, mode: "single", angle: 0, tone: 0.5 }];
   }
 
-  /** Exact curved direction field (§2.6): circumferential rings + apex generators. */
+  /** Exact curved direction field (§2.6): circumferential rings + apex generators
+   *  (+ spiral generators as the diagonal third family for `triple`). */
   hatchField(cam: Camera, opts: HatchFieldOptions): HatchFamily[] {
     const plane = basisFromNormal(this.baseCenter, this.axis);
     const cos2 = this.cosA * this.cosA;
@@ -123,6 +124,33 @@ export class Cone implements FeatureSource {
         gens.push(segmentCurve(this.apex, end, coneNormal(end), 40));
       }
       families.push({ curves: gens });
+    }
+
+    if (opts.maxFamilies >= 3) {
+      // Family 2 — spiral generators: apex → rim with a *linear* twist
+      // θ(f) = θ0 + f/sinα. The constant-45° curve is a log spiral that winds
+      // infinitely at the apex, so we take the linear twist that reaches a 45°
+      // crossing exactly at the base rim (circumferential speed r(ℓ)·θ' = ℓ·sinα
+      // ·(1/(L·sinα)) grows to 1 at ℓ=L) and eases toward the generator
+      // direction near the apex — no winding singularity, still an exact curve
+      // of the (θ, ℓ) chart. Normal along it: radial(θ)·cosα − axis·sinα.
+      const twist = 1 / this.sinA;
+      const diam = screenDist(cam, addScaled(this.baseCenter, plane.x, this.baseRadius), addScaled(this.baseCenter, plane.x, -this.baseRadius));
+      const nSpi = curveCount((Math.PI * diam) / Math.SQRT2, opts.spacingPx, 4, 64);
+      const spirals = [];
+      for (let j = 0; j < nSpi; j++) {
+        const th0 = (TWO_PI * j) / nSpi;
+        spirals.push(
+          paramCurve((f) => {
+            const th = th0 + f * twist;
+            const m = add(addScaled([0, 0, 0], plane.x, Math.cos(th)), addScaled([0, 0, 0], plane.y, Math.sin(th)));
+            const p = add(addScaled(this.apex, this.axis, f * this.height), addScaled([0, 0, 0], m, f * this.baseRadius));
+            const n = sub(addScaled([0, 0, 0], m, this.cosA), addScaled([0, 0, 0], this.axis, this.sinA));
+            return { p, n };
+          }, 48),
+        );
+      }
+      families.push({ curves: spirals });
     }
     return families;
   }

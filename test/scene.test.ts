@@ -116,8 +116,10 @@ describe("Scene hatching", () => {
   });
 
   test("a hatched sphere fills its disk, clipped to the silhouette", () => {
+    // field: false — this test exercises the straight-hatch fallback (conic-
+    // clipped chords), not the sphere's iso-parameter field
     const scene = new Scene();
-    scene.add(sphere([0, 0, 0], 2)).style({ hatch: { mode: "single", angle: 0, spacingPx: 18 } });
+    scene.add(sphere([0, 0, 0], 2)).style({ hatch: { mode: "single", angle: 0, spacingPx: 18, field: false } });
     const hatch = hatchOf(scene.render(front).renderStrokes);
     expect(hatch.length).toBeGreaterThan(3);
     // sphere r=2 → 200px radius at (200,200); every hatch vertex is inside the disk

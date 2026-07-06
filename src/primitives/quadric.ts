@@ -13,7 +13,7 @@
 
 import type { AABB, Basis, Camera, Hit, Ray, Vec3 } from "../math/types.js";
 import type { Curve2D, ConicParams } from "../curve/types.js";
-import type { ElementId, Feature, HatchRegion, Light } from "../pipeline/types.js";
+import type { ElementId, Feature, HatchFamily, HatchFieldCurve, HatchFieldOptions, HatchRegion, Light } from "../pipeline/types.js";
 import type { FeatureSource } from "../scene/feature-source.js";
 import type { Mat4 } from "../math/mat4.js";
 import type { Mat3 } from "../math/mat3.js";
@@ -23,7 +23,8 @@ import { basisFromNormal } from "../math/basis.js";
 import { aabbFromCenterRadius, aabbCenter } from "../math/aabb.js";
 import { cameraFrame, projectionMatrix, type Proj } from "../math/camera.js";
 import { matrixToConic } from "../curve/conic.js";
-import { normalize, dot } from "../math/vec3.js";
+import { add, addScaled, dot, normalize, sub } from "../math/vec3.js";
+import { circleCurve, curveCount, paramCurve, screenDist } from "./hatch-field.js";
 import { solveQuadratic } from "../curve/roots.js";
 import { EPS_ABS } from "../curve/epsilon.js";
 
@@ -190,31 +191,167 @@ export function outlineScreenConic(Q: Mat4, P: Proj): Curve2D | null {
 
 // --- configurations ---------------------------------------------------------
 
+/**
+ * A sphere configuration that also carries its parametrization. The `Quadric`
+ * base gives the exact conic silhouette and closed-form raycast; the explicit
+ * center/radius/axis add what a bare quadric matrix cannot express — the
+ * iso-parameter hatch field (parallels + meridians + a tilted third family).
+ */
+export class Sphere extends Quadric {
+  readonly center: Vec3;
+  readonly radius: number;
+  /** pole axis of the (u,v) chart — parallels are circles about it */
+  readonly axis: Vec3;
+
+  constructor(center: Vec3, radius: number, id?: ElementId, axis: Vec3 = [0, 0, 1]) {
+    const [cx, cy, cz] = center;
+    const Q = symmetric4(
+      1, 0, 0, -cx,
+      1, 0, -cy,
+      1, -cz,
+      cx * cx + cy * cy + cz * cz - radius * radius,
+    );
+    super(Q, aabbFromCenterRadius(center, radius), id);
+    this.center = center;
+    this.radius = radius;
+    this.axis = normalize(axis);
+  }
+
+  /** Exact curved direction field (§2.6): latitude parallels + pole-to-pole
+   *  meridians (+ parallels about a 45°-tilted axis as the third family for
+   *  `triple`). Every curve is an exact circle; the normal is radial. */
+  hatchField(cam: Camera, opts: HatchFieldOptions): HatchFamily[] {
+    const c = this.center;
+    const r = this.radius;
+    const radialN = (p: Vec3): Vec3 => sub(p, c);
+
+    // Latitude circles about `axis`, evenly spaced in latitude; count driven by
+    // the projected pole-to-pole extent.
+    const parallels = (axis: Vec3): HatchFieldCurve[] => {
+      const plane = basisFromNormal(c, axis);
+      const span = screenDist(cam, addScaled(c, axis, r), addScaled(c, axis, -r));
+      const n = curveCount(span, opts.spacingPx, 3, 40);
+      const curves: HatchFieldCurve[] = [];
+      for (let k = 0; k < n; k++) {
+        const phi = -Math.PI / 2 + (Math.PI * (k + 0.5)) / n;
+        curves.push(circleCurve(addScaled(c, axis, r * Math.sin(phi)), plane.x, plane.y, r * Math.cos(phi), radialN, 96));
+      }
+      return curves;
+    };
+
+    // Family 0 — parallels about the pole axis.
+    const families: HatchFamily[] = [{ curves: parallels(this.axis) }];
+    const plane = basisFromNormal(c, this.axis);
+
+    if (opts.maxFamilies >= 2) {
+      // Family 1 — meridians: great circles through both poles. Each circle
+      // covers the meridians θ and θ+π, so the count runs over half a turn.
+      const diam = screenDist(cam, addScaled(c, plane.x, r), addScaled(c, plane.x, -r));
+      const nMer = curveCount((Math.PI * diam) / 2, opts.spacingPx, 2, 32);
+      const meridians: HatchFieldCurve[] = [];
+      for (let j = 0; j < nMer; j++) {
+        const th = (Math.PI * j) / nMer;
+        const m = add(addScaled([0, 0, 0], plane.x, Math.cos(th)), addScaled([0, 0, 0], plane.y, Math.sin(th)));
+        meridians.push(circleCurve(c, m, this.axis, r, radialN, 96));
+      }
+      families.push({ curves: meridians });
+    }
+
+    if (opts.maxFamilies >= 3) {
+      // Family 2 — parallels about an axis tilted 45° from the pole toward ê1:
+      // the iso-curves of a rotated chart, still exact circles, crossing both
+      // parallels and meridians obliquely — the diagonal `triple` band.
+      families.push({ curves: parallels(normalize(add(this.axis, plane.x))) });
+    }
+    return families;
+  }
+}
+
 /** A sphere: |p - center|² = radius². */
-export function sphere(center: Vec3, radius: number, id?: ElementId): Quadric {
-  const [cx, cy, cz] = center;
-  const Q = symmetric4(
-    1, 0, 0, -cx,
-    1, 0, -cy,
-    1, -cz,
-    cx * cx + cy * cy + cz * cz - radius * radius,
-  );
-  return new Quadric(Q, aabbFromCenterRadius(center, radius), id);
+export function sphere(center: Vec3, radius: number, id?: ElementId): Sphere {
+  return new Sphere(center, radius, id);
+}
+
+/**
+ * An axis-aligned ellipsoid configuration; like `Sphere`, the explicit
+ * center/radii carry the parametrization the bare quadric matrix cannot
+ * express. The (θ, φ) chart's iso-curves are exact ellipses, and the outward
+ * normal is the exact gradient ((x−cx)/a², (y−cy)/b², (z−cz)/c²).
+ */
+export class Ellipsoid extends Quadric {
+  readonly center: Vec3;
+  readonly radii: Vec3;
+
+  constructor(center: Vec3, radii: Vec3, id?: ElementId) {
+    const [cx, cy, cz] = center;
+    const [ax, ay, az] = radii;
+    const A = 1 / (ax * ax);
+    const B = 1 / (ay * ay);
+    const C = 1 / (az * az);
+    const Q = symmetric4(
+      A, 0, 0, -A * cx,
+      B, 0, -B * cy,
+      C, -C * cz,
+      A * cx * cx + B * cy * cy + C * cz * cz - 1,
+    );
+    const corner = Math.max(ax, ay, az);
+    super(Q, { min: [cx - corner, cy - corner, cz - corner], max: [cx + corner, cy + corner, cz + corner] }, id);
+    this.center = center;
+    this.radii = radii;
+  }
+
+  /** Exact curved direction field (§2.6): parallels + meridians of the (θ, φ)
+   *  chart (+ its pole-to-pole diagonal spirals as the third family for
+   *  `triple`). Every sample carries the exact gradient normal. */
+  hatchField(cam: Camera, opts: HatchFieldOptions): HatchFamily[] {
+    const [cx, cy, cz] = this.center;
+    const [ax, ay, az] = this.radii;
+    const at = (th: number, ph: number): { p: Vec3; n: Vec3 } => {
+      const p: Vec3 = [cx + ax * Math.cos(ph) * Math.cos(th), cy + ay * Math.cos(ph) * Math.sin(th), cz + az * Math.sin(ph)];
+      return { p, n: [(p[0] - cx) / (ax * ax), (p[1] - cy) / (ay * ay), (p[2] - cz) / (az * az)] };
+    };
+
+    // Family 0 — parallels (constant φ): ellipses in horizontal planes, evenly
+    // spaced in latitude; count driven by the projected pole-to-pole extent.
+    const span = screenDist(cam, [cx, cy, cz - az], [cx, cy, cz + az]);
+    const nPar = curveCount(span, opts.spacingPx, 3, 40);
+    const parallels: HatchFieldCurve[] = [];
+    for (let k = 0; k < nPar; k++) {
+      const ph = -Math.PI / 2 + (Math.PI * (k + 0.5)) / nPar;
+      parallels.push(paramCurve((t) => at(2 * Math.PI * t, ph), 96));
+    }
+    const families: HatchFamily[] = [{ curves: parallels }];
+
+    const diam = screenDist(cam, [cx - ax, cy, cz], [cx + ax, cy, cz]);
+    if (opts.maxFamilies >= 2) {
+      // Family 1 — meridians (constant θ): full ellipses through both poles.
+      // Each loop covers θ and θ+π, so the count runs over half a turn.
+      const nMer = curveCount((Math.PI * diam) / 2, opts.spacingPx, 2, 32);
+      const meridians: HatchFieldCurve[] = [];
+      for (let j = 0; j < nMer; j++) {
+        const th = (Math.PI * j) / nMer;
+        meridians.push(paramCurve((t) => at(th, 2 * Math.PI * t), 96));
+      }
+      families.push({ curves: meridians });
+    }
+
+    if (opts.maxFamilies >= 3) {
+      // Family 2 — the chart's diagonal: pole-to-pole spirals winding once in θ
+      // while φ sweeps −π/2 → π/2, crossing both other families obliquely — the
+      // diagonal `triple` band.
+      const nD = curveCount((Math.PI * diam) / Math.SQRT2, opts.spacingPx, 4, 48);
+      const diagonal: HatchFieldCurve[] = [];
+      for (let k = 0; k < nD; k++) {
+        const th0 = (2 * Math.PI * k) / nD;
+        diagonal.push(paramCurve((t) => at(th0 + 2 * Math.PI * t, -Math.PI / 2 + Math.PI * t), 96));
+      }
+      families.push({ curves: diagonal });
+    }
+    return families;
+  }
 }
 
 /** An axis-aligned ellipsoid with the given semi-axis radii. */
-export function ellipsoid(center: Vec3, radii: Vec3, id?: ElementId): Quadric {
-  const [cx, cy, cz] = center;
-  const [ax, ay, az] = radii;
-  const A = 1 / (ax * ax);
-  const B = 1 / (ay * ay);
-  const C = 1 / (az * az);
-  const Q = symmetric4(
-    A, 0, 0, -A * cx,
-    B, 0, -B * cy,
-    C, -C * cz,
-    A * cx * cx + B * cy * cy + C * cz * cz - 1,
-  );
-  const corner: Vec3 = [Math.max(ax, ay, az), Math.max(ax, ay, az), Math.max(ax, ay, az)];
-  return new Quadric(Q, { min: [cx - corner[0], cy - corner[1], cz - corner[2]], max: [cx + corner[0], cy + corner[1], cz + corner[2]] }, id);
+export function ellipsoid(center: Vec3, radii: Vec3, id?: ElementId): Ellipsoid {
+  return new Ellipsoid(center, radii, id);
 }

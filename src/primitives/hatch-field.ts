@@ -55,6 +55,21 @@ export function circleCurve(
 }
 
 /**
+ * A sampled world-space parametric curve p(t), t ∈ [0, 1], with a per-point
+ * outward normal — for the diagonal iso-curves (helices, spiral generators,
+ * (1,1) torus loops) that are neither circles nor segments. The exactness lives
+ * in the caller's `at`, which evaluates the surface parametrization directly.
+ */
+export function paramCurve(at: (t: number) => { p: Vec3; n: Vec3 }, segments: number): HatchFieldCurve {
+  const samples: HatchSample[] = [];
+  for (let i = 0; i <= segments; i++) {
+    const { p, n } = at(i / segments);
+    samples.push({ p, n: normalize(n) });
+  }
+  return { samples };
+}
+
+/**
  * A world-space straight segment a→b as field samples, with a constant normal
  * (rulings/generators keep the same surface normal along their length).
  */

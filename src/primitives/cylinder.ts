@@ -15,7 +15,7 @@ import { add, addScaled, cross, dot, length, normalize, sub } from "../math/vec3
 import { cameraFrame, projectionMatrix, projectPoint } from "../math/camera.js";
 import { projectCircle } from "../math/project.js";
 import { convexHull } from "../math/hull.js";
-import { circleCurve, curveCount, screenDist, segmentCurve } from "./hatch-field.js";
+import { circleCurve, curveCount, paramCurve, screenDist, segmentCurve } from "./hatch-field.js";
 import { solveQuadratic } from "../curve/roots.js";
 import { EPS_ABS, EPS_REL } from "../curve/epsilon.js";
 
@@ -75,10 +75,12 @@ export class Cylinder implements FeatureSource {
     return [{ owner: this.id, outline: { kind: "polyline", pts: outline }, mode: "single", angle: 0, tone: 0.5 }];
   }
 
-  /** Exact curved direction field (§2.6): circumferential rings + axial rulings. */
+  /** Exact curved direction field (§2.6): circumferential rings + axial rulings
+   *  (+ 45° helices as the diagonal third family for `triple`). */
   hatchField(cam: Camera, opts: HatchFieldOptions): HatchFamily[] {
     const plane = basisFromNormal(this.base, this.axis);
     const top = this.top;
+    const diam = screenDist(cam, addScaled(this.base, plane.x, this.radius), addScaled(this.base, plane.x, -this.radius));
     const families: HatchFamily[] = [];
 
     // Family 0 — circumferential rings (constant height); normal is radial. The
@@ -103,7 +105,6 @@ export class Cylinder implements FeatureSource {
 
     if (opts.maxFamilies >= 2) {
       // Family 1 — axial rulings (constant angle); normal is the radial offset dir.
-      const diam = screenDist(cam, addScaled(this.base, plane.x, this.radius), addScaled(this.base, plane.x, -this.radius));
       const nRul = curveCount(Math.PI * diam, opts.spacingPx, 4, 64);
       const rulings = [];
       for (let j = 0; j < nRul; j++) {
@@ -112,6 +113,29 @@ export class Cylinder implements FeatureSource {
         rulings.push(segmentCurve(add(this.base, off), add(top, off), off, 40));
       }
       families.push({ curves: rulings });
+    }
+
+    if (opts.maxFamilies >= 3) {
+      // Family 2 — 45° helices, the diagonal iso-curves of the (θ, z) chart: on
+      // the unrolled lateral surface z = r·(θ − θ0), so each helix crosses the
+      // rings and rulings at 45° and the darkest `triple` band still follows
+      // curvature. Adjacent helices sit 2πr/n apart along the circumference,
+      // i.e. (2πr/n)/√2 apart perpendicular to the stroke — hence the /√2.
+      const dTheta = this.height / this.radius; // winding angle base → top
+      const nHel = curveCount((Math.PI * diam) / Math.SQRT2, opts.spacingPx, 4, 64);
+      const segs = Math.max(24, Math.ceil((dTheta / TWO_PI) * 96));
+      const helices = [];
+      for (let j = 0; j < nHel; j++) {
+        const th0 = (TWO_PI * j) / nHel;
+        helices.push(
+          paramCurve((t) => {
+            const th = th0 + t * dTheta;
+            const off = add(addScaled([0, 0, 0], plane.x, this.radius * Math.cos(th)), addScaled([0, 0, 0], plane.y, this.radius * Math.sin(th)));
+            return { p: add(addScaled(this.base, this.axis, t * this.height), off), n: off };
+          }, segs),
+        );
+      }
+      families.push({ curves: helices });
     }
     return families;
   }

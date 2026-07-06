@@ -47,11 +47,16 @@ renders. Before Phase 2 we are hardening Phase 1 — the ordered backlog:
    the implicit form as two contour loops; ray-torus via a real quartic solver;
    `gallery/10`) → ✅ **curved hatch direction fields** (§2.6,
    `FeatureSource.hatchField`: cylinder = rings + rulings, cone = rings +
-   generators, torus = poloidal + toroidal circles — exact iso-parameter curves
-   emitted as world samples with normals; the scene clips each to the
-   front-facing, unoccluded, tonally-dark surface via `clipHatchField`;
-   `gallery/12`, and now the default for `gallery/05/10/11`). **All feature gaps
-   done.** Deferred refinement: a contour Newton-projection so a *sampled*
+   generators, torus = poloidal + toroidal circles, sphere = parallels +
+   meridians (`Sphere` configuration), ellipsoid = chart parallels + meridians
+   with exact gradient normals (`Ellipsoid` configuration); each surface also
+   emits a *diagonal third family* for `triple` — 45° helices / spiral
+   generators / (1,1) torus loops / tilted-axis circles / pole-to-pole chart
+   spirals — exact iso-parameter curves emitted as world samples with normals;
+   the scene clips each to the front-facing, unoccluded, tonally-dark surface
+   via `clipHatchField`; `gallery/12` (4 surfaces × single/cross/triple),
+   `gallery/08` (curved-field column), and now the default for
+   `gallery/05/10/11`). **All feature gaps done.** Deferred refinement: a contour Newton-projection so a *sampled*
    silhouette's grazing points can be visibility-tested without the small nudge
    tolerance (matters for Phase-2 meshes).
 4. ⬜ **Verification & DX**: golden-SVG snapshot regression tests → more

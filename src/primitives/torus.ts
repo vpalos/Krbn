@@ -17,7 +17,7 @@ import type { FeatureSource } from "../scene/feature-source.js";
 import { basisFromNormal } from "../math/basis.js";
 import { addScaled, dot, normalize, sub } from "../math/vec3.js";
 import { cameraFrame, projectionMatrix, projectPoint } from "../math/camera.js";
-import { circleCurve, curveCount, screenDist } from "./hatch-field.js";
+import { circleCurve, curveCount, paramCurve, screenDist } from "./hatch-field.js";
 import { solveQuarticReal } from "../curve/roots.js";
 import { chainPoints } from "../curve/chain.js";
 import { EPS_ABS } from "../curve/epsilon.js";
@@ -89,7 +89,8 @@ export class Torus implements FeatureSource {
     return [{ owner: this.id, outline: { kind: "polyline", pts: outer }, holes, mode: "single", angle: 0, tone: 0.5 }];
   }
 
-  /** Exact curved direction field (§2.6): poloidal (tube) + toroidal circles. */
+  /** Exact curved direction field (§2.6): poloidal (tube) + toroidal circles
+   *  (+ (1,1) diagonal loops as the third family for `triple`). */
   hatchField(cam: Camera, opts: HatchFieldOptions): HatchFamily[] {
     const c = this.center;
     const R = this.majorRadius;
@@ -127,6 +128,30 @@ export class Torus implements FeatureSource {
         toroidal.push(circleCurve(center, e1, e2, R + r * Math.cos(v), torusNormal, 96));
       }
       families.push({ curves: toroidal });
+    }
+
+    if (opts.maxFamilies >= 3) {
+      // Family 2 — (1,1) diagonal loops: u and v advance together through one
+      // full turn (u = u0 + 2πt, v = 2πt), the diagonal iso-curves of the
+      // (u, v) chart. Each closes after winding once around the axis and once
+      // around the tube, crossing both circle families obliquely — the darkest
+      // `triple` band. Normal is the exact closed form cos v·radial(u) + sin v·â.
+      const nD = curveCount((Math.PI * majDiam) / Math.SQRT2, opts.spacingPx, 6, 64);
+      const diagonal = [];
+      for (let k = 0; k < nD; k++) {
+        const u0 = (TWO_PI * k) / nD;
+        diagonal.push(
+          paramCurve((t) => {
+            const u = u0 + TWO_PI * t;
+            const v = TWO_PI * t;
+            const rad = radial(u);
+            const p = addScaled(addScaled(c, rad, R + r * Math.cos(v)), a, r * Math.sin(v));
+            const n = addScaled(addScaled([0, 0, 0], rad, Math.cos(v)), a, Math.sin(v));
+            return { p, n };
+          }, 128),
+        );
+      }
+      families.push({ curves: diagonal });
     }
     return families;
   }

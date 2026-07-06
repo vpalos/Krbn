@@ -5,8 +5,7 @@ Runnable demos that render Krbn scenes to SVG. All output is deterministic
 
 ## Gallery
 
-Rendered by one deterministic script (wobble is seeded, so the SVGs are stable
-and diffable):
+Run with:
 
 ```bash
 bun run examples/gallery.ts
