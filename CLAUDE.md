@@ -126,11 +126,13 @@ The mesh `FeatureSource` is one more implementation of the same seam. **Steps 1�
 done:** the static half-edge scaffold (`src/mesh/halfedge.ts`, `shapes.ts`) —
 topology + normals + dihedral + crease/boundary tags — and **curvature precompute**
 (`src/mesh/curvature.ts`: Rusinkiewicz principal curvatures + directions + the
-`dcurv` derivative tensor, validated on plane/sphere/cylinder). Both
-view-independent, paid once. Next per `ai/ROADMAP.md`: silhouette zero-set +
-chaining → the `Mesh` source → suggestive contours → hybrid→analytic visibility →
-temporal coherence. Keep it behind the *same* `FeatureSource` interface; do not
-fork the pipeline.
+`dcurv` derivative tensor, validated on plane/sphere/cylinder), and the
+**silhouette zero-set + chaining** (`src/mesh/silhouette.ts`: g=n·toEye with
+interpolated normals, Hertzmann–Zorin crossings through faces, chained into ordered
+loops/paths). Next per `ai/ROADMAP.md`: the `Mesh` `FeatureSource`
+(extractFeatures/projectedSilhouettes/raycast) so a mesh renders through the
+pipeline → suggestive contours → hybrid→analytic visibility → temporal coherence.
+Keep it behind the *same* `FeatureSource` interface; do not fork the pipeline.
 
 ## Deferred — don't build unless asked
 

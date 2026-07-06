@@ -132,7 +132,12 @@ everything from the stage-2 contract onward is reused.
    derivative tensor `dcurv` (for suggestive contours). Verified against plane
    (0), sphere (κ=1/R, K>0, dcurv≈0), and cylinder (κ_max=1/R, κ_min=0 along axis,
    K≈0).
-3. ⬜ Silhouette as interpolated zero-set + chaining.
+3. ✅ **Silhouette as interpolated zero-set + chaining** (`src/mesh/silhouette.ts`)
+   — g(v) = n(v)·toEye with interpolated vertex normals; per-face zero crossings
+   *through* the triangle (Hertzmann–Zorin, continuous under camera motion), linked
+   through shared crossed-edge nodes into ordered polyline loops (closed) / paths
+   (open at boundaries). Verified on sphere (one equatorial loop; oblique view stays
+   on the sphere in the plane ⟂ view) and open tube (two profile paths).
 4. ⬜ Suggestive contours.
 5. ⬜ Visibility — hybrid (depth-buffer-seeded) → fully analytic QI.
 6. ⬜ Temporal coherence for animation.
