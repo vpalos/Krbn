@@ -892,7 +892,10 @@ function creasesDemo(): void {
   const tetMesh = () => translate(rotate(scaled(tetrahedron(), 0.72), [0, 0, 1], -0.3), [1.4, 0.3, 0.4]);
   const build = (shade: boolean): string => {
     const scene = new Scene({ light: { direction: [-0.5, -0.45, -0.55] }, svg: { background: BG } });
-    const style = shade ? { wobble: 0.25, hatch: { mode: "single" as const, angle: 18, spacingPx: 8, field: false } } : { wobble: 0.25 };
+    // flat per-face shading: with the faceted mesh returning face normals, the
+    // tonal layers of a cross-hatch land a uniform number of layers on each face,
+    // so each facet reads as one flat tone set by its angle to the light
+    const style = shade ? { wobble: 0.25, hatch: { mode: "cross" as const, angle: 18, spacingPx: 9, field: false } } : { wobble: 0.25 };
     scene.add(new Mesh(boxMesh())).style(style);
     scene.add(new Mesh(tetMesh())).style(style);
     return scene.render(cam).svg;

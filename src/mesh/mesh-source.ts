@@ -18,7 +18,7 @@ import type { FeatureSource } from "../scene/feature-source.js";
 import { cross, dot, normalize, sub } from "../math/vec3.js";
 import { projectionMatrix, projectPoint } from "../math/camera.js";
 import { HalfEdgeMesh, type BuildOptions, type MeshInput } from "./halfedge.js";
-import { silhouetteLoops } from "./silhouette.js";
+import { facetedSilhouetteLoops, silhouetteLoops } from "./silhouette.js";
 import { computeCurvature, type CurvatureField } from "./curvature.js";
 import { meshHatchField } from "./mesh-hatch.js";
 import { suggestiveContours } from "./suggestive.js";
@@ -84,12 +84,23 @@ export class Mesh implements FeatureSource {
   private readonly aabb: AABB;
   private readonly suggestiveOpt: false | { threshold?: number };
   private _curv?: CurvatureField;
+  /**
+   * A *faceted* mesh — a hard-edged polyhedron (cube, gem, low-poly), where most
+   * interior edges are creases. Its silhouette is the exact face-based contour
+   * (not the smooth interpolated zero-set, which wanders across flat faces) and it
+   * shades flat per face. A predominantly smooth mesh (sphere, torus, knot, the
+   * gravity sheet — few or no creases) keeps the interpolated path unchanged.
+   */
+  private readonly faceted: boolean;
 
   constructor(input: MeshInput, opts: MeshOptions = {}, id: ElementId = nextId()) {
     this.id = id;
     this.he = HalfEdgeMesh.build(input, opts);
     this.aabb = boundsOf(this.he.positions);
     this.suggestiveOpt = opts.suggestive ? (opts.suggestive === true ? {} : opts.suggestive) : false;
+    const interior = this.he.edges.filter((e) => !e.boundary).length;
+    const creases = this.he.creases().length;
+    this.faceted = creases > 0 && creases >= 0.5 * interior;
   }
 
   /** Curvature precompute, lazily (only when suggestive contours are requested). */
@@ -101,12 +112,16 @@ export class Mesh implements FeatureSource {
     return this.aabb;
   }
 
-  /** Self-occlusion depth tolerance for the exact depth-buffer QI: a silhouette
-   *  point on one triangle can be up to ~a facet's chord-sagitta nearer or farther
-   *  than an adjacent facet, so only self-hits beyond ~an edge length count as a
-   *  genuine (separate-sheet) occlusion. (ai/DESIGN.md §3.3.6) */
+  /** Self-occlusion depth tolerance for the exact depth-buffer QI (ai/DESIGN.md
+   *  §3.3.6). A *smooth* mesh's silhouette is the interpolated zero-set, which
+   *  floats off the flat facets by up to a facet's chord-sagitta, so a self-hit
+   *  only counts as a genuine (separate-sheet) occlusion beyond ~an edge length.
+   *  A *faceted* mesh has exactly-flat faces and its crease/silhouette points lie
+   *  exactly on those facets — the raycast is exact — so it needs no such slack;
+   *  the base analytic floor alone keeps the visible/hidden boundary crisp instead
+   *  of smeared across a whole face. */
   selfNudge(): number {
-    return 0.75 * this.he.meanEdgeLength;
+    return this.faceted ? 0 : 0.75 * this.he.meanEdgeLength;
   }
 
   extractFeatures(cam: Camera): Feature[] {
@@ -114,8 +129,14 @@ export class Mesh implements FeatureSource {
     const P = this.he.positions;
     const asPolyline = (idxs: number[]): Vec3[] => idxs.map((v) => P[v]!);
 
-    for (const loop of silhouetteLoops(this.he, cam)) {
-      if (loop.length >= 2) feats.push({ type: "silhouette", owner: this.id, curve: { kind: "polyline", pts: loop }, attrs: {} });
+    // A faceted mesh's silhouette edges are all creases (a facing flip needs an
+    // angle between the faces), so the crease features below already draw the whole
+    // outline — emitting a separate silhouette would double it. A smooth mesh has
+    // no such edges, so its silhouette is the interpolated zero-set.
+    if (!this.faceted) {
+      for (const loop of silhouetteLoops(this.he, cam)) {
+        if (loop.length >= 2) feats.push({ type: "silhouette", owner: this.id, curve: { kind: "polyline", pts: loop }, attrs: {} });
+      }
     }
     for (const chain of chainEdges(this.he.creases().map((e) => [e.v0, e.v1] as const))) {
       if (chain.length >= 2) feats.push({ type: "crease", owner: this.id, curve: { kind: "polyline", pts: asPolyline(chain) }, attrs: {} });
@@ -131,9 +152,15 @@ export class Mesh implements FeatureSource {
     return feats;
   }
 
+  /** The apparent contour used to seed QI crossings and bound hatch: the exact
+   *  face-based outline for a faceted mesh, the interpolated zero-set otherwise. */
+  private silhouetteWorld(cam: Camera): Vec3[][] {
+    return this.faceted ? facetedSilhouetteLoops(this.he, cam) : silhouetteLoops(this.he, cam);
+  }
+
   projectedSilhouettes(cam: Camera): Curve2D[] {
     const P = projectionMatrix(cam);
-    return silhouetteLoops(this.he, cam)
+    return this.silhouetteWorld(cam)
       .filter((loop) => loop.length >= 2)
       .map((loop) => ({ kind: "polyline", pts: loop.map((p) => projectPoint(P, p).point) }));
   }
@@ -143,7 +170,7 @@ export class Mesh implements FeatureSource {
   hatchRegions(cam: Camera, _light: Light): HatchRegion[] {
     const Pm = projectionMatrix(cam);
     const out: HatchRegion[] = [];
-    for (const loop of silhouetteLoops(this.he, cam)) {
+    for (const loop of this.silhouetteWorld(cam)) {
       if (loop.length < 4) continue;
       const a = loop[0]!;
       const b = loop[loop.length - 1]!;
@@ -218,16 +245,25 @@ export class Mesh implements FeatureSource {
       if (v < 0 || u + v > 1) continue;
       const tHit = inv * dot(e2, q);
       const point: Vec3 = [o[0] + d[0] * tHit, o[1] + d[1] * tHit, o[2] + d[2] * tHit];
-      const w0 = 1 - u - v;
-      const n0 = VN[t[0]]!;
-      const n1 = VN[t[1]]!;
-      const n2 = VN[t[2]]!;
-      const normal = normalize([
-        w0 * n0[0] + u * n1[0] + v * n2[0],
-        w0 * n0[1] + u * n1[1] + v * n2[1],
-        w0 * n0[2] + u * n1[2] + v * n2[2],
-      ]);
-      const frontFacing = dot(this.he.faceNormals[f]!, d) < 0;
+      // A faceted mesh shades flat: return the face normal so each facet reads as a
+      // single uniform tone. A smooth mesh interpolates the vertex normals so it
+      // shades continuously light→dark.
+      const fn = this.he.faceNormals[f]!;
+      let normal: Vec3;
+      if (this.faceted) {
+        normal = fn;
+      } else {
+        const w0 = 1 - u - v;
+        const n0 = VN[t[0]]!;
+        const n1 = VN[t[1]]!;
+        const n2 = VN[t[2]]!;
+        normal = normalize([
+          w0 * n0[0] + u * n1[0] + v * n2[0],
+          w0 * n0[1] + u * n1[1] + v * n2[1],
+          w0 * n0[2] + u * n1[2] + v * n2[2],
+        ]);
+      }
+      const frontFacing = dot(fn, d) < 0;
       hits.push({ t: tHit, point, normal, frontFacing });
     }
     return hits.sort((p, q) => p.t - q.t);

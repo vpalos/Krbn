@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { Camera, Vec3 } from "../src/math/types.js";
 import { HalfEdgeMesh } from "../src/mesh/halfedge.js";
-import { silhouetteLoops } from "../src/mesh/silhouette.js";
-import { tube, uvSphere } from "../src/mesh/shapes.js";
+import { facetedSilhouetteLoops, silhouetteLoops } from "../src/mesh/silhouette.js";
+import { Mesh } from "../src/mesh/mesh-source.js";
+import { cube, tube, uvSphere } from "../src/mesh/shapes.js";
 
 const ortho = (eye: Vec3, up: Vec3): Camera => ({
   eye,
@@ -48,6 +49,33 @@ describe("mesh silhouette — sphere (one equatorial loop)", () => {
       expect(Math.abs(Math.hypot(p[0], p[1], p[2]) - R)).toBeLessThan(0.02 * R); // on the sphere
       expect(Math.abs(p[0] * vd[0] + p[1] * vd[1] + p[2] * vd[2])).toBeLessThan(0.02 * R); // in the silhouette plane
     }
+  });
+});
+
+describe("faceted silhouette — cube (exact edge-based contour)", () => {
+  // axis-aligned cube [-1,1]³ viewed down a body diagonal shows three faces; its
+  // apparent contour is a single hexagonal loop of six real cube edges.
+  const m = HalfEdgeMesh.build(cube());
+  const cam = ortho([6, 5, 4], [0, 0, 1]);
+
+  test("one closed loop whose vertices are all cube corners (on the edges, not wandering)", () => {
+    const loops = facetedSilhouetteLoops(m, cam);
+    expect(loops.length).toBe(1);
+    const loop = loops[0]!;
+    // six silhouette edges ⇒ seven vertices (loop closes on the first)
+    expect(loop.length).toBe(7);
+    for (const p of loop) {
+      // every point is an actual cube corner (±1,±1,±1) — no across-face wandering
+      for (const c of p) expect(Math.abs(Math.abs(c) - 1)).toBeLessThan(1e-9);
+    }
+  });
+
+  test("the Mesh emits no separate silhouette feature (creases already cover every edge)", () => {
+    const feats = new Mesh(cube()).extractFeatures(cam);
+    expect(feats.some((f) => f.type === "silhouette")).toBe(false);
+    expect(feats.filter((f) => f.type === "crease").length).toBeGreaterThan(0);
+    // and the apparent contour is available for occlusion/hatch
+    expect(new Mesh(cube()).projectedSilhouettes(cam).length).toBe(1);
   });
 });
 

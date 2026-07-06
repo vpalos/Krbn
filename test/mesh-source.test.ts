@@ -57,6 +57,52 @@ describe("Mesh — features", () => {
     const feats = new Mesh(cube()).extractFeatures(front);
     expect(feats.some((f) => f.type === "crease")).toBe(true);
   });
+
+  test("a faceted cube's hidden-line matches raycast ground truth (crisp boundary, not smeared)", () => {
+    // A chunky faceted mesh must NOT use the smooth-mesh self-tolerance (~0.75×edge
+    // ≈ most of a face), which used to smear the visible/hidden boundary and flip
+    // whole edges. With flat facets the raycast is exact, so every crease edge's
+    // classification must track true occlusion at every point along it.
+    const cam: Camera = {
+      eye: [3.8, 3.0, 2.5],
+      target: [0, 0, 0],
+      up: [0, 0, 1],
+      projection: "perspective",
+      scale: Math.PI / 5.0,
+      viewport: { width: 430, height: 380 },
+    };
+    const m = new Mesh(cube());
+    const scale = sceneScale([m]);
+    // ground truth: a point is hidden iff the eye→point ray hits the cube nearer
+    const hidden = (p: readonly [number, number, number]): boolean => {
+      const d = [p[0] - cam.eye[0], p[1] - cam.eye[1], p[2] - cam.eye[2]] as const;
+      const L = Math.hypot(d[0], d[1], d[2]);
+      const dir: [number, number, number] = [d[0] / L, d[1] / L, d[2] / L];
+      for (const h of m.raycast({ origin: cam.eye, dir })) if (h.t > 1e-4 && h.t < L - 2e-2) return true;
+      return false;
+    };
+    const creases = m.extractFeatures(cam).filter((f) => f.type === "crease");
+    expect(creases.length).toBe(12);
+    let mismatches = 0;
+    for (const f of creases) {
+      if (f.curve.kind !== "polyline") continue;
+      const a = f.curve.pts[0]!;
+      const b = f.curve.pts[f.curve.pts.length - 1]!;
+      const n = f.curve.pts.length - 1;
+      const stroke = classifyFeature(f, cam, [m], scale, m);
+      const stateAt = (t: number): boolean => {
+        for (const iv of stroke.intervals) if (t >= iv.t0 - 1e-9 && t <= iv.t1 + 1e-9) return iv.visible;
+        return true;
+      };
+      for (let k = 1; k < 8; k++) {
+        const s = k / 8;
+        const p: [number, number, number] = [a[0] + (b[0] - a[0]) * s, a[1] + (b[1] - a[1]) * s, a[2] + (b[2] - a[2]) * s];
+        const classifiedVisible = stateAt(s * n);
+        if (classifiedVisible === hidden(p)) mismatches++; // visible where truly hidden or vice-versa
+      }
+    }
+    expect(mismatches).toBe(0);
+  });
 });
 
 describe("Mesh — renders through the pipeline with visibility", () => {

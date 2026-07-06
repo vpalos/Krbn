@@ -49,6 +49,83 @@ export function silhouetteLoops(mesh: HalfEdgeMesh, cam: Camera): Vec3[][] {
 }
 
 /**
+ * The silhouette of a *faceted* mesh (a polyhedron with hard edges). Here the
+ * interpolated zero-set is the wrong tool — averaged corner normals make it wander
+ * across the flat faces instead of landing on the edges. The exact contour of a
+ * polyhedron is simply the set of edges whose two faces disagree on facing (one
+ * front, one back); a silhouette edge is therefore always a real mesh edge (a
+ * crease). Returned as ordered world-space polylines (loops for a closed solid).
+ */
+export function facetedSilhouetteLoops(mesh: HalfEdgeMesh, cam: Camera): Vec3[][] {
+  const P = mesh.positions;
+  const persp = cam.projection === "perspective";
+  const fwd = cameraFrame(cam).forward;
+  const toEyeOrtho: Vec3 = [-fwd[0], -fwd[1], -fwd[2]];
+
+  // per-face facing sign, from the flat face normal at the face centroid
+  const front = new Int8Array(mesh.faceCount);
+  for (let f = 0; f < mesh.faceCount; f++) {
+    const t = mesh.triangles[f]!;
+    const a = P[t[0]!]!, b = P[t[1]!]!, c = P[t[2]!]!;
+    const centroid: Vec3 = [(a[0] + b[0] + c[0]) / 3, (a[1] + b[1] + c[1]) / 3, (a[2] + b[2] + c[2]) / 3];
+    const toEye = persp ? normalize(sub(cam.eye, centroid)) : toEyeOrtho;
+    front[f] = dot(mesh.faceNormals[f]!, toEye) >= 0 ? 1 : -1;
+  }
+
+  // interior edges whose two faces flip facing are the silhouette edges
+  const edges: Array<[number, number]> = [];
+  for (const e of mesh.edges) {
+    if (e.boundary || e.halfEdges.length < 2) continue;
+    const f0 = mesh.heFace[e.halfEdges[0]!]!;
+    const f1 = mesh.heFace[e.halfEdges[1]!]!;
+    if (front[f0] !== front[f1]) edges.push([e.v0, e.v1]);
+  }
+  return chainVertexEdges(edges).map((chain) => chain.map((v) => P[v]!));
+}
+
+/** Chain undirected vertex-index edges into ordered vertex sequences, breaking at
+ *  endpoints/junctions (degree ≠ 2) so each chain is a simple arc or loop. */
+function chainVertexEdges(edges: ReadonlyArray<readonly [number, number]>): number[][] {
+  const incident = new Map<number, number[]>();
+  const push = (v: number, e: number) => {
+    const l = incident.get(v);
+    if (l) l.push(e);
+    else incident.set(v, [e]);
+  };
+  edges.forEach((e, i) => {
+    push(e[0], i);
+    push(e[1], i);
+  });
+  const degree = (v: number) => (incident.get(v) ?? []).length;
+  const used = new Array<boolean>(edges.length).fill(false);
+  const other = (e: number, v: number) => (edges[e]![0] === v ? edges[e]![1] : edges[e]![0]);
+
+  const walk = (startV: number, startE: number): number[] => {
+    const chain = [startV];
+    let v = startV;
+    let e = startE;
+    for (;;) {
+      used[e] = true;
+      v = other(e, v);
+      chain.push(v);
+      if (degree(v) !== 2) break;
+      const next = (incident.get(v) ?? []).find((s) => !used[s]);
+      if (next === undefined) break;
+      e = next;
+    }
+    return chain;
+  };
+
+  const chains: number[][] = [];
+  for (const [v, segs] of incident) {
+    if (degree(v) === 2) continue;
+    for (const e of segs) if (!used[e]) chains.push(walk(v, e));
+  }
+  for (let e = 0; e < edges.length; e++) if (!used[e]) chains.push(walk(edges[e]![0], e));
+  return chains;
+}
+
+/**
  * The chained zero-set of a per-vertex scalar field `g` on the mesh — the shared
  * machinery behind both the silhouette (g = n·toEye) and suggestive contours
  * (g = radial curvature). `accept(lo, hi, s)` optionally filters a crossing on
