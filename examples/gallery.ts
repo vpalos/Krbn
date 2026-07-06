@@ -335,13 +335,21 @@ function gridStitch(W: number, H: number, rows: string[][], rowLabels: string[],
   const cols = rows[0]!.length;
   const totalW = cols * W + (cols - 1) * gapX;
   const totalH = rows.length * H + (rows.length - 1) * gapY;
+  // Clip each panel to its placed box so a figure that overruns its viewport can't
+  // bleed into the next column. The clip rect is in absolute coordinates on an
+  // *untransformed* outer group (an inner group does the positioning), which keeps
+  // the clip unambiguous across renderers.
+  const defs: string[] = [];
   const parts = [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalW} ${totalH}" width="${totalW}" height="${totalH}">`,
   ];
   rows.forEach((row, r) => {
     const y = r * (H + gapY);
     row.forEach((svg, c) => {
-      parts.push(`<g transform="translate(${c * (W + gapX)},${y})">${stripSvg(svg)}</g>`);
+      const x = c * (W + gapX);
+      const id = `clip-${r}-${c}`;
+      defs.push(`<clipPath id="${id}" clipPathUnits="userSpaceOnUse"><rect x="${x}" y="${y}" width="${W}" height="${H}" /></clipPath>`);
+      parts.push(`<g clip-path="url(#${id})"><g transform="translate(${x},${y})">${stripSvg(svg)}</g></g>`);
     });
     parts.push(label(14, y + 26, rowLabels[r]!));
     if (r < rows.length - 1) parts.push(`<line x1="10" y1="${y + H + gapY / 2}" x2="${totalW - 10}" y2="${y + H + gapY / 2}" stroke="#ddd" stroke-width="1" />`);
@@ -351,6 +359,7 @@ function gridStitch(W: number, H: number, rows: string[][], rowLabels: string[],
     parts.push(`<line x1="${x}" y1="8" x2="${x}" y2="${totalH - 8}" stroke="#ddd" stroke-width="1" />`);
   }
   if (colLabels) colLabels.forEach((s, c) => parts.push(labelC(c * (W + gapX) + W / 2, 20, s)));
+  parts.splice(1, 0, `<defs>${defs.join("")}</defs>`);
   parts.push(`</svg>`);
   return parts.join("\n");
 }
@@ -428,11 +437,11 @@ function torusDemo(): void {
       cam.viewport.width,
       cam.viewport.height,
       [
-        [build(0, true), build(0, false)],
-        [build(0.6, true), build(0.6, false)],
+        [build(0, false), build(0, true)],
+        [build(0.6, false), build(0.6, true)],
       ],
       ["wobble: off", "wobble: on"],
-      ["curved field", "flat"],
+      ["flat", "curved field"],
     ),
   );
 }
