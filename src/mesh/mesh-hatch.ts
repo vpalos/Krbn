@@ -128,6 +128,9 @@ export interface MeshHatchOptions {
   spacing: number;
   /** which principal family: 0 = max-curvature direction, 1 = min */
   family: 0 | 1;
+  /** samples of already-placed streamlines (a coarser atlas level): new
+   *  streamlines seed *between* them, refining without moving what exists */
+  occupied?: readonly HatchSample[];
 }
 
 /** Trace evenly-spaced streamlines of a principal-curvature direction field over
@@ -141,6 +144,7 @@ export function meshHatchField(mesh: HalfEdgeMesh, curv: CurvatureField, opts: M
   if (!(step > 0)) return [];
   const neighbors = faceNeighbors(mesh);
   const grid = new SpatialHash(sep);
+  for (const s of opts.occupied ?? []) grid.add(s.p, s.n);
 
   // A point is "umbilic" (no well-defined principal direction) when its two
   // principal curvatures are nearly equal *relative to their magnitude* — this is
@@ -208,8 +212,13 @@ export function meshHatchField(mesh: HalfEdgeMesh, curv: CurvatureField, opts: M
     let d: Vec3 | null = dir0;
     let left = false; // has the trace left the seed's neighbourhood yet?
     for (let i = 0; i < maxSteps && d; i++) {
-      const np = addScaled(loc.p, d, step);
-      const next = relocate(mesh, neighbors, np, loc.face);
+      // relocate searches a 2-ring face neighbourhood, so on an anisotropic mesh
+      // (short circumferential edges, long axial ones) a full step can overshoot
+      // it; halve the step rather than kill the trace — a genuine boundary still
+      // fails at every scale.
+      let next = relocate(mesh, neighbors, addScaled(loc.p, d, step), loc.face);
+      if (!next) next = relocate(mesh, neighbors, addScaled(loc.p, d, step / 2), loc.face);
+      if (!next) next = relocate(mesh, neighbors, addScaled(loc.p, d, step / 4), loc.face);
       if (!next) break; // ran off the surface / a boundary
       const dSeed2 = dist2(next.p, seed.p);
       if (!left && dSeed2 > 4 * dTest2) left = true;
@@ -248,4 +257,68 @@ export function meshHatchField(mesh: HalfEdgeMesh, curv: CurvatureField, opts: M
     curves.push({ samples });
   }
   return curves;
+}
+
+// ---------------------------------------------------------------------------
+// Streamline atlas — temporal coherence (ai/DESIGN.md §3.3.7; ROADMAP Phase-2
+// item 6.4)
+// ---------------------------------------------------------------------------
+
+/**
+ * A static, object-space, multi-resolution set of streamlines. Level k holds
+ * only the streamlines *added* at spacing `baseSpacing / 2^k`, seeded around
+ * everything coarser — so refining never moves an existing line. A frame asks
+ * for the union of levels 0..k for its desired screen density; under camera
+ * motion the drawn set changes only at discrete level switches (and then only
+ * by *adding/removing the finest level*), never by re-seeding.
+ *
+ * The atlas is intrinsic geometry (like the curvature field it traces), so it
+ * lives on the source and is built lazily per level — computing it inside a
+ * per-frame call is caching, not view-dependent state.
+ */
+export class StreamlineAtlas {
+  private readonly levels: HatchFieldCurve[][] = [];
+  private readonly occupied: HatchSample[] = [];
+
+  constructor(
+    private readonly mesh: HalfEdgeMesh,
+    private readonly curv: CurvatureField,
+    readonly baseSpacing: number,
+    private readonly family: 0 | 1,
+    readonly maxLevels = 6,
+  ) {}
+
+  /** The continuous density demand: level k = log2(base/desired), unclamped
+   *  below, clamped to the ladder above. Full levels are 0..floor; the level
+   *  above fades in with the fractional part. */
+  levelFor(desiredSpacing: number): number {
+    if (!(desiredSpacing > 0) || !(this.baseSpacing > 0)) return 0;
+    return Math.min(this.maxLevels - 1, Math.max(0, Math.log2(this.baseSpacing / desiredSpacing)));
+  }
+
+  /** All streamlines of levels 0..floor(levelFor), with stable keys
+   *  (`m<family>:<level>:<i>`), plus the next level *fading in* with the
+   *  fractional demand (shallow copies carrying `fade`; cached curves are never
+   *  mutated). A zoom therefore dissolves the finest level in or out instead of
+   *  popping it (temporal coherence). Levels are traced once and cached. */
+  curvesFor(desiredSpacing: number): HatchFieldCurve[] {
+    const f = this.levelFor(desiredSpacing);
+    const kFull = Math.floor(f);
+    const frac = f - kFull;
+    const kTop = frac > 0 && kFull + 1 < this.maxLevels ? kFull + 1 : kFull;
+    while (this.levels.length <= kTop) {
+      const lvl = this.levels.length;
+      const curves = meshHatchField(this.mesh, this.curv, {
+        spacing: this.baseSpacing / 2 ** lvl,
+        family: this.family,
+        occupied: this.occupied,
+      });
+      for (let i = 0; i < curves.length; i++) curves[i]!.key = `m${this.family}:${lvl}:${i}`;
+      this.levels.push(curves);
+      for (const c of curves) this.occupied.push(...c.samples);
+    }
+    const out = this.levels.slice(0, kFull + 1).flat();
+    if (kTop > kFull) for (const c of this.levels[kTop]!) out.push({ ...c, fade: frac });
+    return out;
+  }
 }

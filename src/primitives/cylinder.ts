@@ -15,7 +15,7 @@ import { add, addScaled, cross, dot, length, normalize, sub } from "../math/vec3
 import { cameraFrame, projectionMatrix, projectPoint } from "../math/camera.js";
 import { projectCircle } from "../math/project.js";
 import { convexHull } from "../math/hull.js";
-import { circleCurve, curveCount, paramCurve, screenDist, segmentCurve } from "./hatch-field.js";
+import { circleCurve, dyadicLadder, paramCurve, screenDist, segmentCurve, tagCurve } from "./hatch-field.js";
 import { solveQuadratic } from "../curve/roots.js";
 import { EPS_ABS, EPS_REL } from "../curve/epsilon.js";
 
@@ -86,31 +86,30 @@ export class Cylinder implements FeatureSource {
     // Family 0 — circumferential rings (constant height); normal is radial. The
     // two end caps get concentric rings too (normal ±axis), so the field covers
     // the whole surface (an axis-on view still shades the visible cap).
-    const nRings = curveCount(screenDist(cam, this.base, top), opts.spacingPx, 2, 40);
+    // Iso-values sit on a dyadic ladder (temporal coherence): a density change
+    // adds/fades curves, it never moves the existing ones.
+    const spacing = Math.max(1, opts.spacingPx);
     const rings = [];
-    for (let k = 0; k < nRings; k++) {
-      const s = ((k + 0.5) / nRings) * this.height;
-      const c = addScaled(this.base, this.axis, s);
-      rings.push(circleCurve(c, plane.x, plane.y, this.radius, (p) => sub(p, c), 96));
+    for (const s of dyadicLadder(screenDist(cam, this.base, top) / spacing, { min: 2, max: 40 })) {
+      const c = addScaled(this.base, this.axis, s.t * this.height);
+      rings.push(tagCurve(circleCurve(c, plane.x, plane.y, this.radius, (p) => sub(p, c), 96), `r:${s.key}`, s.fade));
     }
     const rScreen = screenDist(cam, this.base, addScaled(this.base, plane.x, this.radius));
-    const nCap = curveCount(rScreen, opts.spacingPx, 2, 24);
-    for (const [c, sign] of [[this.base, -1], [top, 1]] as const) {
+    for (const [ci, [c, sign]] of ([[this.base, -1], [top, 1]] as const).entries()) {
       const nrm: Vec3 = [sign * this.axis[0], sign * this.axis[1], sign * this.axis[2]];
-      for (let k = 1; k <= nCap; k++) {
-        rings.push(circleCurve(c, plane.x, plane.y, (k / (nCap + 1)) * this.radius, () => nrm, 96));
+      for (const s of dyadicLadder(rScreen / spacing, { min: 2, max: 24 })) {
+        rings.push(tagCurve(circleCurve(c, plane.x, plane.y, s.t * this.radius, () => nrm, 96), `c${ci}:${s.key}`, s.fade));
       }
     }
     families.push({ curves: rings });
 
     if (opts.maxFamilies >= 2) {
       // Family 1 — axial rulings (constant angle); normal is the radial offset dir.
-      const nRul = curveCount(Math.PI * diam, opts.spacingPx, 4, 64);
       const rulings = [];
-      for (let j = 0; j < nRul; j++) {
-        const th = (2 * Math.PI * j) / nRul;
+      for (const s of dyadicLadder((Math.PI * diam) / spacing, { periodic: true, min: 4, max: 64 })) {
+        const th = TWO_PI * s.t;
         const off = add(addScaled([0, 0, 0], plane.x, this.radius * Math.cos(th)), addScaled([0, 0, 0], plane.y, this.radius * Math.sin(th)));
-        rulings.push(segmentCurve(add(this.base, off), add(top, off), off, 40));
+        rulings.push(tagCurve(segmentCurve(add(this.base, off), add(top, off), off, 40), `g:${s.key}`, s.fade));
       }
       families.push({ curves: rulings });
     }
@@ -122,17 +121,20 @@ export class Cylinder implements FeatureSource {
       // curvature. Adjacent helices sit 2πr/n apart along the circumference,
       // i.e. (2πr/n)/√2 apart perpendicular to the stroke — hence the /√2.
       const dTheta = this.height / this.radius; // winding angle base → top
-      const nHel = curveCount((Math.PI * diam) / Math.SQRT2, opts.spacingPx, 4, 64);
       const segs = Math.max(24, Math.ceil((dTheta / TWO_PI) * 96));
       const helices = [];
-      for (let j = 0; j < nHel; j++) {
-        const th0 = (TWO_PI * j) / nHel;
+      for (const s of dyadicLadder((Math.PI * diam) / Math.SQRT2 / spacing, { periodic: true, min: 4, max: 64 })) {
+        const th0 = TWO_PI * s.t;
         helices.push(
-          paramCurve((t) => {
-            const th = th0 + t * dTheta;
-            const off = add(addScaled([0, 0, 0], plane.x, this.radius * Math.cos(th)), addScaled([0, 0, 0], plane.y, this.radius * Math.sin(th)));
-            return { p: add(addScaled(this.base, this.axis, t * this.height), off), n: off };
-          }, segs),
+          tagCurve(
+            paramCurve((t) => {
+              const th = th0 + t * dTheta;
+              const off = add(addScaled([0, 0, 0], plane.x, this.radius * Math.cos(th)), addScaled([0, 0, 0], plane.y, this.radius * Math.sin(th)));
+              return { p: add(addScaled(this.base, this.axis, t * this.height), off), n: off };
+            }, segs),
+            `h:${s.key}`,
+            s.fade,
+          ),
         );
       }
       families.push({ curves: helices });

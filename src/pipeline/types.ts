@@ -1,8 +1,20 @@
 import type { Curve, Curve2D } from "../curve/types.js";
-import type { Vec3 } from "../math/types.js";
+import type { Vec2, Vec3 } from "../math/types.js";
 
 /** Identifies the scene element that owns a feature (for importance + styling). */
 export type ElementId = string;
+
+/**
+ * Stable identity of a feature *instance* across frames — the spine of temporal
+ * coherence (ai/DESIGN.md §3.3.7, §4). Downstream stages key per-stroke state on
+ * it (dash phase, taper direction, frame-to-frame correspondence), so it must not
+ * churn under small camera motion. Sources that can anchor a view-dependent chain
+ * to view-independent data supply it themselves (a mesh silhouette loop is keyed
+ * on its minimal crossed mesh edge); features left without an id get a
+ * deterministic `${owner}/${type}:${n}` fallback assigned in extraction order
+ * (`assignDefaultFeatureIds`) — exact for view-independent analytic features.
+ */
+export type FeatureId = string;
 
 export interface Light {
   /** normalized, world space */
@@ -21,8 +33,18 @@ export interface Feature {
   type: FeatureType;
   /** carried end-to-end so importance/styling stay resolvable in stages 3–4 */
   owner: ElementId;
+  /** stable per-instance identity (see `FeatureId`); filled by the pipeline when absent */
+  id?: FeatureId;
   curve: Curve;
-  attrs: { dihedral?: number; convex?: boolean };
+  attrs: {
+    dihedral?: number;
+    convex?: boolean;
+    /** 0..1 confidence/salience of a thresholded feature (e.g. how far a
+     *  suggestive contour's D_w κ_r clears its threshold). Styling multiplies
+     *  opacity by it, so borderline features fade in/out instead of popping
+     *  (temporal coherence). Absent = 1. */
+    strength?: number;
+  };
 }
 
 /** A visible/hidden run along a stroke's parameter range. */
@@ -37,6 +59,11 @@ export interface Stroke {
   feature: Feature;
   screen: Curve2D;
   intervals: VisibilityInterval[];
+  /** 0..1 opacity multiplier assigned by stage-3 abstraction when the stroke
+   *  sits inside the screen-size fade band just above the cull threshold — so
+   *  zooming shrinks a feature into a fade-out, not a pop (temporal coherence).
+   *  Absent = 1. */
+  fade?: number;
 }
 
 export type HatchMode = "single" | "cross" | "triple";
@@ -56,6 +83,14 @@ export interface HatchRegion {
   angle: number;
   /** 0..1, drives hatch density */
   tone: number;
+  /**
+   * Screen projection of a *view-independent* object point (e.g. the owner's
+   * bounds centre). Straight hatch phases its line family through this point,
+   * so panning the camera moves the hatch *with the object* instead of letting
+   * it crawl past (temporal coherence; the scene fills it in when a source
+   * doesn't). Without it the phase is screen-origin-anchored.
+   */
+  anchorPx?: Vec2;
 }
 
 /**
@@ -77,6 +112,15 @@ export interface HatchSample {
 /** One iso-parameter curve of a direction field (already chained). */
 export interface HatchFieldCurve {
   samples: HatchSample[];
+  /** stable identity of this curve across frames (temporal coherence): wobble
+   *  seeds key on it, so a curve keeps its hand-drawn character as the camera
+   *  moves. Static atlases (mesh streamlines) guarantee it; per-frame generators
+   *  should derive it from the curve's iso-parameter, not enumeration order. */
+  key?: string;
+  /** 0..1 opacity multiplier for LOD fading: the newest (finest) density level
+   *  fades in as the continuous density demand crosses it, so a level switch is
+   *  a dissolve, not a pop (temporal coherence). Absent = 1. */
+  fade?: number;
 }
 
 /** One direction family; ordered families become successive cross-hatch layers

@@ -147,9 +147,36 @@ curvature with D_w κ_r > threshold, opt-in via `new Mesh(input, { suggestive })
 drawn as lighter form lines; `gallery/14`), and a **curvature-driven mesh hatch
 field** (`src/mesh/mesh-hatch.ts`: evenly-spaced Jobard–Lefebvre streamlines of the
 principal-direction field, returned via `Mesh.hatchField`; empty on isotropic
-surfaces so the scene falls back to straight hatch). Next per `ai/ROADMAP.md`:
-temporal coherence. Keep it behind the *same* `FeatureSource` interface; do not
-fork the pipeline.
+surfaces so the scene falls back to straight hatch). **Temporal coherence is
+complete** (Phase-2 item 6, all six sub-steps ✅ — full record in
+`ai/ROADMAP.md`). The pieces: the **identity spine** — `Feature.id` in the
+stage-1 contract; mesh chains canonically oriented (an intrinsic
+positive-g-side vote, so camera motion cannot flip a stroke's parameterization
+outside topological events) and anchor-keyed on their minimal crossed edge
+(`ZeroSetChain`/`VertexChain`, `src/mesh/silhouette.ts`); deterministic
+`${owner}/${type}:${n}` fallback ids for analytic sources
+(`src/pipeline/identity.ts`). The **frame session + correspondence** —
+`FrameSession` (`src/scene/session.ts`) wraps a `Scene` via the
+`reconcileFeatures` seam (per-frame pipeline stays pure; all cross-frame state
+lives in the session), matches features frame-to-frame (anchor continuity,
+then gated nearest-centroid), rewrites `Feature.id` to session-lifetime
+persistent ids, reverses event-flipped chains in place (confidence-gated
+global tangent vote), and reports born/died/reversed. **Hatch coherence** — a
+static object-space `StreamlineAtlas` (`src/mesh/mesh-hatch.ts`; the camera
+only picks a density level, never re-seeds), object-anchored straight-hatch
+phase (`HatchRegion.anchorPx`), per-line wobble seeds keyed on stable line
+identity, and dyadic iso-parameter ladders for all five analytic `hatchField`
+primitives (`dyadicLadder`, `src/primitives/hatch-field.ts`: density changes
+add/fade curves, never move them). **Stateless threshold fades** —
+`Stroke.fade` (abstraction cull band), `Feature.attrs.strength` (suggestive
+`D_w κ_r` margin), `HatchFieldCurve.fade` (fractional LOD), and
+consolidation-merged strokes anchored on their minimal member id. **The
+animation harness** — `examples/animation.ts` (48-frame orbit →
+`examples/animation/` SVG frames + a flipbook.html, gitignored; zero churn end
+to end) and `test/animation-coherence.test.ts` (no id churn, bounded per-step
+displacement, byte-identical replays). For animated output, drive rendering
+through a `FrameSession`; keep new sources behind the *same* `FeatureSource`
+interface; do not fork the pipeline.
 
 ## Deferred — don't build unless asked
 

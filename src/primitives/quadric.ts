@@ -24,7 +24,7 @@ import { aabbFromCenterRadius, aabbCenter } from "../math/aabb.js";
 import { cameraFrame, projectionMatrix, type Proj } from "../math/camera.js";
 import { matrixToConic } from "../curve/conic.js";
 import { add, addScaled, dot, normalize, sub } from "../math/vec3.js";
-import { circleCurve, curveCount, paramCurve, screenDist } from "./hatch-field.js";
+import { circleCurve, dyadicLadder, paramCurve, screenDist, tagCurve } from "./hatch-field.js";
 import { solveQuadratic } from "../curve/roots.js";
 import { EPS_ABS } from "../curve/epsilon.js";
 
@@ -225,34 +225,35 @@ export class Sphere extends Quadric {
     const r = this.radius;
     const radialN = (p: Vec3): Vec3 => sub(p, c);
 
-    // Latitude circles about `axis`, evenly spaced in latitude; count driven by
-    // the projected pole-to-pole extent.
-    const parallels = (axis: Vec3): HatchFieldCurve[] => {
+    // Latitude circles about `axis`, on a dyadic latitude ladder (temporal
+    // coherence: a density change adds/fades curves, it never moves the
+    // existing ones); count demand driven by the projected pole-to-pole extent.
+    const spacing = Math.max(1, opts.spacingPx);
+    const parallels = (axis: Vec3, prefix: string): HatchFieldCurve[] => {
       const plane = basisFromNormal(c, axis);
       const span = screenDist(cam, addScaled(c, axis, r), addScaled(c, axis, -r));
-      const n = curveCount(span, opts.spacingPx, 3, 40);
       const curves: HatchFieldCurve[] = [];
-      for (let k = 0; k < n; k++) {
-        const phi = -Math.PI / 2 + (Math.PI * (k + 0.5)) / n;
-        curves.push(circleCurve(addScaled(c, axis, r * Math.sin(phi)), plane.x, plane.y, r * Math.cos(phi), radialN, 96));
+      for (const s of dyadicLadder(span / spacing, { min: 3, max: 40 })) {
+        const phi = -Math.PI / 2 + Math.PI * s.t;
+        curves.push(tagCurve(circleCurve(addScaled(c, axis, r * Math.sin(phi)), plane.x, plane.y, r * Math.cos(phi), radialN, 96), `${prefix}:${s.key}`, s.fade));
       }
       return curves;
     };
 
     // Family 0 — parallels about the pole axis.
-    const families: HatchFamily[] = [{ curves: parallels(this.axis) }];
+    const families: HatchFamily[] = [{ curves: parallels(this.axis, "p") }];
     const plane = basisFromNormal(c, this.axis);
 
     if (opts.maxFamilies >= 2) {
       // Family 1 — meridians: great circles through both poles. Each circle
-      // covers the meridians θ and θ+π, so the count runs over half a turn.
+      // covers the meridians θ and θ+π, so the count runs over half a turn
+      // (periodic ladder over the half-turn).
       const diam = screenDist(cam, addScaled(c, plane.x, r), addScaled(c, plane.x, -r));
-      const nMer = curveCount((Math.PI * diam) / 2, opts.spacingPx, 2, 32);
       const meridians: HatchFieldCurve[] = [];
-      for (let j = 0; j < nMer; j++) {
-        const th = (Math.PI * j) / nMer;
+      for (const s of dyadicLadder((Math.PI * diam) / 2 / spacing, { periodic: true, min: 2, max: 32 })) {
+        const th = Math.PI * s.t;
         const m = add(addScaled([0, 0, 0], plane.x, Math.cos(th)), addScaled([0, 0, 0], plane.y, Math.sin(th)));
-        meridians.push(circleCurve(c, m, this.axis, r, radialN, 96));
+        meridians.push(tagCurve(circleCurve(c, m, this.axis, r, radialN, 96), `m:${s.key}`, s.fade));
       }
       families.push({ curves: meridians });
     }
@@ -261,7 +262,7 @@ export class Sphere extends Quadric {
       // Family 2 — parallels about an axis tilted 45° from the pole toward ê1:
       // the iso-curves of a rotated chart, still exact circles, crossing both
       // parallels and meridians obliquely — the diagonal `triple` band.
-      families.push({ curves: parallels(normalize(add(this.axis, plane.x))) });
+      families.push({ curves: parallels(normalize(add(this.axis, plane.x)), "d") });
     }
     return families;
   }
@@ -311,14 +312,16 @@ export class Ellipsoid extends Quadric {
       return { p, n: [(p[0] - cx) / (ax * ax), (p[1] - cy) / (ay * ay), (p[2] - cz) / (az * az)] };
     };
 
-    // Family 0 — parallels (constant φ): ellipses in horizontal planes, evenly
-    // spaced in latitude; count driven by the projected pole-to-pole extent.
+    // Family 0 — parallels (constant φ): ellipses in horizontal planes, on a
+    // dyadic latitude ladder (temporal coherence: a density change adds/fades
+    // curves, it never moves the existing ones); demand driven by the projected
+    // pole-to-pole extent.
+    const spacing = Math.max(1, opts.spacingPx);
     const span = screenDist(cam, [cx, cy, cz - az], [cx, cy, cz + az]);
-    const nPar = curveCount(span, opts.spacingPx, 3, 40);
     const parallels: HatchFieldCurve[] = [];
-    for (let k = 0; k < nPar; k++) {
-      const ph = -Math.PI / 2 + (Math.PI * (k + 0.5)) / nPar;
-      parallels.push(paramCurve((t) => at(2 * Math.PI * t, ph), 96));
+    for (const s of dyadicLadder(span / spacing, { min: 3, max: 40 })) {
+      const ph = -Math.PI / 2 + Math.PI * s.t;
+      parallels.push(tagCurve(paramCurve((t) => at(2 * Math.PI * t, ph), 96), `p:${s.key}`, s.fade));
     }
     const families: HatchFamily[] = [{ curves: parallels }];
 
@@ -326,11 +329,10 @@ export class Ellipsoid extends Quadric {
     if (opts.maxFamilies >= 2) {
       // Family 1 — meridians (constant θ): full ellipses through both poles.
       // Each loop covers θ and θ+π, so the count runs over half a turn.
-      const nMer = curveCount((Math.PI * diam) / 2, opts.spacingPx, 2, 32);
       const meridians: HatchFieldCurve[] = [];
-      for (let j = 0; j < nMer; j++) {
-        const th = (Math.PI * j) / nMer;
-        meridians.push(paramCurve((t) => at(th, 2 * Math.PI * t), 96));
+      for (const s of dyadicLadder((Math.PI * diam) / 2 / spacing, { periodic: true, min: 2, max: 32 })) {
+        const th = Math.PI * s.t;
+        meridians.push(tagCurve(paramCurve((t) => at(th, 2 * Math.PI * t), 96), `m:${s.key}`, s.fade));
       }
       families.push({ curves: meridians });
     }
@@ -339,11 +341,10 @@ export class Ellipsoid extends Quadric {
       // Family 2 — the chart's diagonal: pole-to-pole spirals winding once in θ
       // while φ sweeps −π/2 → π/2, crossing both other families obliquely — the
       // diagonal `triple` band.
-      const nD = curveCount((Math.PI * diam) / Math.SQRT2, opts.spacingPx, 4, 48);
       const diagonal: HatchFieldCurve[] = [];
-      for (let k = 0; k < nD; k++) {
-        const th0 = (2 * Math.PI * k) / nD;
-        diagonal.push(paramCurve((t) => at(th0 + 2 * Math.PI * t, -Math.PI / 2 + Math.PI * t), 96));
+      for (const s of dyadicLadder((Math.PI * diam) / Math.SQRT2 / spacing, { periodic: true, min: 4, max: 48 })) {
+        const th0 = 2 * Math.PI * s.t;
+        diagonal.push(tagCurve(paramCurve((t) => at(th0 + 2 * Math.PI * t, -Math.PI / 2 + Math.PI * t), 96), `d:${s.key}`, s.fade));
       }
       families.push({ curves: diagonal });
     }

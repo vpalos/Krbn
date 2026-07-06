@@ -1,7 +1,10 @@
 # Examples
 
 Runnable demos that render Krbn scenes to SVG. All output is deterministic
-(wobble is seeded, no randomness), so the SVGs are stable and diffable.
+(wobble is seeded, no randomness), so the SVGs are stable and diffable. The
+[gallery](#gallery) is a set of still renders, one per feature; the
+[animation](#animation--temporal-coherence) is a frame sequence exercising the
+temporal-coherence machinery end to end.
 
 Two cross-cutting effects run through the whole gallery: the per-element **wobble**
 knob bends both **outlines and hatch** (one hand knob per object), and solid strokes
@@ -230,6 +233,46 @@ over the hatched faces — which is what a wireframe/technical drawing wants.
 outline. The visibility classification underneath is identical; only the styling of
 the hidden intervals changes. Drop is what the [gravity well](#16--gravity-well)
 uses, so an opaque surface doesn't ghost its own far side back through itself.
+
+## Animation — temporal coherence
+
+Run with:
+
+```bash
+bun run examples/animation.ts
+```
+
+Writes `animation/frame-000.svg … frame-047.svg` plus a one-file
+**`animation/flipbook.html`** — open it in a browser and scrub or press play.
+(The output directory is gitignored; regenerate at will. Like the gallery, the
+sequence is deterministic: the same run always produces byte-identical frames.)
+
+A 48-frame, 60° camera orbit of a mixed scene — a **mesh torus** (curvature
+hatch + suggestive contours), an **analytic sphere** (cross-hatch), and a
+**cylinder** (curved ring field) — rendered through a **`FrameSession`**, the
+stateful wrapper that carries stroke identity across frames while the per-frame
+pipeline stays pure (ai/DESIGN.md §3.3.7; ROADMAP Phase-2 item 6).
+
+What to look for while it plays — each is one piece of the coherence work:
+
+- **Silhouettes slide, never jump or flip.** Mesh contour chains are canonically
+  oriented from geometry and matched frame-to-frame to session-lifetime
+  persistent ids; the per-frame report (printed as the script runs) shows
+  **zero born / died / reversed** over the whole orbit.
+- **Hatch pans *with* the surfaces.** Straight hatch is phase-anchored to a
+  projected object point; mesh streamlines come from a static object-space
+  atlas; the analytic ring/ruling fields sit on dyadic iso-parameter ladders —
+  the camera selects density, it never re-seeds or re-spaces.
+- **Every line keeps its hand-drawn character.** Wobble seeds key on stable
+  line identity (streamline id, ladder fraction, offset index), not emission
+  order, so a visibility clip can't re-deal the jitter.
+- **Detail thins by fading, never popping.** The abstraction cull, suggestive
+  contours, and hatch LOD levels all dissolve through stateless opacity fades
+  (`Stroke.fade`, `attrs.strength`, `HatchFieldCurve.fade`).
+
+The matching property tests live in `test/animation-coherence.test.ts`: zero id
+churn between adjacent frames, bounded per-step stroke displacement, steady
+hatch volume, and byte-identical replays from fresh sessions.
 
 ## Rendering to PNG
 

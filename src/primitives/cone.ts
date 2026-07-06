@@ -17,7 +17,7 @@ import { add, addScaled, dot, length, normalize, sub } from "../math/vec3.js";
 import { cameraFrame, projectionMatrix, projectPoint } from "../math/camera.js";
 import { projectCircle } from "../math/project.js";
 import { convexHull } from "../math/hull.js";
-import { circleCurve, curveCount, paramCurve, screenDist, segmentCurve } from "./hatch-field.js";
+import { circleCurve, dyadicLadder, paramCurve, screenDist, segmentCurve, tagCurve } from "./hatch-field.js";
 import { solveQuadratic } from "../curve/roots.js";
 import { EPS_ABS } from "../curve/epsilon.js";
 
@@ -99,29 +99,28 @@ export class Cone implements FeatureSource {
     // Family 0 — circumferential rings; radius grows 0 → R from apex to base,
     // then continues as concentric rings across the base cap (normal = axis), so
     // the field covers the whole surface (an axis-on view still shades the cap).
-    const nRings = curveCount(screenDist(cam, this.apex, this.baseCenter), opts.spacingPx, 2, 40);
+    // Iso-values sit on a dyadic ladder (temporal coherence): a density change
+    // adds/fades curves, it never moves the existing ones.
+    const spacing = Math.max(1, opts.spacingPx);
     const rings = [];
-    for (let k = 1; k <= nRings; k++) {
-      const frac = k / (nRings + 1);
-      const c = addScaled(this.apex, this.axis, frac * this.height);
-      rings.push(circleCurve(c, plane.x, plane.y, frac * this.baseRadius, coneNormal, 96));
+    for (const s of dyadicLadder(screenDist(cam, this.apex, this.baseCenter) / spacing, { min: 2, max: 40 })) {
+      const c = addScaled(this.apex, this.axis, s.t * this.height);
+      rings.push(tagCurve(circleCurve(c, plane.x, plane.y, s.t * this.baseRadius, coneNormal, 96), `r:${s.key}`, s.fade));
     }
     const rScreen = screenDist(cam, this.baseCenter, addScaled(this.baseCenter, plane.x, this.baseRadius));
-    const nCap = curveCount(rScreen, opts.spacingPx, 2, 24);
-    for (let k = 1; k <= nCap; k++) {
-      rings.push(circleCurve(this.baseCenter, plane.x, plane.y, (k / (nCap + 1)) * this.baseRadius, () => this.axis, 96));
+    for (const s of dyadicLadder(rScreen / spacing, { min: 2, max: 24 })) {
+      rings.push(tagCurve(circleCurve(this.baseCenter, plane.x, plane.y, s.t * this.baseRadius, () => this.axis, 96), `c:${s.key}`, s.fade));
     }
     families.push({ curves: rings });
 
     if (opts.maxFamilies >= 2) {
       // Family 1 — straight generators from the apex to the base rim.
       const diam = screenDist(cam, addScaled(this.baseCenter, plane.x, this.baseRadius), addScaled(this.baseCenter, plane.x, -this.baseRadius));
-      const nGen = curveCount(Math.PI * diam, opts.spacingPx, 4, 64);
       const gens = [];
-      for (let j = 0; j < nGen; j++) {
-        const th = (2 * Math.PI * j) / nGen;
+      for (const s of dyadicLadder((Math.PI * diam) / spacing, { periodic: true, min: 4, max: 64 })) {
+        const th = TWO_PI * s.t;
         const end = add(this.baseCenter, add(addScaled([0, 0, 0], plane.x, this.baseRadius * Math.cos(th)), addScaled([0, 0, 0], plane.y, this.baseRadius * Math.sin(th))));
-        gens.push(segmentCurve(this.apex, end, coneNormal(end), 40));
+        gens.push(tagCurve(segmentCurve(this.apex, end, coneNormal(end), 40), `g:${s.key}`, s.fade));
       }
       families.push({ curves: gens });
     }
@@ -136,18 +135,21 @@ export class Cone implements FeatureSource {
       // of the (θ, ℓ) chart. Normal along it: radial(θ)·cosα − axis·sinα.
       const twist = 1 / this.sinA;
       const diam = screenDist(cam, addScaled(this.baseCenter, plane.x, this.baseRadius), addScaled(this.baseCenter, plane.x, -this.baseRadius));
-      const nSpi = curveCount((Math.PI * diam) / Math.SQRT2, opts.spacingPx, 4, 64);
       const spirals = [];
-      for (let j = 0; j < nSpi; j++) {
-        const th0 = (TWO_PI * j) / nSpi;
+      for (const s of dyadicLadder((Math.PI * diam) / Math.SQRT2 / spacing, { periodic: true, min: 4, max: 64 })) {
+        const th0 = TWO_PI * s.t;
         spirals.push(
-          paramCurve((f) => {
-            const th = th0 + f * twist;
-            const m = add(addScaled([0, 0, 0], plane.x, Math.cos(th)), addScaled([0, 0, 0], plane.y, Math.sin(th)));
-            const p = add(addScaled(this.apex, this.axis, f * this.height), addScaled([0, 0, 0], m, f * this.baseRadius));
-            const n = sub(addScaled([0, 0, 0], m, this.cosA), addScaled([0, 0, 0], this.axis, this.sinA));
-            return { p, n };
-          }, 48),
+          tagCurve(
+            paramCurve((f) => {
+              const th = th0 + f * twist;
+              const m = add(addScaled([0, 0, 0], plane.x, Math.cos(th)), addScaled([0, 0, 0], plane.y, Math.sin(th)));
+              const p = add(addScaled(this.apex, this.axis, f * this.height), addScaled([0, 0, 0], m, f * this.baseRadius));
+              const n = sub(addScaled([0, 0, 0], m, this.cosA), addScaled([0, 0, 0], this.axis, this.sinA));
+              return { p, n };
+            }, 48),
+            `s:${s.key}`,
+            s.fade,
+          ),
         );
       }
       families.push({ curves: spirals });

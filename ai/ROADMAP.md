@@ -164,16 +164,126 @@ hatch, empty (→ straight-hatch fallback) where isotropic.
    triangle can be a chord-sagitta nearer than the next facet. Occlusion by *other*
    sources is compared exactly. Verified: analytic occlusion robust from a far
    viewpoint; analytic + mesh silhouettes intact (`gallery/10–13,15`).
-6. ⬜ Temporal coherence for animation.
+6. ✅ **Temporal coherence for animation** (target: offline frame sequences; the
+   per-frame pipeline stays pure, all cross-frame state lives in the
+   `FrameSession` wrapper). Completed sub-steps:
+   1. ✅ **Identity spine** — `Feature.id` (`FeatureId`) in the stage-1 contract;
+      mesh chains are canonically oriented from geometry/topology, never from
+      face-iteration order (`ZeroSetChain`/`VertexChain` in
+      `src/mesh/silhouette.ts`): direction is an intrinsic vote (positive-g side
+      kept on a fixed hand — no flips under camera motion except at topological
+      events and on tiny grazing loops, measured over a 200-frame sweep), start +
+      key anchor on the minimal crossed mesh edge (churns only when that edge
+      leaves the zero-set). Creases/boundaries key on their first canonical edge
+      (fully view-independent). Analytic sources get deterministic
+      `${owner}/${type}:${n}` fallback ids (`src/pipeline/identity.ts`, applied in
+      `classifyScene`). Verified: `test/temporal-identity.test.ts`.
+   2. ✅ **Frame session wrapper** — `FrameSession` (`src/scene/session.ts`)
+      wraps a `Scene`; the per-frame pipeline stays a pure function of the
+      camera, all cross-frame state lives in the session. Injected via the
+      `reconcileFeatures` seam (`Scene.render` opts → `classifyScene`): the hook
+      sees the frame's full feature list after id assignment and *before*
+      visibility, where a direction fix is still a cheap polyline reversal.
+      `session.render(cam)` = `RenderResult` + a `FrameCoherence` report
+      (frame index, anchor→persistent-id map, born/died/reversed).
+   3. ✅ **Frame-to-frame correspondence** (`FrameSession.reconcile`) — pass 1:
+      anchor continuity (covers all view-independent ids + unchurned anchors);
+      pass 2: greedy nearest-centroid matching for leftover polyline chains,
+      gated by chain extent. Matched features get session-lifetime
+      `${owner}/${type}#${n}` persistent ids written into `Feature.id`, so
+      everything downstream keying on the id is coherent for free. Orientation
+      reconciliation: a matched chain running opposite to its track is reversed
+      in place — decided by a *global* proximity-weighted unit-tangent vote with
+      a confidence deadband (an ambiguous vote defaults to keeping the intrinsic
+      orientation; naive per-probe votes oscillated). Measured on the 200-frame
+      sweep (torus/blob/tube/sphere): torus/tube/sphere born=died=0 (all anchor
+      churn absorbed); blob reports only its genuine topological events; global
+      alignment score stays positive everywhere — no whole-stroke flips remain
+      (weak scores only on ≤9-pt dying loops). Verified:
+      `test/frame-session.test.ts`. Still open (folded into steps 4–5): keying
+      dash phase on the persistent id, and consolidation-merged strokes
+      currently lack ids.
+   4. ✅ **Hatch coherence** — three fixes:
+      (a) **Streamline atlas** (`StreamlineAtlas`, `src/mesh/mesh-hatch.ts`): a
+      static object-space multi-resolution streamline set — level k adds lines
+      at `baseSpacing/2^k` seeded *around* everything coarser (J–L with an
+      `occupied` set), so refining never moves an existing line. Cached lazily
+      on the `Mesh` (intrinsic geometry, like curvature; base = bounds diag/4).
+      The camera now only picks the level in `Mesh.hatchField` — no per-frame
+      re-seed; a level switch purely adds/removes the finest level. Fixed en
+      route: the tracer's `relocate` 2-ring overshoot on anisotropic meshes at
+      coarse spacing (adaptive step halving).
+      (b) **Object-anchored straight-hatch phase**: `HatchRegion.anchorPx`
+      (scene fills it with the projected bounds centre) — line offsets run
+      through the anchor, so hatch pans *with* the object instead of being
+      pinned to screen-origin spacing multiples. `generateHatchLines` returns
+      keyed lines (`angleSet:offsetIndex`); `HatchStrategy.generateLines` is the
+      optional keyed variant (plain `generate` still works).
+      (c) **Stable per-line wobble seeds**: the scene seeds each hatch line from
+      its stable key (atlas streamline id / offset index), never from emission
+      order — a run-count change (visibility clip, region growth) can no longer
+      re-deal every line's wobble. Verified: `test/hatch-coherence.test.ts`;
+      gallery regenerated and visually checked. **Deferred within this item:**
+      the *analytic* iso-curve fields (cylinder/cone/torus/sphere/ellipsoid
+      `hatchField`) still respace with camera-derived counts — the same LOD-
+      ladder treatment (quantize iso-spacing to a power-of-2 ladder of a
+      view-independent base + iso-parameter keys) is mechanical but touches five
+      primitives; do it with (or before) step 5's hysteresis. Level-switch and
+      curved↔straight-fallback popping is step 5's hysteresis.
+   5. ✅ **Fades for the hard thresholds** — all *stateless*, derived from the
+      continuous quantity that crosses the threshold (no cross-frame state, so
+      the pipeline stays pure):
+      · abstraction screen-size cull: strokes in the band `[cutoff,
+        1.6·cutoff)` get `Stroke.fade` (opacity ramp) instead of a pop
+        (`FADE_RATIO`, `src/pipeline/abstract.ts`);
+      · suggestive contours: an optional `fade` band above the `D_w κ_r`
+        threshold maps a chain's mean margin to `Feature.attrs.strength`
+        (`SuggestiveChain`, `src/mesh/suggestive.ts`); styling multiplies
+        opacity by `fade × strength` (`emitStyledStroke`);
+      · hatch LOD: the streamline atlas exposes a *fractional* level — full
+        levels draw at 1, the next level fades in with the fractional density
+        demand (`HatchFieldCurve.fade`, shallow copies so cached curves stay
+        immutable) — and the **analytic hatch fields now sit on dyadic
+        iso-parameter ladders** (`dyadicLadder`/`tagCurve`,
+        `src/primitives/hatch-field.ts`; wired into cylinder/cone/torus/
+        sphere/ellipsoid): iso-values live on a fixed dyadic grid so a density
+        change adds/fades curves but *never moves or renames* existing ones —
+        this kills the per-frame respacing of all five analytic fields, with
+        per-curve fraction keys for wobble seeding;
+      · consolidation: merged strokes now carry an identity anchored on their
+        minimal member id (`MergedLine.memberIds`) — a persistent id when a
+        `FrameSession` drives.
+      Not done (deliberately): tone-quantization hysteresis — region tone is
+      light-driven and static under camera animation; revisit when lights or
+      geometry animate. Verified: `test/threshold-fades.test.ts`,
+      `test/hatch-coherence.test.ts` (ladder suites); gallery regenerated +
+      visually checked.
+   6. ✅ **Animation verification harness** — `examples/animation.ts`: a
+      48-frame, 60° camera orbit of a mixed analytic + mesh scene (wobble,
+      hatch, abstraction, suggestive contours all on) rendered through a
+      `FrameSession` to `examples/animation/frame-###.svg` + a one-file
+      `flipbook.html` (scrub/play); prints the per-frame coherence report
+      (zero born/died/reversed over the whole orbit). Output directory is
+      gitignored — regenerate with `bun run examples/animation.ts`. Property
+      tests (`test/animation-coherence.test.ts`): zero id churn between
+      adjacent frames, identical persistent-id sets across the orbit, small
+      camera step ⇒ bounded stroke displacement (<5 px), steady hatch volume
+      (no re-deal), and two fresh sessions over the same path emit
+      byte-identical SVG.
+
+   **Phase 2 item 6 is complete.** Remaining before "Phase 2 done": nothing in
+   this item — see the deferred list (contour Newton-projection, group
+   highlight) and the cross-cutting ⬜ items (alpha, authoring language).
 
 ## Cross-cutting
 
 Seeded/deterministic wobble ✅ (`src/pipeline/wobble.ts`; anchored to object-space
 arclength; bends outlines **and** hatch from one knob), variable stroke width ✅
 (`src/pipeline/width.ts`; filled ribbons = emphasis × camera-depth × taper ×
-pressure), temporal-coherence discipline 🚧 (wobble is deterministic per
-identity; fully coherent chains/silhouettes across frames are future),
-SVG-first backend ✅ (`src/backend/svg.ts`), optional alpha as a pure drawing op
+pressure), temporal-coherence discipline ✅ (stable identity end to end:
+canonical chains + persistent ids via `FrameSession`, identity-keyed wobble
+seeds, static hatch atlases/ladders, stateless threshold fades; verified by the
+animation harness), SVG-first backend ✅ (`src/backend/svg.ts`), optional alpha as a pure drawing op
 ⬜, and a declarative authoring language that later deserializes into the same
 `Scene` model ⬜. The adaptive analytic-curve sampler this all leans on is ✅
 (`curve/sample.ts`).

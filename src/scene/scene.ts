@@ -7,7 +7,7 @@
 // and `scene.highlight` from the design sketch are not implemented yet.
 
 import type { Camera, Hit, Vec2, Vec3 } from "../math/types.js";
-import type { ElementId, HatchFieldCurve, Light, RenderStroke, Stroke } from "../pipeline/types.js";
+import type { ElementId, Feature, HatchFieldCurve, Light, RenderStroke, Stroke } from "../pipeline/types.js";
 import type { FeatureSource } from "./feature-source.js";
 import type { SampleOptions } from "../curve/sample.js";
 import type { SvgOptions } from "../backend/svg.js";
@@ -24,6 +24,7 @@ import {
   type Section,
 } from "../primitives/intersection.js";
 import { classifyFeature, classifyScene, isOccluded, sceneScale } from "../pipeline/visibility.js";
+import { assignDefaultFeatureIds } from "../pipeline/identity.js";
 import { consolidateLines } from "../pipeline/consolidate.js";
 import { emitStyledStroke, resolveStyle, ROLE_STYLE } from "../pipeline/style.js";
 import { defaultHatch, hatchAngles, toneToSpacing, type HatchStrategy } from "../pipeline/hatch.js";
@@ -69,6 +70,13 @@ export interface HighlightOptions {
   dashWhenHidden?: boolean;
   /** optional thick, semi-transparent "marker" halo drawn under the crisp outline */
   halo?: { weight?: number; opacity?: number; color?: string };
+}
+
+/** Per-call render options (as opposed to the authoring-time `SceneOptions`). */
+export interface RenderCallOptions {
+  /** temporal-coherence hook: may remap ids / reverse chains in place, after id
+   *  assignment and before visibility classification (see `classifyScene`) */
+  reconcileFeatures?: (features: Feature[]) => void;
 }
 
 export interface AbstractionSettings {
@@ -163,10 +171,13 @@ export class Scene {
     return resolveStyle(el ? ROLE_STYLE[el.role] : undefined, this.defaultStyle, el?.styleOverride);
   }
 
-  /** Run the whole pipeline and return strokes, render strokes, and SVG. */
-  render(cam: Camera): RenderResult {
+  /** Run the whole pipeline and return strokes, render strokes, and SVG.
+   *  `opts.reconcileFeatures` is the temporal-coherence seam — see
+   *  `classifyScene`; a `FrameSession` supplies it to carry identity across
+   *  frames. A bare `render(cam)` stays a pure function of the camera. */
+  render(cam: Camera, opts: RenderCallOptions = {}): RenderResult {
     const sources = this.sources();
-    const classified = classifyScene(sources, cam);
+    const classified = classifyScene(sources, cam, opts.reconcileFeatures);
     const scale = sceneScale(sources);
 
     // Stage 3: importance-scaled screen-size thresholding.
@@ -182,7 +193,21 @@ export class Scene {
       strokes = [
         ...singles,
         ...merged.map((m) =>
-          classifyFeature({ type: m.type, owner: m.owner, curve: { kind: "line", a: m.a, b: m.b }, attrs: {} }, cam, sources, scale),
+          classifyFeature(
+            {
+              type: m.type,
+              owner: m.owner,
+              // identity anchors on the minimal member (a persistent id when a
+              // FrameSession is driving), so the merged stroke stays nameable
+              // across frames despite cluster-fringe churn
+              id: `${m.memberIds[0] ?? `${m.owner}/${m.type}`}~merged`,
+              curve: { kind: "line", a: m.a, b: m.b },
+              attrs: {},
+            },
+            cam,
+            sources,
+            scale,
+          ),
         ),
       ];
     }
@@ -206,18 +231,25 @@ export class Scene {
       // instead of warping in lockstep. Off (amount 0) leaves the run crisp.
       const wobbleAmt = spec.wobble * HATCH_WOBBLE_SCALE;
       const ownerSeed = hashSeed(el.id);
-      let hatchLine = 0;
-      const emitHatch = (run: HatchRun): void => {
-        if (run.path.length < 2) return;
+      // Seeds key on the *line's* stable identity (atlas streamline key, offset
+      // index from the region anchor), never on emission order — so a run count
+      // change (visibility clip, region growth) cannot re-deal every line's
+      // wobble (temporal coherence). Runs clipped from one line share the seed;
+      // the object-anchored wobble field keeps them mutually coherent.
+      const emitHatch = (run: HatchRun, lineKey: string, fade = 1): void => {
+        if (run.path.length < 2 || fade <= 0) return;
+        // LOD fade (temporal coherence): a curve on the newest density level
+        // dissolves in/out with the fractional level demand instead of popping.
+        const style = fade < 1 ? { ...hstyle, opacity: hstyle.opacity * fade } : { ...hstyle };
         if (wobbleAmt <= 0) {
-          hatchStrokes.push({ path: run.path, style: { ...hstyle } });
+          hatchStrokes.push({ path: run.path, style });
           return;
         }
-        const seed = ownerSeed ^ Math.imul(hatchLine++, 0x9e3779b1);
+        const seed = ownerSeed ^ hashSeed(lineKey);
         const path = this.wobble.apply({ path: run.path, points3: run.points3, seed, amount: wobbleAmt });
         // hatch width rides the same (scaled) hand knob as its wobble
         const width = this.width.widths({ path, seed, baseWidth: hstyle.weight, amount: wobbleAmt });
-        hatchStrokes.push({ path, style: { ...hstyle }, width });
+        hatchStrokes.push({ path, style, width });
       };
 
       // Prefer a primitive's exact curved direction field (rings/rulings/…) when
@@ -225,6 +257,18 @@ export class Scene {
       // half falls out of the same front-face + occlusion test. Otherwise fall
       // back to straight parallel hatch over the flat/quadric footprint. §2.6
       const regions = el.source.hatchRegions(cam, this.light);
+      // Object-anchor the straight-hatch phase (temporal coherence): the family
+      // runs through the projection of the source's bounds centre, so panning
+      // moves hatch *with* the object. Sources may supply a better anchor.
+      if (regions.length) {
+        const b = el.source.bounds();
+        const anchorPx = projectPoint(projectionMatrix(cam), [
+          (b.min[0] + b.max[0]) / 2,
+          (b.min[1] + b.max[1]) / 2,
+          (b.min[2] + b.max[2]) / 2,
+        ]).point;
+        for (const r of regions) r.anchorPx ??= anchorPx;
+      }
       const baseTone = regions[0]?.tone ?? 0.5;
       const fieldTone = levels > 0 ? quantizeTone(baseTone, levels) : baseTone;
       const spacingPx = spec.hatch.spacingPx ?? toneToSpacing(fieldTone);
@@ -233,8 +277,11 @@ export class Scene {
       if (field && field.length > 0) {
         for (let layer = 0; layer < Math.min(nLayers, field.length); layer++) {
           const maxDiffuse = layerBrightness(layer, nLayers);
-          for (const curve of field[layer]!.curves) {
-            for (const run of clipHatchField(curve, cam, sources, scale, lightDir, maxDiffuse)) emitHatch(run);
+          const curves = field[layer]!.curves;
+          for (let ci = 0; ci < curves.length; ci++) {
+            const curve = curves[ci]!;
+            const lineKey = `f${layer}:${curve.key ?? ci}`;
+            for (const run of clipHatchField(curve, cam, sources, scale, lightDir, maxDiffuse)) emitHatch(run, lineKey, curve.fade ?? 1);
           }
         }
         continue;
@@ -250,8 +297,10 @@ export class Scene {
         for (let layer = 0; layer < angles.length; layer++) {
           const maxDiffuse = layerBrightness(layer, angles.length);
           const single = { ...region, mode: "single" as const, angle: angles[layer]!, tone };
-          for (const seg of this.hatch.generate(single, spacingOpts)) {
-            for (const run of clipHatchTonal(seg, el.source, cam, sources, scale, lightDir, maxDiffuse)) emitHatch(run);
+          const lines = this.hatch.generateLines?.(single, spacingOpts) ?? this.hatch.generate(single, spacingOpts).map((seg, i) => ({ seg, key: `i${i}` }));
+          for (const line of lines) {
+            const lineKey = `s${layer}:${line.key}`;
+            for (const run of clipHatchTonal(line.seg, el.source, cam, sources, scale, lightDir, maxDiffuse)) emitHatch(run, lineKey);
           }
         }
       }
@@ -278,7 +327,7 @@ export class Scene {
       const haloSpec = halo ? resolveStyle(spec, { weight: halo.weight ?? spec.weight * 3.5, color: halo.color ?? spec.color, hidden: "ghost" }) : null;
       const haloMembers: RenderStroke[] = [];
 
-      for (const feature of el.source.extractFeatures(cam)) {
+      for (const feature of assignDefaultFeatureIds(el.source.extractFeatures(cam))) {
         const stroke = classifyFeature(feature, cam, sources, scale, el.source);
         if (haloSpec) {
           // a continuous glow around the whole contour: opaque members, one group opacity

@@ -17,11 +17,16 @@ import { dot, normalize, sub } from "../math/vec3.js";
 import { cameraFrame } from "../math/camera.js";
 import type { HalfEdgeMesh } from "./halfedge.js";
 import type { CurvatureField } from "./curvature.js";
-import { zeroSetLoops } from "./silhouette.js";
+import { zeroSetChains, type ZeroSetChain } from "./silhouette.js";
 
 export interface SuggestiveOptions {
   /** D_w κ_r must exceed this to draw (filters weak/noisy contours). Default 0. */
   threshold?: number;
+  /** width of the D_w κ_r band above `threshold` over which a contour fades in
+   *  (its mean margin maps to a 0..1 `strength`, styling multiplies opacity) —
+   *  so contours hovering at the threshold dissolve instead of popping under
+   *  camera motion (temporal coherence). 0/absent = hard threshold. */
+  fade?: number;
 }
 
 /** Per-vertex radial curvature and the auxiliary fields for the DeCarlo test. */
@@ -72,12 +77,33 @@ function radialFields(mesh: HalfEdgeMesh, cam: Camera, curv: CurvatureField): {
  * (n·v > 0) and D_w κ_r exceeds `threshold`.
  */
 export function suggestiveContours(mesh: HalfEdgeMesh, cam: Camera, curv: CurvatureField, opts: SuggestiveOptions = {}): Vec3[][] {
+  return suggestiveContourChains(mesh, cam, curv, opts).map((c) => c.pts);
+}
+
+/** A suggestive-contour chain plus its 0..1 `strength` — how far its mean
+ *  D_w κ_r clears the threshold relative to the fade band (1 when no band). */
+export type SuggestiveChain = ZeroSetChain & { strength: number };
+
+/** `suggestiveContours` with canonical orientation + identity keys (see
+ *  `ZeroSetChain`) — what the mesh source uses to give each contour a stable
+ *  `FeatureId` across frames — and a per-chain fade `strength`. */
+export function suggestiveContourChains(mesh: HalfEdgeMesh, cam: Camera, curv: CurvatureField, opts: SuggestiveOptions = {}): SuggestiveChain[] {
   const { kr, ndotv, dwkr } = radialFields(mesh, cam, curv);
   const threshold = opts.threshold ?? 0;
+  const fade = opts.fade ?? 0;
+  // margin of each accepted crossing above the threshold, keyed by crossed edge
+  const margin = new Map<string, number>();
   const accept = (lo: number, hi: number, s: number): boolean => {
     const nd = ndotv[lo]! * (1 - s) + ndotv[hi]! * s; // front-facing side only
     const dw = dwkr[lo]! * (1 - s) + dwkr[hi]! * s; //   radial curvature increasing
-    return nd > 0 && dw > threshold;
+    if (!(nd > 0 && dw > threshold)) return false;
+    if (fade > 0) margin.set(`${lo}_${hi}`, dw - threshold);
+    return true;
   };
-  return zeroSetLoops(mesh, kr, accept);
+  return zeroSetChains(mesh, kr, accept).map((c) => {
+    if (fade <= 0) return { ...c, strength: 1 };
+    let sum = 0;
+    for (const n of c.nodes) sum += margin.get(n) ?? 0;
+    return { ...c, strength: Math.min(1, sum / c.nodes.length / fade) };
+  });
 }

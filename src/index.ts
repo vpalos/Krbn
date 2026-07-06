@@ -32,6 +32,9 @@ export * from "./math/intersect3d.js";
 export * from "./pipeline/feature-curve.js";
 export * from "./pipeline/visibility.js";
 
+// --- temporal coherence: stable feature identity ---
+export * from "./pipeline/identity.js";
+
 // --- stage 4: styling (wobble, dash/ghost, hatch) ---
 export * from "./pipeline/wobble.js";
 export * from "./pipeline/style.js";
@@ -47,6 +50,9 @@ export * from "./pipeline/render.js";
 // --- authoring model: Scene / Element / importance ---
 export * from "./scene/element.js";
 export * from "./scene/scene.js";
+
+// --- temporal coherence: frame session + correspondence ---
+export * from "./scene/session.js";
 
 // --- analytic primitives ---
 export * from "./primitives/quadric.js";

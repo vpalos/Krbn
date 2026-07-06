@@ -108,6 +108,15 @@ export function emitStyledStroke(
   // (not ghosted), per DeCarlo et al.
   const eff = stroke.feature.type === "suggestive" ? { ...spec, weight: spec.weight * 0.55, hidden: "drop" as const } : spec;
   const styles = toRenderStyles(eff);
+  // Threshold fades (temporal coherence): the abstraction fade band and the
+  // feature's own salience both scale opacity, so borderline strokes dissolve
+  // smoothly instead of popping between frames.
+  const fade = Math.max(0, Math.min(1, (stroke.fade ?? 1) * (stroke.feature.attrs.strength ?? 1)));
+  if (fade <= 0) return [];
+  if (fade < 1) {
+    styles.visible = { ...styles.visible, opacity: styles.visible.opacity * fade };
+    if (styles.hidden) styles.hidden = { ...styles.hidden, opacity: styles.hidden.opacity * fade };
+  }
   // Seed per element (owner), NOT per feature type — so an element's silhouette,
   // rims, generators, etc. share one field and join at their common vertices.
   const seed = hashSeed(stroke.feature.owner);

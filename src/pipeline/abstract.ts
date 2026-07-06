@@ -71,13 +71,30 @@ export interface AbstractionOptions {
   importanceOf?: (owner: ElementId) => number;
 }
 
-/** Drop strokes whose projected extent falls below the importance-scaled cutoff. */
+/** A stroke whose extent lies in [cutoff, FADE_RATIO·cutoff) is kept but faded
+ *  (opacity ramps 0→1 across the band), so zooming out dissolves small features
+ *  instead of popping them — a stateless fade from a continuous quantity, no
+ *  cross-frame state needed (temporal coherence). */
+export const FADE_RATIO = 1.6;
+
+/** Drop strokes whose projected extent falls below the importance-scaled cutoff;
+ *  fade the ones just above it (see `FADE_RATIO`). */
 export function applyAbstraction(strokes: readonly Stroke[], opts: AbstractionOptions): Stroke[] {
   if (opts.minFeaturePx <= 0) return [...strokes];
   const importanceOf = opts.importanceOf ?? (() => 0.5);
-  return strokes.filter(
-    (st) => screenExtent(st.screen) >= cutoffFor(importanceOf(st.feature.owner), opts.minFeaturePx),
-  );
+  const out: Stroke[] = [];
+  for (const st of strokes) {
+    const cutoff = cutoffFor(importanceOf(st.feature.owner), opts.minFeaturePx);
+    if (cutoff <= 0) {
+      out.push(st);
+      continue;
+    }
+    const extent = screenExtent(st.screen);
+    if (extent < cutoff) continue;
+    const fadeHi = FADE_RATIO * cutoff;
+    out.push(extent < fadeHi ? { ...st, fade: (extent - cutoff) / (fadeHi - cutoff) } : st);
+  }
+  return out;
 }
 
 /** Snap a 0..1 tone to `levels` discrete steps (k-level shading, §2.7). */

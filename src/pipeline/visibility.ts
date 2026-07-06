@@ -17,6 +17,7 @@ import type { Camera, Vec3 } from "../math/types.js";
 import type { FeatureSource } from "../scene/feature-source.js";
 import type { Feature, Stroke, VisibilityInterval } from "./types.js";
 import { buildFeatureModel } from "./feature-curve.js";
+import { assignDefaultFeatureIds } from "./identity.js";
 import { crossScreenCurves } from "../curve/intersect2d.js";
 import { projectionMatrix, projectPoint, unproject } from "../math/camera.js";
 import { distance } from "../math/vec3.js";
@@ -221,14 +222,27 @@ function bisectFlip(occ: (t: number) => boolean, ta: number, occA: boolean, tb: 
   return 0.5 * (lo + hi);
 }
 
-/** Run stage 2 over a whole scene: every source's features, classified against all. */
-export function classifyScene(sources: readonly FeatureSource[], cam: Camera): Stroke[] {
+/**
+ * Run stage 2 over a whole scene: every source's features, classified against all.
+ *
+ * `reconcile` is the temporal-coherence seam (ai/DESIGN.md §3.3.7): it sees the
+ * complete feature list for this frame *after* id assignment and *before*
+ * classification, and may mutate features in place — remap `id`s to persistent
+ * identities, reverse a chain's polyline to match last frame's direction. It runs
+ * here (not on strokes) because a direction fix is a cheap array reversal before
+ * visibility, but an interval-flipping surgery after.
+ */
+export function classifyScene(
+  sources: readonly FeatureSource[],
+  cam: Camera,
+  reconcile?: (features: Feature[]) => void,
+): Stroke[] {
   const scale = sceneScale(sources);
+  const perSource = sources.map((s) => assignDefaultFeatureIds(s.extractFeatures(cam)));
+  reconcile?.(perSource.flat());
   const strokes: Stroke[] = [];
-  for (const s of sources) {
-    for (const feature of s.extractFeatures(cam)) {
-      strokes.push(classifyFeature(feature, cam, sources, scale, s));
-    }
-  }
+  sources.forEach((s, i) => {
+    for (const feature of perSource[i]!) strokes.push(classifyFeature(feature, cam, sources, scale, s));
+  });
   return strokes;
 }

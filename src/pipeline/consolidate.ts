@@ -31,6 +31,10 @@ export const DEFAULT_CONSOLIDATE: ConsolidateOptions = {
 
 /** A merged line to be re-classified by the caller (which owns the scene). */
 export interface MergedLine {
+  /** sorted feature ids of the cluster's members — the minimal one anchors the
+   *  merged stroke's identity across frames (temporal coherence): it survives
+   *  membership churn at the cluster fringe as long as that member stays in */
+  memberIds: string[];
   owner: ElementId;
   type: FeatureType;
   a: Vec3;
@@ -126,7 +130,13 @@ export function consolidateLines(
     const rep = cluster.reduce((a, b) => (b.lenPx > a.lenPx ? b : a));
     const A3 = backProject(cam, A2, rep.a3, rep.b3) ?? rep.a3;
     const B3 = backProject(cam, B2, rep.a3, rep.b3) ?? rep.b3;
-    merged.push({ owner: rep.stroke.feature.owner, type: rep.stroke.feature.type, a: A3, b: B3 });
+    merged.push({
+      owner: rep.stroke.feature.owner,
+      type: rep.stroke.feature.type,
+      a: A3,
+      b: B3,
+      memberIds: cluster.map((it) => it.stroke.feature.id).filter((id): id is string => id !== undefined).sort(),
+    });
   }
 
   return { singles, merged };

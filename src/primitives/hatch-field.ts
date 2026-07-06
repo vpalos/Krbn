@@ -26,6 +26,59 @@ export function curveCount(screenSpan: number, spacingPx: number, min: number, m
   return Math.max(min, Math.min(max, n));
 }
 
+/** One iso-parameter value of a dyadic ladder (see `dyadicLadder`). */
+export interface LadderStop {
+  /** the iso-parameter, in (0,1) (open) or [0,1) (periodic) */
+  t: number;
+  /** stable identity — the dyadic fraction, e.g. "3/8" */
+  key: string;
+  /** 0..1; < 1 only on the newest, fading-in level */
+  fade: number;
+}
+
+/**
+ * Dyadic iso-parameter ladder — temporal coherence for analytic hatch fields
+ * (ai/DESIGN.md §3.3.7). Instead of `round(span/spacing)` evenly re-spaced
+ * values (which *move every curve* whenever the camera changes the count),
+ * iso-values live on a fixed dyadic grid: level 0 = {1/2} (open) or {0}
+ * (periodic), and each level adds the midpoints between existing values — so
+ * the union over levels 0..L is evenly spaced, refining never moves a curve,
+ * and each value's fraction is a stable identity for wobble seeding. The
+ * continuous density demand fades the newest level in/out (`fade`), so a
+ * density change is a dissolve, not a pop.
+ *
+ * `min`/`max` are *approximate* curve-count clamps, honoured as ladder levels:
+ * counts are 2^(L+1)−1 (open) / 2^L (periodic).
+ */
+export function dyadicLadder(desired: number, opts: { periodic?: boolean; min?: number; max?: number } = {}): LadderStop[] {
+  const periodic = opts.periodic ?? false;
+  const toLevel = (n: number) => (periodic ? Math.log2(Math.max(1, n)) : Math.log2(Math.max(1, n) + 1) - 1);
+  const minL = Math.max(0, Math.ceil(toLevel(opts.min ?? 1) - 1e-9));
+  const maxL = Math.max(minL, Math.floor(toLevel(opts.max ?? 4096) + 1e-9));
+  const f = Math.min(maxL, Math.max(minL, toLevel(desired)));
+  const kFull = Math.floor(f);
+  const frac = f - kFull;
+  const kTop = frac > 1e-9 && kFull + 1 <= maxL ? kFull + 1 : kFull;
+  const stops: LadderStop[] = [];
+  for (let L = 0; L <= kTop; L++) {
+    const fade = L === kTop && kTop > kFull ? frac : 1;
+    if (periodic && L === 0) {
+      stops.push({ t: 0, key: "0/1", fade });
+      continue;
+    }
+    const den = 2 ** (periodic ? L : L + 1);
+    for (let num = 1; num < den; num += 2) stops.push({ t: num / den, key: `${num}/${den}`, fade });
+  }
+  return stops;
+}
+
+/** Tag a field curve with its ladder identity + fade (in place, for chaining). */
+export function tagCurve(curve: HatchFieldCurve, key: string, fade: number): HatchFieldCurve {
+  curve.key = key;
+  if (fade < 1) curve.fade = fade;
+  return curve;
+}
+
 /**
  * A world-space circle as field samples: center + radius in the plane (ex, ey),
  * with the outward normal at each sample computed by `normalAt(point)`. The loop

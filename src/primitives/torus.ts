@@ -17,7 +17,7 @@ import type { FeatureSource } from "../scene/feature-source.js";
 import { basisFromNormal } from "../math/basis.js";
 import { addScaled, dot, normalize, sub } from "../math/vec3.js";
 import { cameraFrame, projectionMatrix, projectPoint } from "../math/camera.js";
-import { circleCurve, curveCount, paramCurve, screenDist } from "./hatch-field.js";
+import { circleCurve, dyadicLadder, paramCurve, screenDist, tagCurve } from "./hatch-field.js";
 import { solveQuarticReal } from "../curve/roots.js";
 import { chainPoints } from "../curve/chain.js";
 import { EPS_ABS } from "../curve/epsilon.js";
@@ -107,25 +107,25 @@ export class Torus implements FeatureSource {
     const families: HatchFamily[] = [];
 
     // Family 0 — poloidal circles (tube cross-sections, one per toroidal angle u).
+    // Iso-values sit on a dyadic ladder (temporal coherence): a density change
+    // adds/fades curves, it never moves the existing ones.
+    const spacing = Math.max(1, opts.spacingPx);
     const majDiam = screenDist(cam, addScaled(c, e1, R), addScaled(c, e1, -R));
-    const nU = curveCount(Math.PI * majDiam, opts.spacingPx, 8, 72);
     const poloidal = [];
-    for (let k = 0; k < nU; k++) {
-      const u = (TWO_PI * k) / nU;
-      const rad = radial(u);
-      poloidal.push(circleCurve(addScaled(c, rad, R), rad, a, r, torusNormal, 48));
+    for (const s of dyadicLadder((Math.PI * majDiam) / spacing, { periodic: true, min: 8, max: 72 })) {
+      const rad = radial(TWO_PI * s.t);
+      poloidal.push(tagCurve(circleCurve(addScaled(c, rad, R), rad, a, r, torusNormal, 48), `p:${s.key}`, s.fade));
     }
     families.push({ curves: poloidal });
 
     if (opts.maxFamilies >= 2) {
       // Family 1 — toroidal circles (around the axis, one per poloidal angle v).
       const minDiam = screenDist(cam, addScaled(c, e1, R + r), addScaled(c, e1, R - r));
-      const nV = curveCount(Math.PI * minDiam, opts.spacingPx, 4, 48);
       const toroidal = [];
-      for (let k = 0; k < nV; k++) {
-        const v = (TWO_PI * k) / nV;
+      for (const s of dyadicLadder((Math.PI * minDiam) / spacing, { periodic: true, min: 4, max: 48 })) {
+        const v = TWO_PI * s.t;
         const center = addScaled(c, a, r * Math.sin(v));
-        toroidal.push(circleCurve(center, e1, e2, R + r * Math.cos(v), torusNormal, 96));
+        toroidal.push(tagCurve(circleCurve(center, e1, e2, R + r * Math.cos(v), torusNormal, 96), `t:${s.key}`, s.fade));
       }
       families.push({ curves: toroidal });
     }
@@ -136,19 +136,22 @@ export class Torus implements FeatureSource {
       // (u, v) chart. Each closes after winding once around the axis and once
       // around the tube, crossing both circle families obliquely — the darkest
       // `triple` band. Normal is the exact closed form cos v·radial(u) + sin v·â.
-      const nD = curveCount((Math.PI * majDiam) / Math.SQRT2, opts.spacingPx, 6, 64);
       const diagonal = [];
-      for (let k = 0; k < nD; k++) {
-        const u0 = (TWO_PI * k) / nD;
+      for (const s of dyadicLadder((Math.PI * majDiam) / Math.SQRT2 / spacing, { periodic: true, min: 6, max: 64 })) {
+        const u0 = TWO_PI * s.t;
         diagonal.push(
-          paramCurve((t) => {
-            const u = u0 + TWO_PI * t;
-            const v = TWO_PI * t;
-            const rad = radial(u);
-            const p = addScaled(addScaled(c, rad, R + r * Math.cos(v)), a, r * Math.sin(v));
-            const n = addScaled(addScaled([0, 0, 0], rad, Math.cos(v)), a, Math.sin(v));
-            return { p, n };
-          }, 128),
+          tagCurve(
+            paramCurve((t) => {
+              const u = u0 + TWO_PI * t;
+              const v = TWO_PI * t;
+              const rad = radial(u);
+              const p = addScaled(addScaled(c, rad, R + r * Math.cos(v)), a, r * Math.sin(v));
+              const n = addScaled(addScaled([0, 0, 0], rad, Math.cos(v)), a, Math.sin(v));
+              return { p, n };
+            }, 128),
+            `d:${s.key}`,
+            s.fade,
+          ),
         );
       }
       families.push({ curves: diagonal });

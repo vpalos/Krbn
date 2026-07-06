@@ -129,8 +129,21 @@ function clipToConic(point: Vec2, dir: Vec2, k: ConicParams): Segment[] {
   return [];
 }
 
-/** Generate hatch segments filling a region. */
-export function generateHatch(region: HatchRegion, opts: HatchOptions = {}): Segment[] {
+/** One hatch line's clipped segments plus its stable identity within the region:
+ *  `key` = angle-set index + the line's integer offset index from the region's
+ *  anchor — so the same physical line keeps the same key (and hence the same
+ *  wobble seed) from frame to frame, regardless of how many lines the region
+ *  needs this frame or how visibility clipping splits them. */
+export interface HatchLine {
+  seg: Segment;
+  key: string;
+}
+
+/** Generate keyed hatch lines filling a region. Line phase: offsets run through
+ *  `region.anchorPx` (the projected object anchor) when present, so the family
+ *  translates with the object under camera pan instead of being pinned to
+ *  multiples of `spacing` from the screen origin (temporal coherence). */
+export function generateHatchLines(region: HatchRegion, opts: HatchOptions = {}): HatchLine[] {
   const pts = outlinePoints(region.outline);
   if (pts.length < 2) return [];
   const minSpacing = opts.minSpacingPx ?? 2;
@@ -142,9 +155,10 @@ export function generateHatch(region: HatchRegion, opts: HatchOptions = {}): Seg
       ? [dedupClose(pts), ...(region.holes ?? []).map((h) => dedupClose(outlinePoints(h)))]
       : [];
 
-  const segments: Segment[] = [];
-  for (const angleDeg of hatchAngles(region.mode, region.angle)) {
-    const a = angleDeg * DEG;
+  const lines: HatchLine[] = [];
+  const angles = hatchAngles(region.mode, region.angle);
+  for (let ai = 0; ai < angles.length; ai++) {
+    const a = angles[ai]! * DEG;
     const dir: Vec2 = [Math.cos(a), Math.sin(a)];
     const normal: Vec2 = [-Math.sin(a), Math.cos(a)];
 
@@ -156,17 +170,26 @@ export function generateHatch(region: HatchRegion, opts: HatchOptions = {}): Seg
       if (d < lo) lo = d;
       if (d > hi) hi = d;
     }
-    const start = Math.ceil(lo / spacing) * spacing;
-    for (let off = start; off <= hi; off += spacing) {
+    // phase: lines at anchor + n·spacing (screen origin when no anchor)
+    const aOff = region.anchorPx ? region.anchorPx[0] * normal[0] + region.anchorPx[1] * normal[1] : 0;
+    const n0 = Math.ceil((lo - aOff) / spacing);
+    for (let n = n0; aOff + n * spacing <= hi; n++) {
+      const off = aOff + n * spacing;
       const point: Vec2 = [normal[0] * off, normal[1] * off];
       const clipped =
         region.outline.kind === "conic" && !region.holes?.length
           ? clipToConic(point, dir, region.outline.params)
           : clipToLoops(point, dir, loops);
-      for (const s of clipped) segments.push(s);
+      for (const s of clipped) lines.push({ seg: s, key: `${ai}:${n}` });
     }
   }
-  return segments;
+  return lines;
+}
+
+/** Generate hatch segments filling a region (points-only view of
+ *  `generateHatchLines`). */
+export function generateHatch(region: HatchRegion, opts: HatchOptions = {}): Segment[] {
+  return generateHatchLines(region, opts).map((l) => l.seg);
 }
 
 // ---------------------------------------------------------------------------
@@ -181,11 +204,17 @@ export function generateHatch(region: HatchRegion, opts: HatchOptions = {}): Seg
  */
 export interface HatchStrategy {
   generate(region: HatchRegion, opts: HatchOptions): Segment[];
+  /** Optional keyed variant: the scene prefers it when present, so each line's
+   *  wobble seed follows the line's stable identity across frames instead of
+   *  its emission order (temporal coherence). Strategies without it still work;
+   *  their lines get enumeration-order keys. */
+  generateLines?(region: HatchRegion, opts: HatchOptions): HatchLine[];
 }
 
 /** The built-in parallel-line hatch. */
 export const defaultHatch: HatchStrategy = {
   generate: (region, opts) => generateHatch(region, opts),
+  generateLines: (region, opts) => generateHatchLines(region, opts),
 };
 
 function dedupClose(pts: Vec2[]): Vec2[] {

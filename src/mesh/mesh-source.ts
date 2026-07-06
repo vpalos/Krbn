@@ -18,71 +18,28 @@ import type { FeatureSource } from "../scene/feature-source.js";
 import { cross, dot, normalize, sub } from "../math/vec3.js";
 import { projectionMatrix, projectPoint } from "../math/camera.js";
 import { HalfEdgeMesh, type BuildOptions, type MeshInput } from "./halfedge.js";
-import { facetedSilhouetteLoops, silhouetteLoops } from "./silhouette.js";
+import { chainVertexEdges, facetedSilhouetteLoops, silhouetteChains, silhouetteLoops } from "./silhouette.js";
 import { computeCurvature, type CurvatureField } from "./curvature.js";
-import { meshHatchField } from "./mesh-hatch.js";
-import { suggestiveContours } from "./suggestive.js";
+import { StreamlineAtlas } from "./mesh-hatch.js";
+import { suggestiveContourChains } from "./suggestive.js";
 import { EPS_ABS } from "../curve/epsilon.js";
 
 export interface MeshOptions extends BuildOptions {
   /** draw suggestive contours (needs the curvature precompute; off by default).
-   *  `true` uses the default threshold; an object sets it. (ai/DESIGN.md §3.3.5) */
-  suggestive?: boolean | { threshold?: number };
+   *  `true` uses the default threshold; an object sets threshold and the fade
+   *  band (`fade`: contours fade in over that D_w κ_r margin instead of popping
+   *  at the threshold). (ai/DESIGN.md §3.3.5, §3.3.7) */
+  suggestive?: boolean | { threshold?: number; fade?: number };
 }
 
 let autoId = 0;
 const nextId = (): ElementId => `mesh-${autoId++}`;
 
-/** Chain a set of undirected vertex-index edges into ordered vertex sequences,
- *  breaking at endpoints and junctions (degree ≠ 2) so each chain is a simple arc
- *  or loop — the ordered chains consolidation / wobble want. */
-function chainEdges(edges: readonly (readonly [number, number])[]): number[][] {
-  const incident = new Map<number, number[]>();
-  const push = (v: number, e: number) => {
-    const l = incident.get(v);
-    if (l) l.push(e);
-    else incident.set(v, [e]);
-  };
-  edges.forEach((e, i) => {
-    push(e[0], i);
-    push(e[1], i);
-  });
-  const degree = (v: number) => (incident.get(v) ?? []).length;
-  const used = new Array<boolean>(edges.length).fill(false);
-  const other = (e: number, v: number) => (edges[e]![0] === v ? edges[e]![1] : edges[e]![0]);
-
-  const walk = (startV: number, startE: number): number[] => {
-    const chain = [startV];
-    let v = startV;
-    let e = startE;
-    for (;;) {
-      used[e] = true;
-      v = other(e, v);
-      chain.push(v);
-      if (degree(v) !== 2) break; // stop at a junction or endpoint
-      const next = (incident.get(v) ?? []).find((s) => !used[s]);
-      if (next === undefined) break;
-      e = next;
-    }
-    return chain;
-  };
-
-  const chains: number[][] = [];
-  // arcs: start at endpoints / junctions
-  for (const [v, segs] of incident) {
-    if (degree(v) === 2) continue;
-    for (const e of segs) if (!used[e]) chains.push(walk(v, e));
-  }
-  // remaining pure cycles
-  for (let e = 0; e < edges.length; e++) if (!used[e]) chains.push(walk(edges[e]![0], e));
-  return chains;
-}
-
 export class Mesh implements FeatureSource {
   readonly id: ElementId;
   readonly he: HalfEdgeMesh;
   private readonly aabb: AABB;
-  private readonly suggestiveOpt: false | { threshold?: number };
+  private readonly suggestiveOpt: false | { threshold?: number; fade?: number };
   private _curv?: CurvatureField;
   /**
    * A *faceted* mesh — a hard-edged polyhedron (cube, gem, low-poly), where most
@@ -133,20 +90,32 @@ export class Mesh implements FeatureSource {
     // angle between the faces), so the crease features below already draw the whole
     // outline — emitting a separate silhouette would double it. A smooth mesh has
     // no such edges, so its silhouette is the interpolated zero-set.
+    //
+    // Every feature carries a stable `id` (temporal coherence): view-independent
+    // chains (creases/boundaries) are keyed on their minimal vertex index — fully
+    // stable; view-dependent chains (silhouette/suggestive) on their minimal
+    // crossed mesh edge — stable for as long as that edge stays crossed.
     if (!this.faceted) {
-      for (const loop of silhouetteLoops(this.he, cam)) {
-        if (loop.length >= 2) feats.push({ type: "silhouette", owner: this.id, curve: { kind: "polyline", pts: loop }, attrs: {} });
+      for (const c of silhouetteChains(this.he, cam)) {
+        if (c.pts.length >= 2) feats.push({ type: "silhouette", owner: this.id, id: `${this.id}/silhouette:${c.key}`, curve: { kind: "polyline", pts: c.pts }, attrs: {} });
       }
     }
-    for (const chain of chainEdges(this.he.creases().map((e) => [e.v0, e.v1] as const))) {
-      if (chain.length >= 2) feats.push({ type: "crease", owner: this.id, curve: { kind: "polyline", pts: asPolyline(chain) }, attrs: {} });
+    for (const c of chainVertexEdges(this.he.creases().map((e) => [e.v0, e.v1] as const))) {
+      if (c.vertices.length >= 2) feats.push({ type: "crease", owner: this.id, id: `${this.id}/crease:${c.key}`, curve: { kind: "polyline", pts: asPolyline(c.vertices) }, attrs: {} });
     }
-    for (const chain of chainEdges(this.he.boundaries().map((e) => [e.v0, e.v1] as const))) {
-      if (chain.length >= 2) feats.push({ type: "boundary", owner: this.id, curve: { kind: "polyline", pts: asPolyline(chain) }, attrs: {} });
+    for (const c of chainVertexEdges(this.he.boundaries().map((e) => [e.v0, e.v1] as const))) {
+      if (c.vertices.length >= 2) feats.push({ type: "boundary", owner: this.id, id: `${this.id}/boundary:${c.key}`, curve: { kind: "polyline", pts: asPolyline(c.vertices) }, attrs: {} });
     }
     if (this.suggestiveOpt) {
-      for (const loop of suggestiveContours(this.he, cam, this.curvature(), this.suggestiveOpt)) {
-        if (loop.length >= 2) feats.push({ type: "suggestive", owner: this.id, curve: { kind: "polyline", pts: loop }, attrs: {} });
+      for (const c of suggestiveContourChains(this.he, cam, this.curvature(), this.suggestiveOpt)) {
+        if (c.pts.length >= 2)
+          feats.push({
+            type: "suggestive",
+            owner: this.id,
+            id: `${this.id}/suggestive:${c.key}`,
+            curve: { kind: "polyline", pts: c.pts },
+            attrs: c.strength < 1 ? { strength: c.strength } : {},
+          });
       }
     }
     return feats;
@@ -189,18 +158,35 @@ export class Mesh implements FeatureSource {
 
   /** Curvature-driven hatch: streamlines of the principal-direction field (dir1
    *  for family 0, dir2 for family 1). Returns `[]` on isotropic surfaces (e.g. a
-   *  sphere), so the scene falls back to straight parallel hatch. (ai/DESIGN.md §2.6) */
+   *  sphere), so the scene falls back to straight parallel hatch. (ai/DESIGN.md §2.6)
+   *
+   *  Temporal coherence: streamlines come from a static object-space
+   *  `StreamlineAtlas` (traced once per density level, cached on the source —
+   *  intrinsic geometry, like the curvature field). The camera only picks the
+   *  atlas *level*; it never re-seeds, so lines cannot drift or pop under
+   *  camera motion except at discrete level switches, which purely add or
+   *  remove the finest level. */
   hatchField(cam: Camera, opts: HatchFieldOptions): HatchFamily[] {
-    const spacing = this.screenToWorldSpacing(cam, opts.spacingPx);
+    const desired = this.screenToWorldSpacing(cam, opts.spacingPx);
     const curv = this.curvature();
-    const f0 = meshHatchField(this.he, curv, { spacing, family: 0 });
+    const atlas = (f: 0 | 1) => (this._atlas[f] ??= new StreamlineAtlas(this.he, curv, this.atlasBaseSpacing(), f));
+    const f0 = atlas(0).curvesFor(desired);
     if (f0.length === 0) return [];
     const families: HatchFamily[] = [{ curves: f0 }];
     if (opts.maxFamilies >= 2) {
-      const f1 = meshHatchField(this.he, curv, { spacing, family: 1 });
+      const f1 = atlas(1).curvesFor(desired);
       if (f1.length) families.push({ curves: f1 });
     }
     return families;
+  }
+
+  private readonly _atlas: (StreamlineAtlas | undefined)[] = [];
+
+  /** Level-0 (coarsest) atlas spacing: a quarter of the bounds diagonal — a
+   *  view-independent reference density the LOD ladder halves from. */
+  private atlasBaseSpacing(): number {
+    const b = this.aabb;
+    return 0.25 * Math.hypot(b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]);
   }
 
   /** Convert a desired on-screen hatch spacing (px) to a world-space separation,

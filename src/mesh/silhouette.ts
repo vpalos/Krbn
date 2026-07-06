@@ -15,7 +15,7 @@
 // visibility need.
 
 import type { Camera, Vec3 } from "../math/types.js";
-import { addScaled, dot, normalize, sub } from "../math/vec3.js";
+import { addScaled, cross, dot, normalize, sub } from "../math/vec3.js";
 import { cameraFrame } from "../math/camera.js";
 import type { HalfEdgeMesh } from "./halfedge.js";
 
@@ -39,13 +39,81 @@ function edgeKey(a: number, b: number): string {
   return a < b ? `${a}_${b}` : `${b}_${a}`;
 }
 
+/** Numeric comparison of two edge keys as (lo, hi) pairs. String comparison would
+ *  order "10_12" before "2_3"; canonicalization needs the topological order. */
+function cmpEdgeKey(a: string, b: string): number {
+  const ia = a.indexOf("_");
+  const ib = b.indexOf("_");
+  const lo = +a.slice(0, ia) - +b.slice(0, ib);
+  return lo !== 0 ? lo : +a.slice(ia + 1) - +b.slice(ib + 1);
+}
+
 /**
- * Extract the mesh silhouette for `cam` as ordered world-space polylines. Closed
- * contours come back as loops (first point repeated at the end); contours that run
- * into a mesh boundary come back as open paths.
+ * A chained zero-set contour in **canonical orientation** with a per-frame
+ * identity anchor (temporal coherence, ai/DESIGN.md §3.3.7).
+ *
+ * - **Direction is intrinsic**: the chain is oriented so the positive-g side
+ *   (front-facing, for a silhouette) lies consistently to one side of the walk —
+ *   a geometric vote over the whole chain, independent of which edge happens to
+ *   be the anchor and of face-iteration order. Small camera motion cannot flip a
+ *   contour's parameterization direction.
+ * - **Start and `key` are the minimal crossed mesh edge** along the chain: unique
+ *   within a frame and stable *while that edge stays crossed*. The anchor can
+ *   churn as the contour sweeps the mesh; frame-to-frame correspondence
+ *   (coherence step 3) remaps anchors to persistent identities.
+ *
+ * Known limits of the stateless vote (measured on a 200-frame sweep): direction
+ * can flip exactly at topological events (a loop splitting/merging/dying) and on
+ * tiny grazing loops (≲12 crossings) where the vote is noise-dominated — both
+ * are correspondence's job to smooth, not this module's.
  */
+export interface ZeroSetChain {
+  /** ordered world-space points; a closed loop repeats its first point last */
+  pts: Vec3[];
+  /** identity anchor: the minimal crossed mesh edge ("lo_hi") along the chain */
+  key: string;
+  closed: boolean;
+  /** the crossed mesh edges ("lo_hi") in walk order, parallel to `pts` — lets a
+   *  caller aggregate per-crossing data over the chain (e.g. suggestive-contour
+   *  strength) or match chains by crossed-edge overlap */
+  nodes: string[];
+}
+
+/**
+ * Canonicalize a walked chain of node (edge-key) strings: closed loops are
+ * rotated to start at their minimal crossed edge; open paths keep their walked
+ * endpoints. Direction is *not* decided here — `orientChain` fixes it
+ * geometrically afterwards (an anchor-relative rule would flip the direction
+ * whenever the anchor churns).
+ */
+function canonicalKeys(keys: string[]): { keys: string[]; key: string; closed: boolean } {
+  const closed = keys.length > 2 && keys[0] === keys[keys.length - 1];
+  if (closed) {
+    const ring = keys.slice(0, -1);
+    const n = ring.length;
+    let mi = 0;
+    for (let i = 1; i < n; i++) if (cmpEdgeKey(ring[i]!, ring[mi]!) < 0) mi = i;
+    const out: string[] = [];
+    for (let i = 0; i <= n; i++) out.push(ring[(mi + i) % n]!);
+    return { keys: out, key: ring[mi]!, closed: true };
+  }
+  let min = keys[0]!;
+  for (const k of keys) if (cmpEdgeKey(k, min) < 0) min = k;
+  return { keys: keys.slice(), key: min, closed: false };
+}
+
+/**
+ * Extract the mesh silhouette for `cam` as canonically oriented, identity-keyed
+ * chains. Closed contours come back as loops (first point repeated at the end);
+ * contours that run into a mesh boundary come back as open paths.
+ */
+export function silhouetteChains(mesh: HalfEdgeMesh, cam: Camera): ZeroSetChain[] {
+  return zeroSetChains(mesh, viewSignal(mesh, cam));
+}
+
+/** Points-only view of `silhouetteChains` (same canonical order). */
 export function silhouetteLoops(mesh: HalfEdgeMesh, cam: Camera): Vec3[][] {
-  return zeroSetLoops(mesh, viewSignal(mesh, cam));
+  return silhouetteChains(mesh, cam).map((c) => c.pts);
 }
 
 /**
@@ -80,12 +148,46 @@ export function facetedSilhouetteLoops(mesh: HalfEdgeMesh, cam: Camera): Vec3[][
     const f1 = mesh.heFace[e.halfEdges[1]!]!;
     if (front[f0] !== front[f1]) edges.push([e.v0, e.v1]);
   }
-  return chainVertexEdges(edges).map((chain) => chain.map((v) => P[v]!));
+  return chainVertexEdges(edges).map((chain) => chain.vertices.map((v) => P[v]!));
 }
 
-/** Chain undirected vertex-index edges into ordered vertex sequences, breaking at
- *  endpoints/junctions (degree ≠ 2) so each chain is a simple arc or loop. */
-function chainVertexEdges(edges: ReadonlyArray<readonly [number, number]>): number[][] {
+/** A canonically oriented vertex-index chain with a stable identity anchor:
+ *  its canonical first *edge* ("a_b"). A vertex can sit on several chains (a
+ *  cube corner joins three crease arcs) but an edge belongs to exactly one, so
+ *  the anchor is unique; for view-independent edge sets (creases, boundaries)
+ *  it is fully stable across frames. */
+export interface VertexChain {
+  vertices: number[];
+  /** identity anchor: the chain's canonical first edge, "a_b" */
+  key: string;
+  closed: boolean;
+}
+
+/** Canonicalize a walked vertex-index chain: loops start at their minimal vertex
+ *  and run toward its smaller-indexed neighbour; arcs run from the smaller
+ *  endpoint to the larger. */
+function canonicalVertices(chain: number[]): VertexChain {
+  const closed = chain.length > 2 && chain[0] === chain[chain.length - 1];
+  let vertices: number[];
+  if (closed) {
+    const ring = chain.slice(0, -1);
+    const n = ring.length;
+    let mi = 0;
+    for (let i = 1; i < n; i++) if (ring[i]! < ring[mi]!) mi = i;
+    const dir = ring[(mi + 1) % n]! <= ring[(mi - 1 + n) % n]! ? 1 : -1;
+    vertices = [];
+    for (let i = 0; i <= n; i++) vertices.push(ring[(((mi + dir * i) % n) + n) % n]!);
+  } else {
+    vertices = chain[0]! <= chain[chain.length - 1]! ? chain.slice() : chain.slice().reverse();
+  }
+  return { vertices, key: `${vertices[0]}_${vertices[1]}`, closed };
+}
+
+/** Chain undirected vertex-index edges into canonically oriented vertex chains,
+ *  breaking at endpoints/junctions (degree ≠ 2) so each chain is a simple arc or
+ *  loop. Shared by the faceted silhouette and the mesh source's crease/boundary
+ *  features. */
+export function chainVertexEdges(edges: ReadonlyArray<readonly [number, number]>): VertexChain[] {
   const incident = new Map<number, number[]>();
   const push = (v: number, e: number) => {
     const l = incident.get(v);
@@ -122,7 +224,9 @@ function chainVertexEdges(edges: ReadonlyArray<readonly [number, number]>): numb
     for (const e of segs) if (!used[e]) chains.push(walk(v, e));
   }
   for (let e = 0; e < edges.length; e++) if (!used[e]) chains.push(walk(edges[e]![0], e));
-  return chains;
+  // canonical order of the chain list itself: sort by anchor so the output does
+  // not depend on Map iteration order
+  return chains.map(canonicalVertices).sort((a, b) => cmpEdgeKey(a.key, b.key));
 }
 
 /**
@@ -138,11 +242,25 @@ export function zeroSetLoops(
   g: Float64Array,
   accept: (lo: number, hi: number, s: number) => boolean = () => true,
 ): Vec3[][] {
+  return zeroSetChains(mesh, g, accept).map((c) => c.pts);
+}
+
+/** `zeroSetLoops` with canonical orientation + identity keys (see `ZeroSetChain`). */
+export function zeroSetChains(
+  mesh: HalfEdgeMesh,
+  g: Float64Array,
+  accept: (lo: number, hi: number, s: number) => boolean = () => true,
+): ZeroSetChain[] {
   const P = mesh.positions;
+  const N = mesh.vertexNormals;
   const positive = (x: number) => x >= 0; // ties (g == 0) count as positive, keeping crossings even
 
-  // crossing point per crossed edge, and the segments (node pairs) per crossed face
+  // per crossed edge: the crossing point, the edge direction toward the
+  // positive-g side, and the interpolated surface normal (both feed the
+  // intrinsic orientation vote below)
   const nodePoint = new Map<string, Vec3>();
+  const nodePlus = new Map<string, Vec3>();
+  const nodeNormal = new Map<string, Vec3>();
   const segA: string[] = [];
   const segB: string[] = [];
 
@@ -160,7 +278,13 @@ export function zeroSetLoops(
       const s = ga / (ga - gb); // g == 0 crossing along lo→hi
       if (!accept(lo, hi, s)) continue; // filtered out (e.g. wrong side / below threshold)
       const key = edgeKey(a, b);
-      if (!nodePoint.has(key)) nodePoint.set(key, addScaled(P[lo]!, sub(P[hi]!, P[lo]!), s));
+      if (!nodePoint.has(key)) {
+        nodePoint.set(key, addScaled(P[lo]!, sub(P[hi]!, P[lo]!), s));
+        const toHi = sub(P[hi]!, P[lo]!);
+        nodePlus.set(key, ga >= gb ? [-toHi[0], -toHi[1], -toHi[2]] : toHi);
+        const nlo = N[lo]!;
+        nodeNormal.set(key, addScaled(nlo, sub(N[hi]!, nlo), s));
+      }
       crossed.push(key);
     }
     if (crossed.length === 2) {
@@ -185,7 +309,7 @@ export function zeroSetLoops(
   const used = new Array<boolean>(segA.length).fill(false);
   const other = (seg: number, node: string) => (segA[seg] === node ? segB[seg]! : segA[seg]!);
 
-  const walk = (startNode: string, startSeg: number): Vec3[] => {
+  const walk = (startNode: string, startSeg: number): string[] => {
     const keys: string[] = [startNode];
     let node = startNode;
     let seg = startSeg;
@@ -197,19 +321,44 @@ export function zeroSetLoops(
       if (next === undefined) break;
       seg = next;
     }
-    return keys.map((k) => nodePoint.get(k)!);
+    return keys;
   };
 
-  const chains: Vec3[][] = [];
+  const walked: string[][] = [];
   // open paths first: start at degree-1 nodes (silhouette meeting a boundary)
   for (const [node, segs] of incident) {
     if (segs.length !== 1) continue;
     const seg = segs[0]!;
-    if (!used[seg]) chains.push(walk(node, seg));
+    if (!used[seg]) walked.push(walk(node, seg));
   }
   // remaining closed loops
   for (let s = 0; s < segA.length; s++) {
-    if (!used[s]) chains.push(walk(segA[s]!, s));
+    if (!used[s]) walked.push(walk(segA[s]!, s));
   }
-  return chains;
+  // canonicalize: topology-anchored start, *intrinsic* direction, and a stable
+  // list order — nothing downstream sees face-iteration or Map order, and a
+  // small camera move cannot flip a chain's parameterization (temporal coherence)
+  return walked
+    .map((keys) => {
+      const c = canonicalKeys(keys);
+      let ks = c.keys;
+      // orientation vote: walking the chain, keep the positive-g side on a fixed
+      // hand — Σ (n × t) · e⁺ over interior nodes, with n the surface normal, t
+      // the local tangent, e⁺ the crossed edge toward positive g. Sign-stable
+      // under small view changes and independent of the anchor.
+      let score = 0;
+      for (let i = 1; i + 1 < ks.length; i++) {
+        const tangent = sub(nodePoint.get(ks[i + 1]!)!, nodePoint.get(ks[i - 1]!)!);
+        score += dot(cross(nodeNormal.get(ks[i]!)!, tangent), nodePlus.get(ks[i]!)!);
+      }
+      const reverse =
+        score !== 0
+          ? score < 0
+          : c.closed // degenerate vote: fall back to the topological tiebreak
+            ? cmpEdgeKey(ks[1]!, ks[ks.length - 2]!) > 0
+            : cmpEdgeKey(ks[0]!, ks[ks.length - 1]!) > 0;
+      if (reverse) ks = c.closed ? [ks[0]!, ...ks.slice(1, -1).reverse(), ks[0]!] : ks.slice().reverse();
+      return { pts: ks.map((k) => nodePoint.get(k)!), key: c.key, closed: c.closed, nodes: ks };
+    })
+    .sort((a, b) => cmpEdgeKey(a.key, b.key));
 }

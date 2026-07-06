@@ -1,6 +1,8 @@
 node_modules/
 dist/
 coverage/
+# generated frame sequences (regenerate: bun run examples/animation.ts)
+examples/animation/
 *.log
 *.tsbuildinfo
 .DS_Store
