@@ -4,6 +4,8 @@
 pencil-style rendering of abstract and technical scenes — math and physics
 constructions today, medical/organic illustration on the roadmap.
 
+> **Building something?** See **[API.md](API.md)** — a short guide to using Krbn to build scenes and animations.
+
 ![a sphere resting in a gravity well, the sheet's hatching flowing into the dent](examples/gallery/16-gravity-well.svg)
 
 ## Why a pencil is a rendering problem
