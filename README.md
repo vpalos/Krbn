@@ -20,38 +20,45 @@ _More in the [example gallery](examples/README.md)._
 
 ## Features
 
-- **Analytic primitives.** Sphere, ellipsoid, cylinder, cone (quadric
-  configurations with exact conic silhouettes), plane / polygon, line, parametric
-  curve (Bézier / helix / function plot), a camera-facing point, and a torus (the
-  one non-quadric — quartic silhouette + real quartic ray solve). All behind one
-  `FeatureSource` seam.
-- **Exact hidden-line visibility.** Appel-style quantitative invisibility splits
-  every curve into visible / hidden intervals from analytic silhouette crossings +
-  closed-form depth; hidden runs are ghosted / dashed, and even points are occludable.
-- **Intersection curves.** First-class "waterline" features — quadric ∩ plane
-  (conic), sphere ∩ sphere (circle), plane ∩ plane (line), and quadric ∩ quadric
-  (quartic) — flowing through visibility and styling like any other stroke.
-- **Hatching & tonal shading.** One / two / three families (single / cross /
-  triple), tonally layered so curved surfaces shade **light→dark** while flat faces
-  stay uniform; density follows tone.
-- **Curved hatch direction fields.** Each primitive can hatch along its own **exact
-  iso-parameter curves** — cylinder rings + rulings, cone rings + generators, torus
-  poloidal + toroidal, sphere / ellipsoid principal cross-sections — with a
-  straight-parallel fallback, toggled per element.
-- **Hand-drawn wobble.** A seeded, coherence-preserving 3-D noise field bends
-  outlines **and** hatch from a single per-element knob; strokes sharing a vertex
-  still meet, and output stays deterministic.
-- **Variable stroke width.** Solid strokes render as filled ribbons whose width
-  combines emphasis (role / importance × camera depth — nearer is bolder), a
-  calligraphic end taper, and seeded pencil pressure (taper + pressure ride the same
-  wobble knob).
-- **Abstraction.** Importance-scaled screen-size thresholding, tone quantization,
-  and cross-primitive consolidation of coincident lines.
-- **Emphasis & highlight.** Role / importance-driven weights and `scene.highlight`
-  for x-ray emphasis — a crisp on-top outline inside a semi-transparent halo, dashed
-  where hidden.
-- **Deterministic SVG output.** A pure SVG backend; seeded wobble keeps files stable
-  and diffable.
+Each links to a demo in the [gallery](examples/README.md).
+
+- **Analytic primitives** — sphere, ellipsoid, cylinder, cone, plane, polygon,
+  line, parametric curves, points, and a torus, each with an *exact* silhouette
+  (conics; the torus a quartic). ([solids](examples/gallery/05-solid-shading.svg),
+  [torus](examples/gallery/10-torus.svg))
+- **Triangle meshes** — arbitrary organic geometry renders through the *same*
+  pipeline as the primitives, no fork: silhouette, shading, hidden-line, all shared.
+  ([knots](examples/gallery/15-mesh-showcase.svg))
+- **Exact hidden lines** — every contour is split into visible and hidden runs, the
+  hidden parts ghosted or dashed so depth reads at a glance. Even points are
+  occludable. ([hidden lines](examples/gallery/01-hidden-lines.svg))
+- **Intersection curves** — where two surfaces meet (a ball through a plane, two
+  quadrics), the seam is drawn as its own contour.
+  ([waterline](examples/gallery/03-depth-hatching.svg),
+  [quartic](examples/gallery/08-quartic.svg))
+- **Suggestive contours** — the extra "form lines" an artist adds where a surface
+  *almost* turns away, read from mesh curvature (DeCarlo et al.).
+  ([suggestive](examples/gallery/14-suggestive.svg))
+- **Hatching & tone** — single / cross / triple cross-hatch, shaded **light→dark**
+  on curved surfaces and left flat on flat faces.
+  ([hatching](examples/gallery/02-hatching.svg))
+- **Curvature-following hatch** — hatch that flows along a surface's own direction
+  field: exact iso-curves on primitives, traced streamlines on meshes.
+  ([fields](examples/gallery/12-direction-fields.svg),
+  [gravity well](examples/gallery/16-gravity-well.svg))
+- **Hand-drawn wobble** — one per-object knob turns ruler-clean lines sketchy; it
+  bends outlines and hatch together and stays deterministic.
+  ([wobble](examples/gallery/04-wobble.svg))
+- **Variable stroke width** — solid lines are pencil-like ribbons: bolder when near
+  or important, tapering and swelling with pressure toward the ends.
+  ([torus](examples/gallery/10-torus.svg))
+- **Abstraction** — detail too small to matter is dropped, tone is quantized, and
+  coincident lines merge into one clean stroke.
+  ([consolidation](examples/gallery/09-consolidation.svg))
+- **Highlight** — x-ray emphasis: a bold outline inside a soft halo, dashed where
+  something hides it. ([highlight](examples/gallery/06-highlight.svg))
+- **Deterministic SVG** — pure, seeded vector output; the same scene always yields
+  the same, diffable file.
 
 ## Why it works this way
 
@@ -61,7 +68,7 @@ _More in the [example gallery](examples/README.md)._
   gaps reveal the ghosted hidden edges behind. Alpha is an optional later add.
 - **Analytic primitives first.** For quadrics, silhouettes are exact conics and
   hidden-line visibility is exact — the hardest module is _easier_ here, not
-  skipped. Meshes come later behind the same interface.
+  skipped. Triangle meshes then plug in behind the very same interface.
 - **Author supplies semantics, engine supplies mechanics.** The developer marks
   what matters (importance/focus); the engine draws at the right level of detail.
 
