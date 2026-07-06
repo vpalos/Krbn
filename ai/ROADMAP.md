@@ -143,7 +143,12 @@ shading** (`gallery/13`), no fork.
    through shared crossed-edge nodes into ordered polyline loops (closed) / paths
    (open at boundaries). Verified on sphere (one equatorial loop; oblique view stays
    on the sphere in the plane ⟂ view) and open tube (two profile paths).
-4. ⬜ Suggestive contours.
+4. ✅ **Suggestive contours** (`src/mesh/suggestive.ts`, DeCarlo et al.) — the
+   zero-set of radial curvature κ_r = κ1·u² + κ2·w² on the front-facing surface,
+   kept where D_w κ_r (from the `dcurv` tensor) exceeds a threshold, chained via the
+   shared `zeroSetLoops`. Opt-in on the `Mesh` source (`{ suggestive }`), drawn as
+   lighter form lines dropped where hidden. Verified: none on a convex sphere,
+   present + front-facing on a torus (`gallery/14`).
 5. 🚧 Visibility — the shared QI now renders meshes correctly: a `FeatureSource`
    may declare a **self-nudge** (`Mesh.selfNudge` ≈ 1.5× mean edge length) so a
    grazing faceted silhouette clears its neighbouring triangles (owner self-hits

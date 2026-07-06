@@ -39,8 +39,13 @@ length) lets the shared QI clear a grazing faceted silhouette's neighbouring
 triangles instead of stippling it (see `pipeline/visibility.ts` `isOccluded`), with
 the analytic path byte-identical.
 
+- **`suggestive.ts` — suggestive contours (§3.3.5).** `suggestiveContours(mesh, cam,
+  curvature)` extracts the zero-set of radial curvature on the front-facing surface
+  where D_w κ_r exceeds a threshold (DeCarlo et al.), via the shared `zeroSetLoops`.
+  Opt-in on `Mesh` (`{ suggestive }`); drawn as lighter form lines. (`gallery/14`)
+
 ## Next (not yet built)
 
-Suggestive contours (§3.3.5, from `dcurv`) → fully-analytic mesh QI (vs today's
-hybrid tolerance) → temporal coherence (§3.3.7). A mesh hatch **direction field**
-from the principal-curvature directions is also a natural add.
+Fully-analytic mesh QI (vs today's hybrid edge-length tolerance) → temporal
+coherence (§3.3.7). A mesh hatch **direction field** from the principal-curvature
+directions is also a natural add.

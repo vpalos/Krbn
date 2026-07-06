@@ -672,6 +672,31 @@ function meshDemo(): void {
   save("13-mesh", gridStitch(cam.viewport.width, cam.viewport.height, [[sphere(), torus()]], [""], ["mesh sphere (shaded)", "mesh torus (hidden-line)"]));
 }
 
+// ---------------------------------------------------------------------------
+// 14. Suggestive contours (Phase 2, §3.3.5). The extra lines an artist draws
+//     where the surface *almost* turns away — zeros of radial curvature on the
+//     front-facing surface, increasing in the view direction (DeCarlo et al.).
+//     They extend the true silhouette into the concave regions a plain contour
+//     leaves blank. Left: silhouette only. Right: with suggestive contours (the
+//     lighter form lines). From the mesh's curvature precompute.
+// ---------------------------------------------------------------------------
+function suggestiveDemo(): void {
+  const cam: Camera = {
+    eye: [3.2, 2.4, 1.7],
+    target: [0, 0, 0],
+    up: [0, 0, 1],
+    projection: "perspective",
+    scale: Math.PI / 4.6,
+    viewport: { width: 430, height: 360 },
+  };
+  const build = (suggestive: boolean): string => {
+    const scene = new Scene({ light: { direction: [-0.5, -0.4, -0.6] }, svg: { background: BG } });
+    scene.add(new Mesh(torusMesh(1.3, 0.52, 72, 36), { suggestive: suggestive ? { threshold: 0 } : false })).style({ wobble: 0.3 });
+    return scene.render(cam).svg;
+  };
+  save("14-suggestive", gridStitch(cam.viewport.width, cam.viewport.height, [[build(false), build(true)]], [""], ["silhouette only", "+ suggestive contours"]));
+}
+
 hiddenLines();
 hatching();
 depthHatching();
@@ -685,4 +710,5 @@ torusDemo();
 toriDemo();
 directionFieldsDemo();
 meshDemo();
+suggestiveDemo();
 console.log("gallery complete");

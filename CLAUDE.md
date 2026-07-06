@@ -136,9 +136,12 @@ pipeline with hidden-line visibility, wobble, variable width, and shading**
 (`gallery/13`), no fork. **Mesh-visibility robustness is in:** a `FeatureSource`
 may declare a `selfNudge()` (mesh ≈ 1.5× mean edge length) so the shared QI clears
 a grazing faceted silhouette's neighbouring triangles instead of stippling it, with
-the analytic path byte-identical. Next per `ai/ROADMAP.md`: suggestive contours
-(from `dcurv`) → fully-analytic mesh QI → temporal coherence (and a mesh hatch field
-from principal-curvature directions). Keep it behind the *same* `FeatureSource`
+the analytic path byte-identical. **Suggestive contours** are in
+(`src/mesh/suggestive.ts`, DeCarlo et al.: front-facing zero-set of radial
+curvature with D_w κ_r > threshold, opt-in via `new Mesh(input, { suggestive })`,
+drawn as lighter form lines; `gallery/14`). Next per `ai/ROADMAP.md`:
+fully-analytic mesh QI → temporal coherence (and a mesh hatch field from
+principal-curvature directions). Keep it behind the *same* `FeatureSource`
 interface; do not fork the pipeline.
 
 ## Deferred — don't build unless asked

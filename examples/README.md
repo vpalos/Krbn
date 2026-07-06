@@ -149,6 +149,19 @@ behind the tube are **dashed**, hidden-line falling straight out of the shared
 visibility stage (Möller–Trumbore `raycast` + projected silhouettes). Wobble and
 variable-width ribbons apply exactly as they do to the analytic primitives.
 
+### 14 · Suggestive contours (Phase 2)
+
+![suggestive contours](gallery/14-suggestive.svg)
+
+The extra lines an artist draws where the surface *almost* turns away —
+**suggestive contours** (DeCarlo et al.): the zero-set of radial curvature on the
+front-facing surface, where that curvature is increasing toward the eye. They come
+from the mesh's curvature precompute (principal curvatures for κ_r, the derivative
+tensor for the D_w κ_r test). **Left**: silhouette only. **Right**: with suggestive
+contours added — the lighter form lines at the tube's inner shoulders that the true
+silhouette leaves blank. Opt-in via `new Mesh(input, { suggestive })`; hidden
+portions are dropped (not ghosted).
+
 ## Rendering to PNG
 
 SVGs open in any browser. To rasterize (e.g. for a README), use any SVG tool:

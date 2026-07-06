@@ -104,7 +104,10 @@ export function emitStyledStroke(
 ): RenderStroke[] {
   const model = buildFeatureModel(stroke.feature.curve, cam);
   const P = projectionMatrix(cam);
-  const styles = toRenderStyles(spec);
+  // Suggestive contours read as lighter "form lines" and are dropped where hidden
+  // (not ghosted), per DeCarlo et al.
+  const eff = stroke.feature.type === "suggestive" ? { ...spec, weight: spec.weight * 0.55, hidden: "drop" as const } : spec;
+  const styles = toRenderStyles(eff);
   // Seed per element (owner), NOT per feature type — so an element's silhouette,
   // rims, generators, etc. share one field and join at their common vertices.
   const seed = hashSeed(stroke.feature.owner);

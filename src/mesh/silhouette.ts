@@ -45,9 +45,24 @@ function edgeKey(a: number, b: number): string {
  * into a mesh boundary come back as open paths.
  */
 export function silhouetteLoops(mesh: HalfEdgeMesh, cam: Camera): Vec3[][] {
-  const g = viewSignal(mesh, cam);
+  return zeroSetLoops(mesh, viewSignal(mesh, cam));
+}
+
+/**
+ * The chained zero-set of a per-vertex scalar field `g` on the mesh — the shared
+ * machinery behind both the silhouette (g = n·toEye) and suggestive contours
+ * (g = radial curvature). `accept(lo, hi, s)` optionally filters a crossing on
+ * edge lo→hi at parameter s (e.g. suggestive contours keep only crossings that are
+ * front-facing and have increasing radial curvature); rejected crossings are
+ * dropped, so contours are trimmed to the accepted region.
+ */
+export function zeroSetLoops(
+  mesh: HalfEdgeMesh,
+  g: Float64Array,
+  accept: (lo: number, hi: number, s: number) => boolean = () => true,
+): Vec3[][] {
   const P = mesh.positions;
-  const positive = (x: number) => x >= 0; // ties (g == 0) count as front, keeping crossings even
+  const positive = (x: number) => x >= 0; // ties (g == 0) count as positive, keeping crossings even
 
   // crossing point per crossed edge, and the segments (node pairs) per crossed face
   const nodePoint = new Map<string, Vec3>();
@@ -61,22 +76,21 @@ export function silhouetteLoops(mesh: HalfEdgeMesh, cam: Camera): Vec3[][] {
       const a = t[k]!;
       const b = t[(k + 1) % 3]!;
       if (positive(g[a]!) === positive(g[b]!)) continue; // no sign change on this edge
+      const lo = a < b ? a : b;
+      const hi = a < b ? b : a;
+      const ga = g[lo]!;
+      const gb = g[hi]!;
+      const s = ga / (ga - gb); // g == 0 crossing along lo→hi
+      if (!accept(lo, hi, s)) continue; // filtered out (e.g. wrong side / below threshold)
       const key = edgeKey(a, b);
-      if (!nodePoint.has(key)) {
-        const lo = a < b ? a : b;
-        const hi = a < b ? b : a;
-        const ga = g[lo]!;
-        const gb = g[hi]!;
-        const s = ga / (ga - gb); // g == 0 crossing along lo→hi
-        nodePoint.set(key, addScaled(P[lo]!, sub(P[hi]!, P[lo]!), s));
-      }
+      if (!nodePoint.has(key)) nodePoint.set(key, addScaled(P[lo]!, sub(P[hi]!, P[lo]!), s));
       crossed.push(key);
     }
     if (crossed.length === 2) {
       segA.push(crossed[0]!);
       segB.push(crossed[1]!);
     }
-    // crossed.length is 0 (no silhouette here) otherwise; a triangle cannot have 1 or 3
+    // 0 accepted crossings ⇒ nothing here; 1 ⇒ the contour exits the accepted region (dropped)
   }
 
   // chain segments through shared nodes: build node → incident segment indices

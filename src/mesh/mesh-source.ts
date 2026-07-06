@@ -19,7 +19,15 @@ import { cross, dot, normalize, sub } from "../math/vec3.js";
 import { projectionMatrix, projectPoint } from "../math/camera.js";
 import { HalfEdgeMesh, type BuildOptions, type MeshInput } from "./halfedge.js";
 import { silhouetteLoops } from "./silhouette.js";
+import { computeCurvature, type CurvatureField } from "./curvature.js";
+import { suggestiveContours } from "./suggestive.js";
 import { EPS_ABS } from "../curve/epsilon.js";
+
+export interface MeshOptions extends BuildOptions {
+  /** draw suggestive contours (needs the curvature precompute; off by default).
+   *  `true` uses the default threshold; an object sets it. (ai/DESIGN.md §3.3.5) */
+  suggestive?: boolean | { threshold?: number };
+}
 
 let autoId = 0;
 const nextId = (): ElementId => `mesh-${autoId++}`;
@@ -73,11 +81,19 @@ export class Mesh implements FeatureSource {
   readonly id: ElementId;
   readonly he: HalfEdgeMesh;
   private readonly aabb: AABB;
+  private readonly suggestiveOpt: false | { threshold?: number };
+  private _curv?: CurvatureField;
 
-  constructor(input: MeshInput, opts: BuildOptions = {}, id: ElementId = nextId()) {
+  constructor(input: MeshInput, opts: MeshOptions = {}, id: ElementId = nextId()) {
     this.id = id;
     this.he = HalfEdgeMesh.build(input, opts);
     this.aabb = boundsOf(this.he.positions);
+    this.suggestiveOpt = opts.suggestive ? (opts.suggestive === true ? {} : opts.suggestive) : false;
+  }
+
+  /** Curvature precompute, lazily (only when suggestive contours are requested). */
+  curvature(): CurvatureField {
+    return (this._curv ??= computeCurvature(this.he));
   }
 
   bounds(): AABB {
@@ -105,6 +121,11 @@ export class Mesh implements FeatureSource {
     }
     for (const chain of chainEdges(this.he.boundaries().map((e) => [e.v0, e.v1] as const))) {
       if (chain.length >= 2) feats.push({ type: "boundary", owner: this.id, curve: { kind: "polyline", pts: asPolyline(chain) }, attrs: {} });
+    }
+    if (this.suggestiveOpt) {
+      for (const loop of suggestiveContours(this.he, cam, this.curvature(), this.suggestiveOpt)) {
+        if (loop.length >= 2) feats.push({ type: "suggestive", owner: this.id, curve: { kind: "polyline", pts: loop }, attrs: {} });
+      }
     }
     return feats;
   }
