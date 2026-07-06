@@ -22,7 +22,9 @@ import { projectionMatrix, projectPoint } from "../src/math/camera.js";
 
 // Defaults next to this file; overridable so a compiled copy can still target
 // the repo (KRBN_GALLERY_OUT). Normal `bun run` users need not set it.
-const OUT = process.env.KRBN_GALLERY_OUT ?? join(dirname(fileURLToPath(import.meta.url)), "gallery");
+const OUT =
+  process.env.KRBN_GALLERY_OUT ??
+  join(dirname(fileURLToPath(import.meta.url)), "gallery");
 mkdirSync(OUT, { recursive: true });
 const BG = "#faf9f5";
 
@@ -85,22 +87,35 @@ function hatching(): void {
     scale: 0.008,
     viewport: { width: 1000, height: 320 },
   };
-  const scene = new Scene({ light: { direction: [-0.6, -0.5, -0.65] }, svg: { background: BG } });
+  const scene = new Scene({
+    light: { direction: [-0.6, -0.5, -0.65] },
+    svg: { background: BG },
+  });
   const r = 0.85;
   // field: false — this demo is the straight-hatch baseline; the sphere's own
   // iso-parameter field gets its showcase in demo 12
-  scene.add(sphere([-2.9, 0, 0], r)).style({ wobble: 0.25, hatch: { mode: "single", angle: 20, field: false } });
-  scene.add(sphere([-0.9, 0, 0], r)).style({ wobble: 0.25, hatch: { mode: "cross", angle: 20, field: false } });
-  scene.add(sphere([1.1, 0, 0], r)).style({ wobble: 0.25, hatch: { mode: "triple", angle: 20, field: false } });
+  scene.add(sphere([-2.9, 0, 0], r)).style({
+    wobble: 0.25,
+    hatch: { mode: "single", angle: 20, field: false },
+  });
+  scene
+    .add(sphere([-0.9, 0, 0], r))
+    .style({ wobble: 0.25, hatch: { mode: "cross", angle: 20, field: false } });
+  scene.add(sphere([1.1, 0, 0], r)).style({
+    wobble: 0.25,
+    hatch: { mode: "triple", angle: 20, field: false },
+  });
   // a flat quad (seen face-on so it fills), single-hatched → uniform tone
-  scene.add(
-    new Polygon([
-      [2.7, -0.9, 0],
-      [3.9, -0.9, 0],
-      [3.9, 0.9, 0],
-      [2.7, 0.9, 0],
-    ]),
-  ).style({ wobble: 0.2, hatch: { mode: "single", angle: 45 } });
+  scene
+    .add(
+      new Polygon([
+        [2.7, -0.9, 0],
+        [3.9, -0.9, 0],
+        [3.9, 0.9, 0],
+        [2.7, 0.9, 0],
+      ]),
+    )
+    .style({ wobble: 0.2, hatch: { mode: "single", angle: 45 } });
   save(
     "02-hatching",
     withLabels(scene.toSVG(cam), [
@@ -190,7 +205,10 @@ function solidShading(): void {
   };
   // front-light from the upper-right (like 02) so the camera-facing surfaces get
   // a strong light→dark gradient; the camera looks roughly along +y here.
-  const scene = new Scene({ light: { direction: [-0.55, 0.6, -0.5] }, svg: { background: BG } });
+  const scene = new Scene({
+    light: { direction: [-0.55, 0.6, -0.5] },
+    svg: { background: BG },
+  });
   const modes = ["single", "cross", "triple"] as const;
   const makers = [
     (x: number, z: number) => new Cone([x, 0, z - 0.75], [0, 0, 1.5], 0.65),
@@ -205,12 +223,17 @@ function solidShading(): void {
       const x = -2.9 + c * 2.9;
       // straight parallel hatch (field: false) — the flat-shading baseline;
       // the curved direction field gets its own showcase in demo 12
-      scene.add(make(x, z)).style({ wobble: 0.18, hatch: { mode, angle: 15, field: false } });
+      scene
+        .add(make(x, z))
+        .style({ wobble: 0.18, hatch: { mode, angle: 15, field: false } });
     });
   });
   save(
     "05-solid-shading",
-    withLabels(scene.render(cam).svg, rowZ.map((z, r) => textAt(cam, [-4.35, 0, z], rowLabel[r]!, "start"))),
+    withLabels(
+      scene.render(cam).svg,
+      rowZ.map((z, r) => textAt(cam, [-4.35, 0, z], rowLabel[r]!, "start")),
+    ),
   );
 }
 
@@ -230,13 +253,30 @@ function highlightDemo(): void {
   };
   const build = (wobble: number): string => {
     const scene = new Scene({ svg: { background: BG } });
-    scene.add(new Cylinder([0, 0, -1.1], [0, 0, 2.2], 0.9)).setImportance(0.3, { role: "context" }).style({ wobble });
+    scene
+      .add(new Cylinder([0, 0, -1.1], [0, 0, 2.2], 0.9))
+      .setImportance(0.3, { role: "context" })
+      .style({ wobble });
     const ball = scene.add(sphere([-1.75, -0.2, 0.5], 0.85)).style({ wobble }); // behind + beside: partly exposed
     // crisp outline on top + a thick, semi-transparent marker halo around it
-    scene.highlight(ball, { weight: 1.8, dashWhenHidden: true, halo: { weight: 12, opacity: 0.28 } });
+    scene.highlight(ball, {
+      weight: 1.8,
+      dashWhenHidden: true,
+      halo: { weight: 12, opacity: 0.28 },
+    });
     return scene.render(cam).svg;
   };
-  save("06-highlight", stackRows(build(0), build(0.8), cam.viewport.width, cam.viewport.height, "wobble: off", "wobble: on"));
+  save(
+    "06-highlight",
+    stackRows(
+      build(0),
+      build(0.8),
+      cam.viewport.width,
+      cam.viewport.height,
+      "wobble: off",
+      "wobble: on",
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -287,13 +327,30 @@ function quarticDemo(): void {
   type Shade = "wire" | "flat" | "field";
   const build = (wobble: number, shade: Shade): string => {
     // front-lit (from the camera side, upper) so the highlight faces the viewer
-    const scene = new Scene({ light: { direction: [-0.4, -0.45, -0.55] }, svg: { background: BG } });
+    const scene = new Scene({
+      light: { direction: [-0.4, -0.45, -0.55] },
+      svg: { background: BG },
+    });
     const style =
       shade === "wire"
         ? { wobble }
-        : { wobble, hatch: { mode: "triple" as const, angle: 20, spacingPx: 6, field: shade === "field" } };
-    const a = scene.add(ellipsoid([-0.55, 0, 0], [1.3, 0.8, 0.85])).setImportance(0.3, { role: "context" }).style(style);
-    const b = scene.add(sphere([0.7, 0.1, 0.15], 0.9)).setImportance(0.3, { role: "context" }).style(style);
+        : {
+            wobble,
+            hatch: {
+              mode: "triple" as const,
+              angle: 20,
+              spacingPx: 6,
+              field: shade === "field",
+            },
+          };
+    const a = scene
+      .add(ellipsoid([-0.55, 0, 0], [1.3, 0.8, 0.85]))
+      .setImportance(0.3, { role: "context" })
+      .style(style);
+    const b = scene
+      .add(sphere([0.7, 0.1, 0.15], 0.9))
+      .setImportance(0.3, { role: "context" })
+      .style(style);
     scene.intersect(a, b, { emphasis: "bold" }).style({ wobble });
     return scene.render(cam).svg;
   };
@@ -329,7 +386,13 @@ const labelC = (x: number, y: number, s: string): string =>
 
 /** Arrange a grid of same-size panels; row labels top-left, optional column
  *  headers centered along the top, dividers between. */
-function gridStitch(W: number, H: number, rows: string[][], rowLabels: string[], colLabels?: string[]): string {
+function gridStitch(
+  W: number,
+  H: number,
+  rows: string[][],
+  rowLabels: string[],
+  colLabels?: string[],
+): string {
   const gapX = 22;
   const gapY = 18;
   const cols = rows[0]!.length;
@@ -348,24 +411,43 @@ function gridStitch(W: number, H: number, rows: string[][], rowLabels: string[],
     row.forEach((svg, c) => {
       const x = c * (W + gapX);
       const id = `clip-${r}-${c}`;
-      defs.push(`<clipPath id="${id}" clipPathUnits="userSpaceOnUse"><rect x="${x}" y="${y}" width="${W}" height="${H}" /></clipPath>`);
-      parts.push(`<g clip-path="url(#${id})"><g transform="translate(${x},${y})">${stripSvg(svg)}</g></g>`);
+      defs.push(
+        `<clipPath id="${id}" clipPathUnits="userSpaceOnUse"><rect x="${x}" y="${y}" width="${W}" height="${H}" /></clipPath>`,
+      );
+      parts.push(
+        `<g clip-path="url(#${id})"><g transform="translate(${x},${y})">${stripSvg(svg)}</g></g>`,
+      );
     });
     parts.push(label(14, y + 26, rowLabels[r]!));
-    if (r < rows.length - 1) parts.push(`<line x1="10" y1="${y + H + gapY / 2}" x2="${totalW - 10}" y2="${y + H + gapY / 2}" stroke="#ddd" stroke-width="1" />`);
+    if (r < rows.length - 1)
+      parts.push(
+        `<line x1="10" y1="${y + H + gapY / 2}" x2="${totalW - 10}" y2="${y + H + gapY / 2}" stroke="#ddd" stroke-width="1" />`,
+      );
   });
   for (let c = 1; c < cols; c++) {
     const x = c * (W + gapX) - gapX / 2;
-    parts.push(`<line x1="${x}" y1="8" x2="${x}" y2="${totalH - 8}" stroke="#ddd" stroke-width="1" />`);
+    parts.push(
+      `<line x1="${x}" y1="8" x2="${x}" y2="${totalH - 8}" stroke="#ddd" stroke-width="1" />`,
+    );
   }
-  if (colLabels) colLabels.forEach((s, c) => parts.push(labelC(c * (W + gapX) + W / 2, 20, s)));
+  if (colLabels)
+    colLabels.forEach((s, c) =>
+      parts.push(labelC(c * (W + gapX) + W / 2, 20, s)),
+    );
   parts.splice(1, 0, `<defs>${defs.join("")}</defs>`);
   parts.push(`</svg>`);
   return parts.join("\n");
 }
 
 /** Stack two same-size panels vertically into one SVG with a divider + labels. */
-function stackRows(top: string, bottom: string, W: number, H: number, labelTop: string, labelBottom: string): string {
+function stackRows(
+  top: string,
+  bottom: string,
+  W: number,
+  H: number,
+  labelTop: string,
+  labelBottom: string,
+): string {
   const gap = 18;
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${2 * H + gap}" width="${W}" height="${2 * H + gap}">`,
@@ -388,11 +470,20 @@ function consolidationDemo(): void {
     viewport: { width: 460, height: 220 },
   };
   const build = (consolidate: boolean): string => {
-    const scene = new Scene({ svg: { background: BG }, abstraction: { consolidate } });
+    const scene = new Scene({
+      svg: { background: BG },
+      abstraction: { consolidate },
+    });
     // three rods along the same 3-D line; strong wobble so different seeds diverge
-    scene.add(new Line([-2.1, 0, 0], [2.1, 0, 0])).style({ wobble: 1.5, weight: 1.8 });
-    scene.add(new Line([-2.1, 0, 0], [2.1, 0, 0])).style({ wobble: 1.5, weight: 1.8 });
-    scene.add(new Line([-1.1, 0, 0], [1.4, 0, 0])).style({ wobble: 1.5, weight: 1.8 });
+    scene
+      .add(new Line([-2.1, 0, 0], [2.1, 0, 0]))
+      .style({ wobble: 1.5, weight: 1.8 });
+    scene
+      .add(new Line([-2.1, 0, 0], [2.1, 0, 0]))
+      .style({ wobble: 1.5, weight: 1.8 });
+    scene
+      .add(new Line([-1.1, 0, 0], [1.4, 0, 0]))
+      .style({ wobble: 1.5, weight: 1.8 });
     return scene.render(cam).svg;
   };
   const W = cam.viewport.width;
@@ -426,8 +517,13 @@ function torusDemo(): void {
     viewport: { width: 620, height: 400 },
   };
   const build = (wobble: number, field: boolean): string => {
-    const scene = new Scene({ light: { direction: [-0.55, 0.5, -0.55] }, svg: { background: BG } });
-    scene.add(new Torus([0, 0, 0], [0, 0, 1], 1.5, 0.6)).style({ wobble, hatch: { mode: "cross", angle: 20, field } });
+    const scene = new Scene({
+      light: { direction: [-0.55, 0.5, -0.55] },
+      svg: { background: BG },
+    });
+    scene
+      .add(new Torus([0, 0, 0], [0, 0, 1], 1.5, 0.6))
+      .style({ wobble, hatch: { mode: "cross", angle: 20, field } });
     return scene.render(cam).svg;
   };
   // rows = wobble off / on; columns = curved poloidal/toroidal field vs flat parallels
@@ -458,19 +554,35 @@ function toriDemo(): void {
     target: [0.7, 0, 0.1],
     up: [0, 0, 1],
     projection: "perspective",
-    scale: Math.PI / 4.6,
-    viewport: { width: 680, height: 520 },
+    scale: Math.PI / 6,
+    viewport: { width: 680, height: 680 },
   };
-  const build = (field: boolean): string => {
-    const scene = new Scene({ light: { direction: [-0.55, 0.5, -0.55] }, svg: { background: BG } });
-    scene.add(new Torus([0, 0, 0], [0, 0, 1], 1.8, 0.42)).style({ wobble: 0.7, hatch: { mode: "cross", angle: 22, field } });
-    scene.add(new Torus([1.4, 0, 0], [0, 1, 0], 1.9, 0.42)).style({ wobble: 0.7, hatch: { mode: "cross", angle: -22, field } });
+  const build = (mode: "single" | "cross", field: boolean): string => {
+    const scene = new Scene({
+      light: { direction: [-0.55, 0.5, -0.55] },
+      svg: { background: BG },
+    });
+    scene
+      .add(new Torus([0, 0, 0], [0, 0, 1], 1.3, 0.42))
+      .style({ wobble: 0.7, hatch: { mode, angle: 22, field } });
+    scene
+      .add(new Torus([1.4, 0, 0], [0, 1, 0], 1.5, 0.42))
+      .style({ wobble: 0.7, hatch: { mode, angle: -22, field } });
     return scene.render(cam).svg;
   };
   // columns = curved poloidal/toroidal field vs flat parallel hatch
   save(
     "11-tori",
-    gridStitch(cam.viewport.width, cam.viewport.height, [[build(true), build(false)]], [""], ["curved field", "flat"]),
+    gridStitch(
+      cam.viewport.width,
+      cam.viewport.height,
+      [
+        [build("single", true), build("single", false)],
+        [build("cross", true), build("cross", false)],
+      ],
+      [""],
+      ["curved field", "flat"],
+    ),
   );
 }
 
@@ -500,11 +612,18 @@ function directionFieldsDemo(): void {
     add(scene, mode);
     return scene.render(cam).svg;
   };
-  const style = (mode: Mode) => ({ wobble: 0.35, hatch: { mode, angle: 0, spacingPx: 10 } });
-  const cyl: Add = (s, mode) => void s.add(new Cylinder([0, 0, -1], [0, 0, 2], 0.9)).style(style(mode));
-  const con: Add = (s, mode) => void s.add(new Cone([0, 0, 1.1], [0, 0, -2.2], 0.95)).style(style(mode));
-  const tor: Add = (s, mode) => void s.add(new Torus([0, 0, 0], [0, 0, 1], 1.2, 0.42)).style(style(mode));
-  const sph: Add = (s, mode) => void s.add(sphere([0, 0, 0], 1.25)).style(style(mode));
+  const style = (mode: Mode) => ({
+    wobble: 0.35,
+    hatch: { mode, angle: 0, spacingPx: 10 },
+  });
+  const cyl: Add = (s, mode) =>
+    void s.add(new Cylinder([0, 0, -1], [0, 0, 2], 0.9)).style(style(mode));
+  const con: Add = (s, mode) =>
+    void s.add(new Cone([0, 0, 1.1], [0, 0, -2.2], 0.95)).style(style(mode));
+  const tor: Add = (s, mode) =>
+    void s.add(new Torus([0, 0, 0], [0, 0, 1], 1.2, 0.42)).style(style(mode));
+  const sph: Add = (s, mode) =>
+    void s.add(sphere([0, 0, 0], 1.25)).style(style(mode));
   const rows = [cyl, con, tor, sph];
   const modes: Mode[] = ["single", "cross", "triple"];
   save(
