@@ -1,6 +1,6 @@
 import type { AABB, Camera, Ray, Hit } from "../math/types.js";
 import type { Curve2D } from "../curve/types.js";
-import type { Feature, HatchFamily, HatchFieldOptions, HatchRegion, Light } from "../pipeline/types.js";
+import type { ElementId, Feature, HatchFamily, HatchFieldOptions, HatchRegion, Light } from "../pipeline/types.js";
 
 /**
  * The seam of the engine (ai/DESIGN.md §1.1).
@@ -10,6 +10,16 @@ import type { Feature, HatchFamily, HatchFieldOptions, HatchRegion, Light } from
  * mesh/organ regime later is essentially implementing this one interface.
  */
 export interface FeatureSource {
+  /** stable identity; features carry it as `owner`, and wobble seeds on it. Set
+   *  explicitly by the author, else assigned scene-locally by `Scene.add`. */
+  id: ElementId;
+
+  /** source-kind tag (`"quadric"`, `"mesh"`, …) used to name auto ids. */
+  readonly kind?: string;
+
+  /** true when `id` was auto-assigned (no author id), so a Scene may relabel it. */
+  autoNamed?: boolean;
+
   /** view-independent bounds */
   bounds(): AABB;
 

@@ -71,8 +71,11 @@ quadric∩quadric quartics, `Torus`, and **curved hatch direction fields**
 poloidal+toroidal, sphere parallels+meridians, ellipsoid chart iso-ellipses —
 each with a diagonal third family for `triple` (45° helices / spiral generators /
 (1,1) loops / tilted circles / chart spirals) — exact iso-parameter curves
-clipped to the visible surface by `clipHatchField`). Visual checks: the 12-demo
-`examples/gallery.ts` (regenerate to `examples/gallery/*.svg`). **Only deferred items remain** before Phase 2: a contour
+clipped to the visible surface by `clipHatchField`). Visual checks: the gallery is
+a set of standalone `examples/gallery/*.krbn.ts` scene files (each default-exports a
+`Drawing` from `src/layout`); regenerate the `*.svg` with `bun run render:all` (or
+`bun run render <file.krbn.ts>` for one — each renders in its own process, so a
+scene is deterministic regardless of how many render together). **Only deferred items remain** before Phase 2: a contour
 Newton-projection for sampled silhouettes (Phase-2-adjacent) and group-highlight
 (pushed to post-Phase-2). See `ai/ROADMAP.md` for the annotated build order and
 `.claude/rules/numerical-robustness.md` for the kernel's robustness bar.
@@ -182,5 +185,4 @@ interface; do not fork the pipeline.
 
 ## Deferred — don't build unless asked
 
-The declarative authoring language, alpha compositing, paper grain. All are
-roadmapped in `ai/DESIGN.md`.
+Alpha compositing, paper grain. Both are roadmapped in `ai/DESIGN.md`.

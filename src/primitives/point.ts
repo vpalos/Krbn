@@ -9,10 +9,8 @@ import type { ElementId, Feature, HatchRegion, Light } from "../pipeline/types.j
 import type { FeatureSource } from "../scene/feature-source.js";
 import { cameraFrame, projectionMatrix, projectPoint } from "../math/camera.js";
 import { addScaled } from "../math/vec3.js";
+import { autoName } from "../scene/auto-id.js";
 import { EPS_ABS } from "../curve/epsilon.js";
-
-let autoId = 0;
-const nextId = (): ElementId => `point-${autoId++}`;
 
 export type PointMark = "cross" | "plus" | "dot";
 
@@ -25,13 +23,16 @@ export interface PointOptions {
 
 export class Point implements FeatureSource {
   readonly position: Vec3;
-  readonly id: ElementId;
+  readonly kind = "point";
+  id: ElementId;
+  autoNamed: boolean;
   private readonly mark: PointMark;
   private readonly sizePx: number;
 
-  constructor(position: Vec3, opts: PointOptions = {}, id: ElementId = nextId()) {
+  constructor(position: Vec3, opts: PointOptions = {}, id?: ElementId) {
     this.position = position;
-    this.id = id;
+    this.autoNamed = id === undefined;
+    this.id = id ?? autoName(this.kind);
     this.mark = opts.mark ?? "cross";
     this.sizePx = opts.sizePx ?? 7;
   }

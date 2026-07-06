@@ -22,6 +22,7 @@ import { chainVertexEdges, facetedSilhouetteLoops, silhouetteChains, silhouetteL
 import { computeCurvature, type CurvatureField } from "./curvature.js";
 import { StreamlineAtlas } from "./mesh-hatch.js";
 import { suggestiveContourChains } from "./suggestive.js";
+import { autoName } from "../scene/auto-id.js";
 import { EPS_ABS } from "../curve/epsilon.js";
 
 export interface MeshOptions extends BuildOptions {
@@ -32,11 +33,10 @@ export interface MeshOptions extends BuildOptions {
   suggestive?: boolean | { threshold?: number; fade?: number };
 }
 
-let autoId = 0;
-const nextId = (): ElementId => `mesh-${autoId++}`;
-
 export class Mesh implements FeatureSource {
-  readonly id: ElementId;
+  readonly kind = "mesh";
+  id: ElementId;
+  autoNamed: boolean;
   readonly he: HalfEdgeMesh;
   private readonly aabb: AABB;
   private readonly suggestiveOpt: false | { threshold?: number; fade?: number };
@@ -50,8 +50,9 @@ export class Mesh implements FeatureSource {
    */
   private readonly faceted: boolean;
 
-  constructor(input: MeshInput, opts: MeshOptions = {}, id: ElementId = nextId()) {
-    this.id = id;
+  constructor(input: MeshInput, opts: MeshOptions = {}, id?: ElementId) {
+    this.autoNamed = id === undefined;
+    this.id = id ?? autoName(this.kind);
     this.he = HalfEdgeMesh.build(input, opts);
     this.aabb = boundsOf(this.he.positions);
     this.suggestiveOpt = opts.suggestive ? (opts.suggestive === true ? {} : opts.suggestive) : false;

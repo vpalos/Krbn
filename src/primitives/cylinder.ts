@@ -17,10 +17,8 @@ import { projectCircle } from "../math/project.js";
 import { convexHull } from "../math/hull.js";
 import { circleCurve, dyadicLadder, paramCurve, screenDist, segmentCurve, tagCurve } from "./hatch-field.js";
 import { solveQuadratic } from "../curve/roots.js";
+import { autoName } from "../scene/auto-id.js";
 import { EPS_ABS, EPS_REL } from "../curve/epsilon.js";
-
-let autoId = 0;
-const nextId = (): ElementId => `cylinder-${autoId++}`;
 
 const TWO_PI = Math.PI * 2;
 
@@ -29,14 +27,17 @@ export class Cylinder implements FeatureSource {
   readonly axis: Vec3; // unit axis, base → top
   readonly height: number;
   readonly radius: number;
-  readonly id: ElementId;
+  readonly kind = "cylinder";
+  id: ElementId;
+  autoNamed: boolean;
 
-  constructor(base: Vec3, axisVec: Vec3, radius: number, id: ElementId = nextId()) {
+  constructor(base: Vec3, axisVec: Vec3, radius: number, id?: ElementId) {
     this.base = base;
     this.height = length(axisVec);
     this.axis = normalize(axisVec);
     this.radius = radius;
-    this.id = id;
+    this.autoNamed = id === undefined;
+    this.id = id ?? autoName(this.kind);
   }
 
   private get top(): Vec3 {

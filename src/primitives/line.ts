@@ -8,19 +8,20 @@ import type { Curve2D } from "../curve/types.js";
 import type { ElementId, Feature, HatchRegion, Light } from "../pipeline/types.js";
 import type { FeatureSource } from "../scene/feature-source.js";
 import { aabbFromPoints } from "../math/aabb.js";
-
-let autoId = 0;
-const nextId = (): ElementId => `line-${autoId++}`;
+import { autoName } from "../scene/auto-id.js";
 
 export class Line implements FeatureSource {
   readonly a: Vec3;
   readonly b: Vec3;
-  readonly id: ElementId;
+  readonly kind = "line";
+  id: ElementId;
+  autoNamed: boolean;
 
-  constructor(a: Vec3, b: Vec3, id: ElementId = nextId()) {
+  constructor(a: Vec3, b: Vec3, id?: ElementId) {
     this.a = a;
     this.b = b;
-    this.id = id;
+    this.autoNamed = id === undefined;
+    this.id = id ?? autoName(this.kind);
   }
 
   bounds(): AABB {

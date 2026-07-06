@@ -20,10 +20,8 @@ import { cameraFrame, projectionMatrix, projectPoint } from "../math/camera.js";
 import { circleCurve, dyadicLadder, paramCurve, screenDist, tagCurve } from "./hatch-field.js";
 import { solveQuarticReal } from "../curve/roots.js";
 import { chainPoints } from "../curve/chain.js";
+import { autoName } from "../scene/auto-id.js";
 import { EPS_ABS } from "../curve/epsilon.js";
-
-let autoId = 0;
-const nextId = (): ElementId => `torus-${autoId++}`;
 
 const TWO_PI = Math.PI * 2;
 
@@ -39,15 +37,18 @@ export class Torus implements FeatureSource {
   readonly axis: Vec3; // unit
   readonly majorRadius: number; // R: centre → tube centre
   readonly minorRadius: number; // r: tube radius
-  readonly id: ElementId;
+  readonly kind = "torus";
+  id: ElementId;
+  autoNamed: boolean;
   private readonly frame: Basis;
 
-  constructor(center: Vec3, axisVec: Vec3, majorRadius: number, minorRadius: number, id: ElementId = nextId()) {
+  constructor(center: Vec3, axisVec: Vec3, majorRadius: number, minorRadius: number, id?: ElementId) {
     this.center = center;
     this.axis = normalize(axisVec);
     this.majorRadius = majorRadius;
     this.minorRadius = minorRadius;
-    this.id = id;
+    this.autoNamed = id === undefined;
+    this.id = id ?? autoName(this.kind);
     this.frame = basisFromNormal(center, this.axis);
   }
 

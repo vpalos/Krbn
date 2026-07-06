@@ -310,9 +310,9 @@ a no-op. What still runs:
   *different* primitives into one representative line.
 - **Tone quantization** — snap shading to k discrete hatch levels before hatching.
 
-### 2.8 Developer-facing semantic API (no declarative language yet)
+### 2.8 Developer-facing semantic API
 
-Declarative markup is deferred. For now, importance and grouping are a plain API.
+Importance and grouping are a plain API.
 `importance` does **not** set style directly — it *modulates abstraction
 thresholds*: high importance lowers the feature-size cutoff and simplification
 tolerance (keep detail); low importance raises them (reduce to bare silhouette);
@@ -440,9 +440,6 @@ polyline `Curve`s) and support `raycast` / `projectedSilhouettes`.
   section and §2.4).
 - **Torus and non-quadric primitives:** numerical silhouette from implicit form;
   still deferred, scope for later in Phase 1.
-- **Declarative language:** deferred. When added, it deserializes into the same
-  `Scene`/element model the API already populates (JSX renderer or custom elements
-  over the same graph).
 
 The full Phase-1 pipeline is now in place (extract → visibility → abstraction →
 styling → emit → SVG), including intersection curves (§2.5). Next is **Phase-1

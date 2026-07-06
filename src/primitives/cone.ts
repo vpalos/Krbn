@@ -19,10 +19,8 @@ import { projectCircle } from "../math/project.js";
 import { convexHull } from "../math/hull.js";
 import { circleCurve, dyadicLadder, paramCurve, screenDist, segmentCurve, tagCurve } from "./hatch-field.js";
 import { solveQuadratic } from "../curve/roots.js";
+import { autoName } from "../scene/auto-id.js";
 import { EPS_ABS } from "../curve/epsilon.js";
-
-let autoId = 0;
-const nextId = (): ElementId => `cone-${autoId++}`;
 
 const TWO_PI = Math.PI * 2;
 
@@ -31,19 +29,22 @@ export class Cone implements FeatureSource {
   readonly axis: Vec3; // unit, apex → base
   readonly height: number;
   readonly baseRadius: number;
-  readonly id: ElementId;
+  readonly kind = "cone";
+  id: ElementId;
+  autoNamed: boolean;
 
   private readonly cosA: number;
   private readonly sinA: number;
   private readonly tanA: number;
   private readonly slant: number;
 
-  constructor(apex: Vec3, axisVec: Vec3, baseRadius: number, id: ElementId = nextId()) {
+  constructor(apex: Vec3, axisVec: Vec3, baseRadius: number, id?: ElementId) {
     this.apex = apex;
     this.height = length(axisVec);
     this.axis = normalize(axisVec);
     this.baseRadius = baseRadius;
-    this.id = id;
+    this.autoNamed = id === undefined;
+    this.id = id ?? autoName(this.kind);
     this.slant = Math.hypot(this.height, baseRadius);
     this.cosA = this.height / this.slant;
     this.sinA = baseRadius / this.slant;

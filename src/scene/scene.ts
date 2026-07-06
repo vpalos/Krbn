@@ -92,6 +92,9 @@ export class Scene {
   readonly elements: Element[] = [];
   private readonly byId = new Map<ElementId, Element>();
   private readonly highlights: { id: ElementId; opts: HighlightOptions }[] = [];
+  // per-kind occurrence counter → scene-local ids (`quadric-0`, `quadric-1`, …),
+  // so identity (and thus wobble) is scene-scoped, not process-global.
+  private readonly kindCounts = new Map<string, number>();
   light: Light;
   defaultStyle: StyleOverride;
   sample: SampleOptions | undefined;
@@ -114,6 +117,16 @@ export class Scene {
 
   /** Add a feature source to the scene; returns its element for configuration. */
   add(source: FeatureSource, opts?: ElementOptions): Element {
+    // Re-scope an auto-named source to a deterministic scene-local id, so the
+    // scene's appearance never depends on how many sources were built before it
+    // elsewhere in the process (wobble seeds on this id).
+    if (source.autoNamed) {
+      const kind = source.kind ?? "element";
+      const n = this.kindCounts.get(kind) ?? 0;
+      this.kindCounts.set(kind, n + 1);
+      source.id = `${kind}-${n}`;
+      source.autoNamed = false;
+    }
     const el = new Element(source, opts);
     this.elements.push(el);
     this.byId.set(el.id, el);

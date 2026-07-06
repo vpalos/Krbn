@@ -10,9 +10,7 @@ import type { FeatureSource } from "../scene/feature-source.js";
 import { aabbFromPoints } from "../math/aabb.js";
 import { projectionMatrix, projectPoint } from "../math/camera.js";
 import { adaptiveSample, deCasteljau, type SampleOptions } from "../curve/sample.js";
-
-let autoId = 0;
-const nextId = (prefix: string): ElementId => `${prefix}-${autoId++}`;
+import { autoName } from "../scene/auto-id.js";
 
 /** A general parametric curve is sampled with a uniform floor (`minDepth`) so a
  *  symmetric oscillation (a helix seen edge-on, a plotted sine) can't alias to a
@@ -24,20 +22,25 @@ export class ParametricCurve implements FeatureSource {
   readonly f: (t: number) => Vec3;
   readonly t0: number;
   readonly t1: number;
-  readonly id: ElementId;
+  readonly kind: string;
+  id: ElementId;
+  autoNamed: boolean;
   private readonly opts: SampleOptions;
 
   constructor(
     f: (t: number) => Vec3,
     t0: number,
     t1: number,
-    id: ElementId = nextId("param"),
+    id?: ElementId,
     opts: SampleOptions = PARAM_SAMPLE,
+    kind = "param",
   ) {
     this.f = f;
     this.t0 = t0;
     this.t1 = t1;
-    this.id = id;
+    this.kind = kind;
+    this.autoNamed = id === undefined;
+    this.id = id ?? autoName(this.kind);
     this.opts = opts;
   }
 
@@ -82,12 +85,15 @@ export class ParametricCurve implements FeatureSource {
  */
 export class BezierCurve implements FeatureSource {
   readonly control: readonly Vec3[];
-  readonly id: ElementId;
+  readonly kind = "bezier";
+  id: ElementId;
+  autoNamed: boolean;
 
-  constructor(control: readonly Vec3[], id: ElementId = nextId("bezier")) {
+  constructor(control: readonly Vec3[], id?: ElementId) {
     if (control.length < 2) throw new Error("Bézier needs at least 2 control points");
     this.control = control;
-    this.id = id;
+    this.autoNamed = id === undefined;
+    this.id = id ?? autoName(this.kind);
   }
 
   bounds(): AABB {
@@ -137,7 +143,9 @@ export function helix(
     center[1] + radius * Math.sin(t),
     center[2] + (pitch * t) / (2 * Math.PI),
   ];
-  return new ParametricCurve(f, 0, turns * 2 * Math.PI, id ?? nextId("helix"));
+  // Pass the id through (undefined stays auto-named, so the Scene re-scopes it);
+  // `kind` keeps the "helix-N" prefix.
+  return new ParametricCurve(f, 0, turns * 2 * Math.PI, id, PARAM_SAMPLE, "helix");
 }
 
 /** A function plot y = g(x) in the z = 0 plane over [x0, x1]. */
@@ -148,5 +156,5 @@ export function functionPlot(
   id?: ElementId,
 ): ParametricCurve {
   const f = (x: number): Vec3 => [x, g(x), 0];
-  return new ParametricCurve(f, x0, x1, id ?? nextId("plot"));
+  return new ParametricCurve(f, x0, x1, id, PARAM_SAMPLE, "plot");
 }

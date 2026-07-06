@@ -11,10 +11,8 @@ import { aabbFromPoints } from "../math/aabb.js";
 import { basisFromNormal, toPlaneCoords } from "../math/basis.js";
 import { dot, normalize, sub } from "../math/vec3.js";
 import { projectPoint, projectionMatrix } from "../math/camera.js";
+import { autoName } from "../scene/auto-id.js";
 import { EPS_ABS } from "../curve/epsilon.js";
-
-let autoId = 0;
-const nextId = (): ElementId => `polygon-${autoId++}`;
 
 export interface PolygonStyle {
   hatchMode: HatchMode;
@@ -37,15 +35,18 @@ function newellNormal(v: readonly Vec3[]): Vec3 {
 export class Polygon implements FeatureSource {
   readonly vertices: readonly Vec3[];
   readonly normal: Vec3;
-  readonly id: ElementId;
+  readonly kind = "polygon";
+  id: ElementId;
+  autoNamed: boolean;
   private readonly style: PolygonStyle;
   private readonly frame: Basis;
 
-  constructor(vertices: readonly Vec3[], id: ElementId = nextId(), style?: Partial<PolygonStyle>) {
+  constructor(vertices: readonly Vec3[], id?: ElementId, style?: Partial<PolygonStyle>) {
     if (vertices.length < 3) throw new Error("Polygon needs at least 3 vertices");
     this.vertices = vertices;
     this.normal = newellNormal(vertices);
-    this.id = id;
+    this.autoNamed = id === undefined;
+    this.id = id ?? autoName(this.kind);
     this.style = { hatchMode: style?.hatchMode ?? "single", hatchAngle: style?.hatchAngle ?? 45 };
     this.frame = basisFromNormal(vertices[0]!, this.normal);
   }

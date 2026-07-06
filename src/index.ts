@@ -64,3 +64,12 @@ export * from "./primitives/point.js";
 export * from "./primitives/torus.js";
 export * from "./primitives/parametric.js";
 export * from "./primitives/intersection.js";
+
+// --- Phase-2 mesh regime: the FeatureSource + its input contract ---
+// (mechanics only; the concrete shape generators live under the `krbn/shapes`
+// subpath — see src/shapes.ts — kept off the core API as starter content.)
+export type { MeshInput, Tri, BuildOptions } from "./mesh/halfedge.js";
+export * from "./mesh/mesh-source.js";
+
+// --- deliverable / figure-composition layer (ships scenes to SVG) ---
+export * from "./layout/index.js";

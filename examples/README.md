@@ -14,11 +14,22 @@ that draws nearer contours bolder and receding ones thinner.
 
 ## Gallery
 
-Run with:
+Each demo is a standalone `*.krbn.ts` scene file in [`gallery/`](gallery) that
+default-exports a `Drawing` (see [`src/layout`](../src/layout)). Render them all to
+SVG — each written beside its source — with:
 
 ```bash
-bun run examples/gallery.ts
+bun run render:all
 ```
+
+or render one at a time:
+
+```bash
+bun run render examples/gallery/16-gravity-well.krbn.ts
+```
+
+Each file renders in its own process, so a scene is deterministic and
+self-contained no matter how many are rendered together.
 
 ### 01 · Exact hidden-line visibility (stage 2)
 

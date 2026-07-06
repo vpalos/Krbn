@@ -26,20 +26,21 @@ import { matrixToConic } from "../curve/conic.js";
 import { add, addScaled, dot, normalize, sub } from "../math/vec3.js";
 import { circleCurve, dyadicLadder, paramCurve, screenDist, tagCurve } from "./hatch-field.js";
 import { solveQuadratic } from "../curve/roots.js";
+import { autoName } from "../scene/auto-id.js";
 import { EPS_ABS } from "../curve/epsilon.js";
-
-let autoId = 0;
-const nextId = (): ElementId => `quadric-${autoId++}`;
 
 export class Quadric implements FeatureSource {
   /** symmetric 4×4; Pᵀ Q P = 0 for homogeneous P = (x, y, z, 1). */
   readonly Q: Mat4;
-  readonly id: ElementId;
+  readonly kind = "quadric";
+  id: ElementId;
+  autoNamed: boolean;
   private readonly aabb: AABB;
 
-  constructor(Q: Mat4, aabb: AABB, id: ElementId = nextId()) {
+  constructor(Q: Mat4, aabb: AABB, id?: ElementId) {
     this.Q = Q;
-    this.id = id;
+    this.autoNamed = id === undefined;
+    this.id = id ?? autoName(this.kind);
     this.aabb = aabb;
   }
 

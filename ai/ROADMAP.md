@@ -281,7 +281,7 @@ hatch, empty (→ straight-hatch fallback) where isotropic.
 
    **Phase 2 item 6 is complete.** Remaining before "Phase 2 done": nothing in
    this item — see the deferred list (contour Newton-projection, group
-   highlight) and the cross-cutting ⬜ items (alpha, authoring language).
+   highlight) and the cross-cutting ⬜ items (alpha).
 
 ## Cross-cutting
 
@@ -292,6 +292,5 @@ pressure), temporal-coherence discipline ✅ (stable identity end to end:
 canonical chains + persistent ids via `FrameSession`, identity-keyed wobble
 seeds, static hatch atlases/ladders, stateless threshold fades; verified by the
 animation harness), SVG-first backend ✅ (`src/backend/svg.ts`), optional alpha as a pure drawing op
-⬜, and a declarative authoring language that later deserializes into the same
-`Scene` model ⬜. The adaptive analytic-curve sampler this all leans on is ✅
+⬜. The adaptive analytic-curve sampler this all leans on is ✅
 (`curve/sample.ts`).
