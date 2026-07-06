@@ -260,6 +260,18 @@ export class HalfEdgeMesh {
     return this.edges.length;
   }
 
+  private _meanEdge = -1;
+  /** Mean edge length — the natural length scale of the tessellation (used e.g.
+   *  to size the self-occlusion tolerance for grazing mesh silhouettes). */
+  get meanEdgeLength(): number {
+    if (this._meanEdge < 0) {
+      let sum = 0;
+      for (const e of this.edges) sum += length(sub(this.positions[e.v0]!, this.positions[e.v1]!));
+      this._meanEdge = this.edges.length ? sum / this.edges.length : 0;
+    }
+    return this._meanEdge;
+  }
+
   /** V − E + F (2 for a closed genus-0 surface). */
   eulerCharacteristic(): number {
     return this.vertexCount - this.edgeCount + this.faceCount;

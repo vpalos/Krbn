@@ -24,12 +24,23 @@ it. See **ai/DESIGN.md §3** for the phased plan and hard-parts registry.
   the zero crossing *through* each face (Hertzmann–Zorin — continuous under camera
   motion), and chains the per-face segments through shared crossed-edge nodes into
   ordered polyline loops/paths. Validated on sphere and open tube.
-- **`shapes.ts`** — indexed `tetrahedron` / `cube` / `grid` / `uvSphere` / `tube`
-  meshes (CCW-outward) for tests and demos.
+- **`mesh-source.ts` — the `Mesh` `FeatureSource` (§3.1–3.2).** Wraps the above so a
+  triangle mesh renders through the *same* pipeline as the analytic primitives:
+  `extractFeatures` (silhouette loops + chained creases + boundaries),
+  `projectedSilhouettes` (for the QI crossing events), and Möller–Trumbore
+  `raycast` (interpolated normals for shading, face normal for the front/back
+  flag). Hidden-line visibility, wobble, variable width, and shading all come for
+  free from the shared stage-2+ machinery (`examples/gallery/13-mesh.svg`).
+- **`shapes.ts`** — indexed `tetrahedron` / `cube` / `grid` / `uvSphere` / `tube` /
+  `torusMesh` meshes (CCW-outward) for tests and demos.
+
+**Mesh-visibility robustness (§3.3.6) is in:** `Mesh.selfNudge()` (≈1.5× mean edge
+length) lets the shared QI clear a grazing faceted silhouette's neighbouring
+triangles instead of stippling it (see `pipeline/visibility.ts` `isOccluded`), with
+the analytic path byte-identical.
 
 ## Next (not yet built)
 
-The `Mesh` `FeatureSource` (`extractFeatures` = silhouette + creases + boundaries;
-`projectedSilhouettes`; `raycast` via triangle intersection) so a mesh renders
-through the existing pipeline → suggestive contours → hybrid→analytic visibility →
-temporal coherence.
+Suggestive contours (§3.3.5, from `dcurv`) → fully-analytic mesh QI (vs today's
+hybrid tolerance) → temporal coherence (§3.3.7). A mesh hatch **direction field**
+from the principal-curvature directions is also a natural add.

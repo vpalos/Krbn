@@ -129,10 +129,17 @@ topology + normals + dihedral + crease/boundary tags — and **curvature precomp
 `dcurv` derivative tensor, validated on plane/sphere/cylinder), and the
 **silhouette zero-set + chaining** (`src/mesh/silhouette.ts`: g=n·toEye with
 interpolated normals, Hertzmann–Zorin crossings through faces, chained into ordered
-loops/paths). Next per `ai/ROADMAP.md`: the `Mesh` `FeatureSource`
-(extractFeatures/projectedSilhouettes/raycast) so a mesh renders through the
-pipeline → suggestive contours → hybrid→analytic visibility → temporal coherence.
-Keep it behind the *same* `FeatureSource` interface; do not fork the pipeline.
+loops/paths), and the **`Mesh` `FeatureSource`** (`src/mesh/mesh-source.ts`:
+extractFeatures = silhouette + chained creases + boundaries; projectedSilhouettes;
+Möller–Trumbore raycast) — so a **mesh now renders end-to-end through the existing
+pipeline with hidden-line visibility, wobble, variable width, and shading**
+(`gallery/13`), no fork. **Mesh-visibility robustness is in:** a `FeatureSource`
+may declare a `selfNudge()` (mesh ≈ 1.5× mean edge length) so the shared QI clears
+a grazing faceted silhouette's neighbouring triangles instead of stippling it, with
+the analytic path byte-identical. Next per `ai/ROADMAP.md`: suggestive contours
+(from `dcurv`) → fully-analytic mesh QI → temporal coherence (and a mesh hatch field
+from principal-curvature directions). Keep it behind the *same* `FeatureSource`
+interface; do not fork the pipeline.
 
 ## Deferred — don't build unless asked
 

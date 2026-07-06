@@ -3,7 +3,7 @@
 
 import type { Vec3 } from "../math/types.js";
 import type { MeshInput, Tri } from "./halfedge.js";
-import { cross, dot, sub } from "../math/vec3.js";
+import { cross, dot, normalize, scale, sub } from "../math/vec3.js";
 
 /** Flip any face whose normal disagrees with `outward(centroid)` so a star-shaped
  *  mesh ends up consistently oriented outward. */
@@ -127,4 +127,31 @@ export function tube(R = 1, H = 2, n = 24, rings = 8): MeshInput {
     }
   }
   return { positions, triangles: orient(positions, triangles, (c) => [c[0], c[1], 0]) };
+}
+
+/** Closed torus (axis +z), major radius `R`, tube radius `r`. `nu` toroidal /
+ *  `nv` poloidal segments. Oriented outward (normal points away from the tube). */
+export function torusMesh(R = 1.3, r = 0.5, nu = 48, nv = 24): MeshInput {
+  const positions: Vec3[] = [];
+  for (let i = 0; i < nu; i++) {
+    const u = (2 * Math.PI * i) / nu;
+    const cu = Math.cos(u);
+    const su = Math.sin(u);
+    for (let j = 0; j < nv; j++) {
+      const v = (2 * Math.PI * j) / nv;
+      const rr = R + r * Math.cos(v);
+      positions.push([rr * cu, rr * su, r * Math.sin(v)]);
+    }
+  }
+  const idx = (i: number, j: number) => (((i % nu) + nu) % nu) * nv + (((j % nv) + nv) % nv);
+  const triangles: Tri[] = [];
+  for (let i = 0; i < nu; i++) {
+    for (let j = 0; j < nv; j++) {
+      triangles.push([idx(i, j), idx(i + 1, j), idx(i + 1, j + 1)]);
+      triangles.push([idx(i, j), idx(i + 1, j + 1), idx(i, j + 1)]);
+    }
+  }
+  // outward reference: from the nearest tube-centre (R·radial) to the centroid
+  const outward = (c: Vec3): Vec3 => sub(c, scale(normalize([c[0], c[1], 0]), R));
+  return { positions, triangles: orient(positions, triangles, outward) };
 }

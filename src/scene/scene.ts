@@ -279,7 +279,7 @@ export class Scene {
       const haloMembers: RenderStroke[] = [];
 
       for (const feature of el.source.extractFeatures(cam)) {
-        const stroke = classifyFeature(feature, cam, sources, scale);
+        const stroke = classifyFeature(feature, cam, sources, scale, el.source);
         if (haloSpec) {
           // a continuous glow around the whole contour: opaque members, one group opacity
           for (const rs of emitStyledStroke(stroke, cam, haloSpec, this.sample, this.wobble)) {

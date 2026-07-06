@@ -117,7 +117,12 @@ renders. Before Phase 2 we are hardening Phase 1 — the ordered backlog:
 ## Phase 2 — Mesh / organ regime (underway)
 
 One more `FeatureSource` implementation + the numerical machinery behind it;
-everything from the stage-2 contract onward is reused.
+everything from the stage-2 contract onward is reused. The **`Mesh` `FeatureSource`**
+(`src/mesh/mesh-source.ts`) now wraps steps 1–3 — `extractFeatures` (silhouette +
+chained creases + boundaries), `projectedSilhouettes`, and Möller–Trumbore
+`raycast` with interpolated normals — so a mesh renders **end to end through the
+existing pipeline with hidden-line visibility, wobble, variable width, and
+shading** (`gallery/13`), no fork.
 
 1. ✅ **Static scaffold** (`src/mesh/halfedge.ts`, `shapes.ts`) — half-edge
    topology from indexed triangles (twin/next/face, boundary detection,
@@ -139,7 +144,12 @@ everything from the stage-2 contract onward is reused.
    (open at boundaries). Verified on sphere (one equatorial loop; oblique view stays
    on the sphere in the plane ⟂ view) and open tube (two profile paths).
 4. ⬜ Suggestive contours.
-5. ⬜ Visibility — hybrid (depth-buffer-seeded) → fully analytic QI.
+5. 🚧 Visibility — the shared QI now renders meshes correctly: a `FeatureSource`
+   may declare a **self-nudge** (`Mesh.selfNudge` ≈ 1.5× mean edge length) so a
+   grazing faceted silhouette clears its neighbouring triangles (owner self-hits
+   nearer than the nudge are skipped) while genuine self-occlusion is still caught
+   — fixing the stipple on `gallery/13`. The analytic path is byte-identical.
+   Fully-analytic mesh QI (vs this hybrid tolerance) is still future.
 6. ⬜ Temporal coherence for animation.
 
 ## Cross-cutting

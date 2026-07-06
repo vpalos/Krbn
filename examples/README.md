@@ -137,6 +137,18 @@ parallels. **Left**: one family (cylinder/cone rings, torus poloidal loops).
 toroidal loops). Each curve is drawn only where it is front-facing and unoccluded,
 so its hidden half drops out of the same visibility test as everything else.
 
+### 13 · Mesh regime (Phase 2)
+
+![mesh regime](gallery/13-mesh.svg)
+
+A triangle mesh is **just another `FeatureSource`**, so it renders through the very
+same pipeline. **Left**: a smooth mesh sphere — its silhouette is an interpolated
+zero-set (Hertzmann–Zorin) and it shades from the **interpolated vertex normals**.
+**Right**: a mesh torus — the silhouette's near arcs are **solid** and the arcs
+behind the tube are **dashed**, hidden-line falling straight out of the shared
+visibility stage (Möller–Trumbore `raycast` + projected silhouettes). Wobble and
+variable-width ribbons apply exactly as they do to the analytic primitives.
+
 ## Rendering to PNG
 
 SVGs open in any browser. To rasterize (e.g. for a README), use any SVG tool:

@@ -33,4 +33,14 @@ export interface FeatureSource {
 
   /** projected silhouettes, used to place QI crossing events */
   projectedSilhouettes(cam: Camera): Curve2D[];
+
+  /**
+   * Optional: the distance to step a reference point off *this* source's surface
+   * before an occlusion ray, and the radius within which the source's own hits
+   * count as "self" rather than occlusion. Smooth analytic surfaces omit it (the
+   * tiny default nudge suffices); a faceted mesh returns ~its edge length, so a
+   * grazing silhouette point clears its neighbouring triangles while genuine
+   * (far) self-occlusion is still caught. (ai/DESIGN.md §3.3.6)
+   */
+  selfNudge?(): number;
 }

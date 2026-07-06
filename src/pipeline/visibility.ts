@@ -40,9 +40,22 @@ export function sceneScale(sources: readonly FeatureSource[]): number {
  * surface pushes that self-hit *behind* the ray origin (t < 0, ignored) while
  * keeping the origin near `p` so the ray stays well-conditioned.
  */
-export function isOccluded(p: Vec3, cam: Camera, sources: readonly FeatureSource[], scale: number): boolean {
+export function isOccluded(
+  p: Vec3,
+  cam: Camera,
+  sources: readonly FeatureSource[],
+  scale: number,
+  owner?: FeatureSource,
+  ownerNudge?: number,
+): boolean {
   const epsSkip = EPS_DEPTH_REL * scale;
-  const nudge = EPS_NUDGE_REL * scale;
+  // Step off `p`'s own surface by the owner's self-nudge (mesh: ~edge length) so a
+  // grazing faceted silhouette clears its neighbouring triangles; smooth sources
+  // fall back to the tiny default. Hits from the owner nearer than this count as
+  // "self"; genuine (far) self-occlusion is still caught.
+  const meshNudge = ownerNudge !== undefined && ownerNudge > 0;
+  const nudge = meshNudge ? ownerNudge : EPS_NUDGE_REL * scale;
+  const ownerSkip = meshNudge ? Math.max(epsSkip, ownerNudge) : epsSkip;
   let toEye: Vec3;
   let tMax: number;
   if (cam.projection === "perspective") {
@@ -55,8 +68,9 @@ export function isOccluded(p: Vec3, cam: Camera, sources: readonly FeatureSource
   }
   const ray = { origin: addScaled(p, toEye, nudge), dir: toEye };
   for (const s of sources) {
+    const skip = s === owner ? ownerSkip : epsSkip;
     for (const h of s.raycast(ray)) {
-      if (h.t > epsSkip && h.t < tMax) return true;
+      if (h.t > skip && h.t < tMax) return true;
     }
   }
   return false;
@@ -94,11 +108,13 @@ export function classifyFeature(
   cam: Camera,
   sources: readonly FeatureSource[],
   scale = sceneScale(sources),
+  owner?: FeatureSource,
 ): Stroke {
   const model = buildFeatureModel(feature.curve, cam);
   const span = model.t1 - model.t0;
   const epsT = EPS_PARAM_REL * (span || 1);
-  const occ = (t: number): boolean => isOccluded(model.point3(t), cam, sources, scale);
+  const ownerNudge = owner?.selfNudge?.();
+  const occ = (t: number): boolean => isOccluded(model.point3(t), cam, sources, scale, owner, ownerNudge);
 
   // 1a) exact analytic crossings — transversal visibility changes land here
   // precisely (a superset; extra boundaries merge away harmlessly).
@@ -145,7 +161,7 @@ export function classifyFeature(
     const ta = bounds[i]!;
     const tb = bounds[i + 1]!;
     if (tb - ta <= epsT) continue;
-    const visible = !isOccluded(model.point3(0.5 * (ta + tb)), cam, sources, scale);
+    const visible = !isOccluded(model.point3(0.5 * (ta + tb)), cam, sources, scale, owner, ownerNudge);
     raw.push({ t0: ta, t1: tb, visible });
   }
 
@@ -158,7 +174,7 @@ export function classifyFeature(
   }
   if (intervals.length === 0) {
     // No crossings and no midpoint (degenerate span): treat as a single sample.
-    const visible = !isOccluded(model.point3(0.5 * (model.t0 + model.t1)), cam, sources, scale);
+    const visible = !isOccluded(model.point3(0.5 * (model.t0 + model.t1)), cam, sources, scale, owner, ownerNudge);
     intervals.push({ t0: model.t0, t1: model.t1, visible });
   }
 
@@ -183,7 +199,7 @@ export function classifyScene(sources: readonly FeatureSource[], cam: Camera): S
   const strokes: Stroke[] = [];
   for (const s of sources) {
     for (const feature of s.extractFeatures(cam)) {
-      strokes.push(classifyFeature(feature, cam, sources, scale));
+      strokes.push(classifyFeature(feature, cam, sources, scale, s));
     }
   }
   return strokes;
