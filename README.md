@@ -1,17 +1,48 @@
 # Krbn
 
-**Carbon, with the vowels sketched out.** A web engine for non-photorealistic,
+**I call it "Carbon", with the vowels sketched out.** A web engine for non-photorealistic,
 pencil-style rendering of abstract and technical scenes — math and physics
 constructions today, medical/organic illustration on the roadmap.
 
-Krbn does not "render surfaces." It derives, classifies, and styles **strokes**
-and **hatch regions** from geometry, so a scene reads as if drawn by a technical
-artist: ghosted hidden lines, cross-hatched surfaces, emphasized/dashed contours,
-and deliberate reduction of detail.
+![a sphere resting in a gravity well, the sheet's hatching flowing into the dent](examples/gallery/16-gravity-well.svg)
 
-![a ball half-submerged through a hatched plane](examples/gallery/03-depth-hatching.svg)
+## Why a pencil is a rendering problem
 
-_More in the [example gallery](examples/README.md)._
+Most graphics code answers one question: _what color is this pixel?_ A pencil
+drawing answers a different one: _which lines would an artist draw — and which
+would they leave out?_ Krbn is built around that second question.
+
+So it does not render surfaces. It derives, classifies, and styles **strokes**
+from geometry. The silhouette of a sphere, a cylinder, a cone is not a mesh
+edge found by sampling — it is an exact conic, computed in closed form; a torus
+yields its true quartic. Hidden lines are not z-buffered away but split
+analytically into visible and ghosted runs, the way a draftsman keeps the far
+edge of a box alive as a faint line.
+
+Even transparency works the way paper does. There is no alpha channel:
+cross-hatching is inherently see-through, and the gaps between strokes reveal
+what lies behind. Shading is hatch density; form is hatch _direction_, flowing
+along each surface's own curvature — parallels and meridians on a sphere,
+poloidal loops on a torus, traced streamlines on an arbitrary mesh.
+
+Exactness is a project value, not an optimization. Intersections are roots of
+low-degree polynomials; degenerate cases — tangent lines, coincident conics,
+grazing cusps — are the spec, not edge cases. The payoff is output you can
+trust: the same scene always emits the same, byte-identical, diffable SVG.
+
+One more inversion: the author supplies _semantics_, the engine supplies
+_mechanics_. You mark what matters — importance, focus, role — and Krbn decides
+what to draw, what to ghost, and what to abstract away, like an illustrator
+deciding what the figure is actually _about_.
+
+![two trefoil knots, one hatched along its curvature, one hatched flat](examples/gallery/15-mesh-showcase.svg)
+
+Krbn began as a research prototype and grew into a full pipeline: an analytic
+primitive catalog and triangle meshes rendering through the _same_ five-stage
+pass, with hidden-line visibility, suggestive contours, hand-drawn wobble, and
+variable-width strokes. It is MIT-licensed and written in TypeScript — see the
+full **[example gallery](examples/README.md)**, and open a discussion if this
+problem space interests you.
 
 > **Status & roadmap** live in one place, not here: **[`ai/ROADMAP.md`](ai/ROADMAP.md)**
 > holds the annotated build status and polish backlog, and
@@ -23,13 +54,13 @@ _More in the [example gallery](examples/README.md)._
 Each links to a demo in the [gallery](examples/README.md).
 
 - **Analytic primitives** — sphere, ellipsoid, cylinder, cone, plane, polygon,
-  line, points, and a torus, each with an *exact* silhouette (conics; the torus a
+  line, points, and a torus, each with an _exact_ silhouette (conics; the torus a
   quartic). ([solids](examples/gallery/05-solid-shading.svg),
   [torus](examples/gallery/10-torus.svg))
 - **Free-form curves** — helices, Bézier curves (carried exactly as control
   points), and function plots, sampled adaptively and occludable like anything else.
   ([curves](examples/gallery/17-parametric-curves.svg))
-- **Triangle meshes** — arbitrary organic geometry renders through the *same*
+- **Triangle meshes** — arbitrary organic geometry renders through the _same_
   pipeline as the primitives, no fork: silhouette, shading, hidden-line, all shared.
   Sharp **creases** on faceted solids are permanent view-independent edges.
   ([knots](examples/gallery/15-mesh-showcase.svg),
@@ -43,7 +74,7 @@ Each links to a demo in the [gallery](examples/README.md).
   ([waterline](examples/gallery/03-depth-hatching.svg),
   [quartic](examples/gallery/08-quartic.svg))
 - **Suggestive contours** — the extra "form lines" an artist adds where a surface
-  *almost* turns away, read from mesh curvature (DeCarlo et al.).
+  _almost_ turns away, read from mesh curvature (DeCarlo et al.).
   ([suggestive](examples/gallery/14-suggestive.svg))
 - **Hatching & tone** — single / cross / triple cross-hatch, shaded **light→dark**
   on curved surfaces and left flat on flat faces.

@@ -200,17 +200,30 @@ export function meshHatchField(mesh: HalfEdgeMesh, curv: CurvatureField, opts: M
   const diag = Math.hypot(bmax[0]! - bmin[0]!, bmax[1]! - bmin[1]!, bmax[2]! - bmin[2]!);
   const maxSteps = Math.ceil((3 * diag) / step) + 50;
 
-  const dTest2 = dTest * dTest;
   const dist2 = (a: Vec3, b: Vec3) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2;
 
-  // Trace one direction from `seed`. `closed` means the streamline curved all the
-  // way back to its start (a loop) — most principal-direction lines on a tube do,
-  // so we must stop instead of spiralling, and skip tracing the other way.
+  // Trace one direction from `seed`. `closed` means the streamline wrapped onto
+  // itself (a loop) — most principal-direction lines on a tube do, so we must
+  // stop instead of spiralling, and skip tracing the other way.
+  //
+  // Closure is detected as *self-proximity*: the trace stops when it comes
+  // within `rSelf` of any of its own samples older than a short exempt tail
+  // (Jobard–Lefebvre against the current line, not just finished ones). The
+  // radius is capped at a few steps, NOT at dTest: an earlier version required
+  // the trace to first travel 2·dTest from its seed before closure could fire,
+  // and when the separation exceeds the loop size (a coarse atlas level tracing
+  // a poloidal ring around a thin tube — 2·dTest > tube diameter) that could
+  // never happen, so the trace wound the tube until maxSteps and rendered as a
+  // dense coil. Self-proximity closes any loop after ~one circuit regardless of
+  // the level's separation, and also stops a drifting spiral from packing
+  // against its previous winding.
+  const rSelf = Math.min(0.9 * dTest, 1.5 * step);
+  const rSelf2 = rSelf * rSelf;
+  const lag = Math.ceil((2 * rSelf) / step) + 1; // exempt the immediate tail
   const traceHalf = (seed: Loc, dir0: Vec3): { pts: HatchSample[]; closed: boolean } => {
     const pts: HatchSample[] = [];
     let loc: Loc = seed;
     let d: Vec3 | null = dir0;
-    let left = false; // has the trace left the seed's neighbourhood yet?
     for (let i = 0; i < maxSteps && d; i++) {
       // relocate searches a 2-ring face neighbourhood, so on an anisotropic mesh
       // (short circumferential edges, long axial ones) a full step can overshoot
@@ -220,9 +233,10 @@ export function meshHatchField(mesh: HalfEdgeMesh, curv: CurvatureField, opts: M
       if (!next) next = relocate(mesh, neighbors, addScaled(loc.p, d, step / 2), loc.face);
       if (!next) next = relocate(mesh, neighbors, addScaled(loc.p, d, step / 4), loc.face);
       if (!next) break; // ran off the surface / a boundary
-      const dSeed2 = dist2(next.p, seed.p);
-      if (!left && dSeed2 > 4 * dTest2) left = true;
-      if (left && dSeed2 < dTest2) return { pts, closed: true }; // looped back to the start
+      if (i >= lag && dist2(next.p, seed.p) < rSelf2) return { pts, closed: true };
+      for (let j = 0; j <= pts.length - lag; j++) {
+        if (dist2(next.p, pts[j]!.p) < rSelf2) return { pts, closed: true };
+      }
       const nn = normalAt(next);
       if (grid.nearAny(next.p, nn, dTest)) break; // too close to a same-facing streamline
       const nd = fieldDir(next, d);
