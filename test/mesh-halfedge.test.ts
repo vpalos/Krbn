@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Vec3 } from "../src/math/types.js";
 import { HalfEdgeMesh, type MeshInput, type Tri } from "../src/mesh/halfedge.js";
-import { cube, grid, tetrahedron } from "../src/mesh/shapes.js";
+import { bumpyBlob, cube, grid, knotTube, tetrahedron } from "../src/mesh/shapes.js";
 import { dot, sub } from "../src/math/vec3.js";
 
 const DEG = 180 / Math.PI;
@@ -139,6 +139,18 @@ describe("HalfEdgeMesh — cleanup", () => {
     expect(welded.vertexCount).toBe(4); // 0≡3, 2≡4 merged
     expect(welded.boundaryEdgeCount).toBe(4); // the diagonal is now a shared interior edge
     expect(welded.edges.find((e) => !e.boundary)).toBeDefined();
+  });
+
+  test("organic generators are clean closed manifolds (blob ≅ sphere, knot ≅ torus)", () => {
+    const blob = HalfEdgeMesh.build(bumpyBlob(1, 0.2, 4, 5, 24, 16));
+    expect(blob.isClosed).toBe(true);
+    expect(blob.nonManifoldEdgeCount).toBe(0);
+    expect(blob.eulerCharacteristic()).toBe(2); // sphere topology
+
+    const knot = HalfEdgeMesh.build(knotTube(0.3, 90, 10, 0.5));
+    expect(knot.isClosed).toBe(true);
+    expect(knot.nonManifoldEdgeCount).toBe(0);
+    expect(knot.eulerCharacteristic()).toBe(0); // a tube around a closed curve ⇒ torus topology
   });
 
   test("non-manifold edge (shared by three faces) is flagged, not crashed", () => {

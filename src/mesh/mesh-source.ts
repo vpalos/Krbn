@@ -13,13 +13,14 @@
 
 import type { AABB, Camera, Hit, Ray, Vec3 } from "../math/types.js";
 import type { Curve2D } from "../curve/types.js";
-import type { ElementId, Feature, HatchRegion, Light } from "../pipeline/types.js";
+import type { ElementId, Feature, HatchFamily, HatchFieldOptions, HatchRegion, Light } from "../pipeline/types.js";
 import type { FeatureSource } from "../scene/feature-source.js";
 import { cross, dot, normalize, sub } from "../math/vec3.js";
 import { projectionMatrix, projectPoint } from "../math/camera.js";
 import { HalfEdgeMesh, type BuildOptions, type MeshInput } from "./halfedge.js";
 import { silhouetteLoops } from "./silhouette.js";
 import { computeCurvature, type CurvatureField } from "./curvature.js";
+import { meshHatchField } from "./mesh-hatch.js";
 import { suggestiveContours } from "./suggestive.js";
 import { EPS_ABS } from "../curve/epsilon.js";
 
@@ -157,6 +158,38 @@ export class Mesh implements FeatureSource {
       });
     }
     return out;
+  }
+
+  /** Curvature-driven hatch: streamlines of the principal-direction field (dir1
+   *  for family 0, dir2 for family 1). Returns `[]` on isotropic surfaces (e.g. a
+   *  sphere), so the scene falls back to straight parallel hatch. (ai/DESIGN.md §2.6) */
+  hatchField(cam: Camera, opts: HatchFieldOptions): HatchFamily[] {
+    const spacing = this.screenToWorldSpacing(cam, opts.spacingPx);
+    const curv = this.curvature();
+    const f0 = meshHatchField(this.he, curv, { spacing, family: 0 });
+    if (f0.length === 0) return [];
+    const families: HatchFamily[] = [{ curves: f0 }];
+    if (opts.maxFamilies >= 2) {
+      const f1 = meshHatchField(this.he, curv, { spacing, family: 1 });
+      if (f1.length) families.push({ curves: f1 });
+    }
+    return families;
+  }
+
+  /** Convert a desired on-screen hatch spacing (px) to a world-space separation,
+   *  by measuring screen pixels per world unit at the object centre (max over the
+   *  three axes, so a near-view-aligned axis doesn't collapse the estimate). */
+  private screenToWorldSpacing(cam: Camera, spacingPx: number): number {
+    const P = projectionMatrix(cam);
+    const b = this.aabb;
+    const c: Vec3 = [(b.min[0] + b.max[0]) / 2, (b.min[1] + b.max[1]) / 2, (b.min[2] + b.max[2]) / 2];
+    const sc = projectPoint(P, c).point;
+    let pxPerWorld = 0;
+    for (const ax of [[1, 0, 0], [0, 1, 0], [0, 0, 1]] as const) {
+      const q = projectPoint(P, [c[0] + ax[0], c[1] + ax[1], c[2] + ax[2]]).point;
+      pxPerWorld = Math.max(pxPerWorld, Math.hypot(q[0] - sc[0], q[1] - sc[1]));
+    }
+    return spacingPx / (pxPerWorld || 1);
   }
 
   /** Möller–Trumbore ray–triangle intersection over all faces; interpolated

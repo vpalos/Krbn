@@ -139,10 +139,12 @@ a grazing faceted silhouette's neighbouring triangles instead of stippling it, w
 the analytic path byte-identical. **Suggestive contours** are in
 (`src/mesh/suggestive.ts`, DeCarlo et al.: front-facing zero-set of radial
 curvature with D_w κ_r > threshold, opt-in via `new Mesh(input, { suggestive })`,
-drawn as lighter form lines; `gallery/14`). Next per `ai/ROADMAP.md`:
-fully-analytic mesh QI → temporal coherence (and a mesh hatch field from
-principal-curvature directions). Keep it behind the *same* `FeatureSource`
-interface; do not fork the pipeline.
+drawn as lighter form lines; `gallery/14`), and a **curvature-driven mesh hatch
+field** (`src/mesh/mesh-hatch.ts`: evenly-spaced Jobard–Lefebvre streamlines of the
+principal-direction field, returned via `Mesh.hatchField`; empty on isotropic
+surfaces so the scene falls back to straight hatch). Next per `ai/ROADMAP.md`:
+fully-analytic mesh QI → temporal coherence. Keep it behind the *same*
+`FeatureSource` interface; do not fork the pipeline.
 
 ## Deferred — don't build unless asked
 

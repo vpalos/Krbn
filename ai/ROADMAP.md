@@ -122,7 +122,10 @@ everything from the stage-2 contract onward is reused. The **`Mesh` `FeatureSour
 chained creases + boundaries), `projectedSilhouettes`, and Möller–Trumbore
 `raycast` with interpolated normals — so a mesh renders **end to end through the
 existing pipeline with hidden-line visibility, wobble, variable width, and
-shading** (`gallery/13`), no fork.
+shading** (`gallery/13`), no fork. A **curvature-driven hatch field**
+(`src/mesh/mesh-hatch.ts`: evenly-spaced streamlines of the principal-direction
+field via `Mesh.hatchField`) lets mesh surfaces shade with curvature-following
+hatch, empty (→ straight-hatch fallback) where isotropic.
 
 1. ✅ **Static scaffold** (`src/mesh/halfedge.ts`, `shapes.ts`) — half-edge
    topology from indexed triangles (twin/next/face, boundary detection,

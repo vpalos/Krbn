@@ -32,7 +32,9 @@ it. See **ai/DESIGN.md §3** for the phased plan and hard-parts registry.
   flag). Hidden-line visibility, wobble, variable width, and shading all come for
   free from the shared stage-2+ machinery (`examples/gallery/13-mesh.svg`).
 - **`shapes.ts`** — indexed `tetrahedron` / `cube` / `grid` / `uvSphere` / `tube` /
-  `torusMesh` meshes (CCW-outward) for tests and demos.
+  `torusMesh` / `bumpyBlob` / `knotTube` (parallel-transport-framed) / `gravitySheet`
+  generators, plus `translate` / `rotate` for composing scenes. All CCW-outward. The
+  two knotted tubes of `gallery/15` and the warped sheet of `gallery/16` use these.
 
 **Mesh-visibility robustness (§3.3.6) is in:** `Mesh.selfNudge()` (≈1.5× mean edge
 length) lets the shared QI clear a grazing faceted silhouette's neighbouring
@@ -43,9 +45,17 @@ the analytic path byte-identical.
   curvature)` extracts the zero-set of radial curvature on the front-facing surface
   where D_w κ_r exceeds a threshold (DeCarlo et al.), via the shared `zeroSetLoops`.
   Opt-in on `Mesh` (`{ suggestive }`); drawn as lighter form lines. (`gallery/14`)
+- **`mesh-hatch.ts` — curvature-driven hatch field (§2.6).** `meshHatchField` traces
+  **evenly-spaced streamlines** (Jobard–Lefebvre) of the principal-curvature
+  direction field across the surface — sign-consistent line-field interpolation,
+  umbilic stopping, face-to-face walking, **closed-loop detection** (many
+  principal lines on a tube close on themselves), and a **normal-aware** spacing
+  hash so a tube crossing over itself doesn't erase its own hatch. `Mesh.hatchField`
+  returns the dir1/dir2 families so the scene's `clipHatchField` gives them
+  visibility, tone, wobble, and width; it returns `[]` on isotropic surfaces (e.g. a
+  sphere) so the scene falls back to straight hatch.
 
 ## Next (not yet built)
 
 Fully-analytic mesh QI (vs today's hybrid edge-length tolerance) → temporal
-coherence (§3.3.7). A mesh hatch **direction field** from the principal-curvature
-directions is also a natural add.
+coherence (§3.3.7).

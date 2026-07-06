@@ -162,6 +162,31 @@ contours added — the lighter form lines at the tube's inner shoulders that the
 silhouette leaves blank. Opt-in via `new Mesh(input, { suggestive })`; hidden
 portions are dropped (not ghosted).
 
+### 15 · Mesh showcase — two knotted tubes
+
+![mesh showcase](gallery/15-mesh-showcase.svg)
+
+Two **trefoil-knot tubes** threaded through each other — arbitrary organic geometry,
+not a primitive in sight. **Left**: each tube engraved with its **curvature-driven
+hatch** (evenly-spaced streamlines of the principal-direction field wrap the tube
+like a coil). **Right**: the same tubes with **flat** straight-parallel hatch, for
+comparison. **Mutual occlusion** falls straight out of the shared visibility stage:
+where one tube passes behind the other, its contour ghosts away. Wobble and
+variable-width ribbons throughout — everything a triangle mesh does, through the
+very same pipeline as the analytic primitives.
+
+### 16 · Gravity well
+
+![gravity well](gallery/16-gravity-well.svg)
+
+A heavy sphere resting in a dipped "rubber-sheet" plane — the usual way spacetime
+curvature is drawn. The sheet is a **warped mesh**; because a funnel is a surface of
+revolution, its **curvature-driven hatch** fans out as radial + concentric lines
+(the principal directions), concentrated where the mass warps it and fading on the
+flat outskirts. The sphere is an **analytic primitive** sitting in the dip, occluding
+the well behind it — a mesh and a primitive mixed in one scene, classified by the
+same visibility stage.
+
 ## Rendering to PNG
 
 SVGs open in any browser. To rasterize (e.g. for a README), use any SVG tool:

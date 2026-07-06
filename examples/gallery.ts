@@ -19,7 +19,7 @@ import { Line } from "../src/primitives/line.js";
 import { Point } from "../src/primitives/point.js";
 import { Torus } from "../src/primitives/torus.js";
 import { Mesh } from "../src/mesh/mesh-source.js";
-import { torusMesh, uvSphere } from "../src/mesh/shapes.js";
+import { gravitySheet, knotTube, rotate, torusMesh, translate, uvSphere } from "../src/mesh/shapes.js";
 import { projectionMatrix, projectPoint } from "../src/math/camera.js";
 
 // Defaults next to this file; overridable so a compiled copy can still target
@@ -708,7 +708,65 @@ quarticDemo();
 consolidationDemo();
 torusDemo();
 toriDemo();
+// ---------------------------------------------------------------------------
+// 15. Mesh showcase (Phase 2). Two trefoil-knot tubes threaded through each
+//     other — arbitrary organic geometry, not a primitive. Each tube is engraved
+//     with its **curvature-driven hatch** (streamlines of the principal-direction
+//     field wrapping the tube), and **mutual occlusion** falls out of the shared
+//     visibility stage: where one tube passes behind the other its contour ghosts
+//     away. Wobble + variable-width ribbons throughout.
+// ---------------------------------------------------------------------------
+function meshShowcaseDemo(): void {
+  const cam: Camera = {
+    eye: [3.9, 3.0, 2.4],
+    target: [0.7, 0, 0],
+    up: [0, 0, 1],
+    projection: "perspective",
+    scale: Math.PI / 4.0,
+    viewport: { width: 520, height: 440 },
+  };
+  const knotA = () => knotTube(0.3, 150, 20, 0.5);
+  const knotB = () => translate(rotate(knotTube(0.26, 130, 18, 0.42), [0, 1, 0], Math.PI / 2), [1.9, 0.2, 0.1]);
+  // left = curvature-driven hatch (streamlines wrap the tubes); right = flat parallels
+  const build = (field: boolean): string => {
+    const scene = new Scene({ light: { direction: [-0.55, -0.4, -0.55] }, svg: { background: BG } });
+    const style = { wobble: 0.25, ghostOpacity: 0.16, hatch: { mode: "single" as const, angle: field ? 0 : 28, spacingPx: 7, field } };
+    scene.add(new Mesh(knotA())).style(style);
+    scene.add(new Mesh(knotB())).style(style);
+    return scene.render(cam).svg;
+  };
+  save(
+    "15-mesh-showcase",
+    gridStitch(cam.viewport.width, cam.viewport.height, [[build(true), build(false)]], [""], ["curvature hatch", "flat hatch"]),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 16. Gravity well. A heavy sphere resting in a "rubber-sheet" plane, dipped into
+//     a funnel — the usual way spacetime curvature is drawn. The sheet is a warped
+//     mesh; its **curvature-driven hatch** fans out as radial + concentric lines
+//     (the funnel's principal directions), concentrated where the mass warps it
+//     and fading on the flat outskirts. The sphere sits in the dip and occludes
+//     the well behind it — mixing an analytic primitive with a mesh in one scene.
+// ---------------------------------------------------------------------------
+function gravityWellDemo(): void {
+  const cam: Camera = {
+    eye: [4.2, 4.6, 2.7],
+    target: [0, 0, -0.85],
+    up: [0, 0, 1],
+    projection: "perspective",
+    scale: Math.PI / 4.5,
+    viewport: { width: 700, height: 520 },
+  };
+  const scene = new Scene({ light: { direction: [-0.4, -0.5, -0.7] }, svg: { background: BG } });
+  scene.add(new Mesh(gravitySheet(3, 72, 2.0, 0.72))).style({ wobble: 0.13, hatch: { mode: "cross", angle: 0, spacingPx: 8 } });
+  scene.add(sphere([0, 0, -0.85], 0.82)).style({ wobble: 0.13, hatch: { mode: "cross", angle: 20 } });
+  save("16-gravity-well", scene.render(cam).svg);
+}
+
 directionFieldsDemo();
 meshDemo();
 suggestiveDemo();
+meshShowcaseDemo();
+gravityWellDemo();
 console.log("gallery complete");
