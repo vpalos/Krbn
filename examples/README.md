@@ -248,6 +248,12 @@ uses, so an opaque surface doesn't ghost its own far side back through itself.
 
 ## Animation — temporal coherence
 
+![the animation as a GIF — seeded wobble, no boiling](krbn-animation.gif)
+
+*(This is a pre-rendered GIF of the sequence below — see
+[Encoding the animation to video / GIF](#encoding-the-animation-to-video--gif)
+to reproduce it.)*
+
 `animation.krbn.ts` default-exports a `film(...)` — a sequence of frames, each an
 ordinary `Drawing` (here `raw(session.render(cam).svg)`), so a frame composes with
 the same helpers as a still. Render it with:
@@ -294,9 +300,47 @@ hatch volume, and byte-identical replays from fresh sessions.
 
 ## Rendering to PNG
 
-SVGs open in any browser. To rasterize (e.g. for a README), use any SVG tool:
+SVGs open in any browser. To rasterize (e.g. for a README or a social post), use
+any SVG tool — `rsvg-convert` (Homebrew: `brew install librsvg`) is the least
+fuss:
 
 ```bash
-# ImageMagick, rsvg-convert, resvg, … — whatever you have
-convert -background white -density 96 examples/gallery/03-depth-hatching.svg out.png
+rsvg-convert -w 1600 examples/gallery/16-gravity-well.svg -o gravity-well.png
+
+# or a whole folder:
+for f in examples/gallery/*.svg; do rsvg-convert -w 1600 "$f" -o "${f%.svg}.png"; done
 ```
+
+Width sets the scale; height follows. Add `-b '#faf9f5'` (the paper color) if
+the target composites transparent PNGs badly. ImageMagick's `convert` and
+`resvg` work too.
+
+## Encoding the animation to video / GIF
+
+The frame SVGs are large — that's fine: **vector is the source format, not the
+shipping format.** Rasterize the frames and encode; pencil-style line art
+(mostly paper, thin dark strokes) compresses very well, so a clip lands at a
+few MB.
+
+```bash
+bun run render:animation
+
+# rasterize every frame
+for f in examples/animation/frame-*.svg; do
+  rsvg-convert -w 800 -b '#faf9f5' "$f" -o "${f%.svg}.png"
+done
+
+# mp4 (LinkedIn/Reddit native video, or drag into a GitHub comment to embed)
+ffmpeg -framerate 24 -pattern_type glob -i 'examples/animation/frame-*.png' \
+  -c:v libx264 -pix_fmt yuv420p -crf 20 krbn-animation.mp4
+
+# GIF (autoplays inline in a README — keep it short and modest or it balloons)
+ffmpeg -framerate 15 -pattern_type glob -i 'examples/animation/frame-*.png' \
+  -vf "scale=800:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" \
+  krbn-animation.gif
+```
+
+The thing to watch (and to mention if you share it): the wobble is seeded on
+stable stroke identity, so the hand-drawn lines **don't boil** between frames —
+the coherence that `test/animation-coherence.test.ts` asserts is exactly what
+makes the clip look calm.

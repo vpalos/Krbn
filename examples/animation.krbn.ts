@@ -26,7 +26,7 @@ import { torusMesh } from "../src/mesh/shapes.js";
 import { film, raw } from "../src/layout/index.js";
 
 const FRAMES = 60;
-const ORBIT = Math.PI / 1.5; // a 120° sweep over the sequence
+const ORBIT = Math.PI / 3; // a 60° sweep over the sequence
 const W = 640;
 const H = 480;
 
@@ -35,7 +35,7 @@ const cam = (a: number): Camera => ({
   target: [0, 0, 0],
   up: [0, 0, 1],
   projection: "orthographic",
-  scale: 0.02,
+  scale: 0.015,
   viewport: { width: W, height: H },
 });
 
@@ -45,14 +45,18 @@ const scene = new Scene({
   svg: { background: "#faf9f5" },
 });
 scene.add(
-  new Mesh(torusMesh(1.1, 0.45, 40, 20), { suggestive: { threshold: 0.02, fade: 0.05 } }, "torus"),
-  { style: { hatch: { mode: "cross", angle: 0 } } },
+  new Mesh(
+    torusMesh(1.1, 0.45, 40, 20),
+    { suggestive: { threshold: 0.02, fade: 0.05 } },
+    "torus",
+  ),
+  { style: { hatch: { mode: "single", angle: 0 } } },
 );
 scene.add(sphere([2.2, 1.2, 0.4], 0.8, "ball"), {
-  style: { hatch: { mode: "cross", angle: 20 } },
+  style: { hatch: { mode: "single", angle: 20 } },
 });
 scene.add(new Cylinder([-2.4, -0.6, -1.1], [0, 0, 2.2], 0.7, "cyl"), {
-  style: { hatch: { mode: "cross", angle: 0 } },
+  style: { hatch: { mode: "single", angle: 0 } },
 });
 
 // The session carries stroke identity across frames; each frame is a Drawing.

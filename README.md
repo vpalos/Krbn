@@ -39,6 +39,13 @@ deciding what the figure is actually _about_.
 
 ![two trefoil knots, one hatched along its curvature, one hatched flat](examples/gallery/15-mesh-showcase.svg)
 
+It moves, too — and this is the part stills can't show: wobble is seeded on
+stable stroke identity, so the hand-drawn lines **don't boil** between frames.
+An orbiting camera slides the silhouettes; nothing shimmers, jumps, or re-deals
+its jitter:
+
+![a camera orbit of a mixed scene — the hand-drawn lines stay calm](examples/krbn-animation.gif)
+
 Krbn began as a research prototype and grew into a full pipeline: an analytic
 primitive catalog and triangle meshes rendering through the _same_ five-stage
 pass, with hidden-line visibility, suggestive contours, hand-drawn wobble, and
