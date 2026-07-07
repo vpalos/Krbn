@@ -8,6 +8,36 @@ tree as of 2026-07-07; see DESIGN.md §"Implementation status" for module-level
 detail. Everything below is verified by `bun test` (unit + property + degeneracy
 suites) and `bun run build`.
 
+## What's left
+
+Phase 1 and most of Phase 2 are done — the full history is in the sections below.
+The open items:
+
+**To finish Phase 2**
+
+- ⬜ **Optional alpha** *(small)* — a faint fill under the hatching. The SVG
+  backend already fills, so it's mostly a styling knob + draw-order.
+- ⬜ **Group highlight** *(medium)* — a halo + outline around a *group* of
+  elements as one contour; needs a polygon-union over the per-solid hull
+  footprints (`src/math/hull.ts`).
+- ⬜ **Contour Newton-projection** *(medium)* — project sampled-silhouette grazing
+  points onto the exact surface so mesh visibility can drop its `selfNudge`
+  tolerance. A refinement, not a blocker.
+
+**Testing & DX (continuous)**
+
+- ⬜ **Golden-SVG regression tests** *(medium)* — structure/tolerance comparison
+  over the gallery (raw SVG bytes aren't stable across platforms).
+- ⬜ **More adversarial property tests** *(small)* — extend the conic / visibility
+  / mesh suites.
+
+**Animation polish (only under specific motion)**
+
+- ⬜ **Tone-quantization hysteresis** *(small)* — debounce tone flips when lights
+  or geometry animate (camera-only motion is already stable).
+- ⬜ **Hatch-LOD zoom crossfade** *(medium)* — soften a density level-switch under
+  camera zoom, session-side.
+
 ## Phase 1 — Analytic primitives (current)
 
 Real-world value for technical figures, and the regime where the hardest module
