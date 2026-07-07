@@ -1,7 +1,8 @@
 # Roadmap
 
 Detail, contracts, and the hard-parts registry live in [`docs/DESIGN.md`](DESIGN.md).
-This is the short view.
+This is the short view. Ideas that aren't commitments yet live in
+[`IDEAS.md`](IDEAS.md) — the food-for-thought corner.
 
 **Status legend:** ✅ done · 🚧 partial · ⬜ not started. Progress reflects the
 tree as of 2026-07-07; see DESIGN.md §"Implementation status" for module-level
