@@ -1,4 +1,4 @@
-// Torus — the one Phase-1 primitive that is not a quadric (ai/DESIGN.md §2.3).
+// Torus — the one Phase-1 primitive that is not a quadric (docs/DESIGN.md §2.3).
 // Its silhouette is a quartic image curve, so there is no conic shortcut: the
 // contour generator is extracted numerically from the implicit form, and
 // ray-torus intersection is a genuine quartic.
@@ -177,7 +177,7 @@ export class Torus implements FeatureSource {
     }));
   }
 
-  /** Closed-form ray–torus: a quartic in t (ai/DESIGN.md §2.3). */
+  /** Closed-form ray–torus: a quartic in t (docs/DESIGN.md §2.3). */
   raycast(ray: Ray): Hit[] {
     const { x: e1, y: e2, z: e3 } = this.frame;
     const oc = sub(ray.origin, this.center);

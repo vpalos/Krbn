@@ -265,7 +265,7 @@ A 48-frame, 60° camera orbit of a mixed scene — a **mesh torus** (curvature
 hatch + suggestive contours), an **analytic sphere** (cross-hatch), and a
 **cylinder** (curved ring field) — rendered through a **`FrameSession`**, the
 stateful wrapper that carries stroke identity across frames while the per-frame
-pipeline stays pure (ai/DESIGN.md §3.3.7; ROADMAP Phase-2 item 6).
+pipeline stays pure (docs/DESIGN.md §3.3.7; ROADMAP Phase-2 item 6).
 
 What to look for while it plays — each is one piece of the coherence work:
 

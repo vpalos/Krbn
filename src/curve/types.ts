@@ -4,7 +4,7 @@ import type { Vec2, Vec3, Basis } from "../math/types.js";
  * The geometry carrier that flows between pipeline stages.
  *
  * Analytic features stay analytic until emit, to preserve exactness and exact
- * crossings (ai/DESIGN.md §1.4). The mesh regime supplies { kind: 'polyline' }.
+ * crossings (docs/DESIGN.md §1.4). The mesh regime supplies { kind: 'polyline' }.
  */
 export type Curve =
   | { kind: "line"; a: Vec3; b: Vec3 }
@@ -22,7 +22,7 @@ export type Curve =
 
 /**
  * A projected curve in screen space. Used to place quantitative-invisibility
- * crossing events (ai/DESIGN.md §2.4), so it is kept analytic where possible.
+ * crossing events (docs/DESIGN.md §2.4), so it is kept analytic where possible.
  */
 export type Curve2D =
   | { kind: "line"; a: Vec2; b: Vec2 }

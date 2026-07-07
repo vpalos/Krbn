@@ -1,4 +1,4 @@
-// Phase-2 step 4: the mesh `FeatureSource` (ai/DESIGN.md §3.1–3.2).
+// Phase-2 step 4: the mesh `FeatureSource` (docs/DESIGN.md §3.1–3.2).
 //
 // This is the payoff of the shared seam: a triangle mesh is *one more*
 // implementation of the same interface the analytic primitives use. Because
@@ -29,7 +29,7 @@ export interface MeshOptions extends BuildOptions {
   /** draw suggestive contours (needs the curvature precompute; off by default).
    *  `true` uses the default threshold; an object sets threshold and the fade
    *  band (`fade`: contours fade in over that D_w κ_r margin instead of popping
-   *  at the threshold). (ai/DESIGN.md §3.3.5, §3.3.7) */
+   *  at the threshold). (docs/DESIGN.md §3.3.5, §3.3.7) */
   suggestive?: boolean | { threshold?: number; fade?: number };
 }
 
@@ -70,7 +70,7 @@ export class Mesh implements FeatureSource {
     return this.aabb;
   }
 
-  /** Self-occlusion depth tolerance for the exact depth-buffer QI (ai/DESIGN.md
+  /** Self-occlusion depth tolerance for the exact depth-buffer QI (docs/DESIGN.md
    *  §3.3.6). A *smooth* mesh's silhouette is the interpolated zero-set, which
    *  floats off the flat facets by up to a facet's chord-sagitta, so a self-hit
    *  only counts as a genuine (separate-sheet) occlusion beyond ~an edge length.
@@ -159,7 +159,7 @@ export class Mesh implements FeatureSource {
 
   /** Curvature-driven hatch: streamlines of the principal-direction field (dir1
    *  for family 0, dir2 for family 1). Returns `[]` on isotropic surfaces (e.g. a
-   *  sphere), so the scene falls back to straight parallel hatch. (ai/DESIGN.md §2.6)
+   *  sphere), so the scene falls back to straight parallel hatch. (docs/DESIGN.md §2.6)
    *
    *  Temporal coherence: streamlines come from a static object-space
    *  `StreamlineAtlas` (traced once per density level, cached on the source —

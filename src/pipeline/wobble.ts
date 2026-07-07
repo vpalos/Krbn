@@ -1,4 +1,4 @@
-// Seeded, deterministic "hand-drawn" wobble (ai/DESIGN.md §4).
+// Seeded, deterministic "hand-drawn" wobble (docs/DESIGN.md §4).
 //
 // The default (`createWobble`) offsets each vertex by a screen-space vector
 // sampled from a seeded 3-D noise field keyed on the vertex's *object-space

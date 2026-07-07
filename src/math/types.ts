@@ -1,4 +1,4 @@
-// Core geometric types. Implementations are the next build target — see ai/DESIGN.md §2.9.1.
+// Core geometric types. Implementations are the next build target — see docs/DESIGN.md §2.9.1.
 
 /** Immutable 3-vector. */
 export type Vec3 = readonly [number, number, number];
@@ -38,7 +38,7 @@ export type Projection = "orthographic" | "perspective";
 
 /**
  * Camera / view. Default projection is orthographic for technical figures,
- * where a sphere's silhouette is a true circle (ai/DESIGN.md §5).
+ * where a sphere's silhouette is a true circle (docs/DESIGN.md §5).
  */
 export interface Camera {
   eye: Vec3;

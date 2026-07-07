@@ -1,4 +1,4 @@
-// A scene element: a `FeatureSource` plus authoring semantics (ai/DESIGN.md §2.8).
+// A scene element: a `FeatureSource` plus authoring semantics (docs/DESIGN.md §2.8).
 //
 // `importance`/`role` express what matters; the engine allocates detail from
 // them. Importance's primary lever is the abstraction stage (not built yet), so

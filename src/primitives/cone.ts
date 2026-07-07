@@ -1,4 +1,4 @@
-// Finite right circular cone — a quadric configuration (ai/DESIGN.md §2.3).
+// Finite right circular cone — a quadric configuration (docs/DESIGN.md §2.3).
 //
 // Silhouette = two straight generators through the apex + the base rim circle.
 // A generator direction is g = cosα·â + sinα·m for a unit m ⊥ â. The contour

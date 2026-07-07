@@ -1,4 +1,4 @@
-// Finite circular cylinder — a quadric configuration (ai/DESIGN.md §2.3).
+// Finite circular cylinder — a quadric configuration (docs/DESIGN.md §2.3).
 //
 // Silhouette = two rulings (lines parallel to the axis) + the two rim circles.
 // The rulings are exact: for an orthographic view direction v the tangent

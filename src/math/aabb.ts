@@ -1,5 +1,5 @@
 // Axis-aligned bounding box helpers. `AABB` is view-independent (static scaffold,
-// ai/DESIGN.md §0.4) — computed once per element.
+// docs/DESIGN.md §0.4) — computed once per element.
 
 import type { AABB, Vec3 } from "./types.js";
 

@@ -1,5 +1,5 @@
 // Phase-2 step 3: the mesh silhouette as an interpolated zero-set, chained into
-// ordered polylines (ai/DESIGN.md §3.3.3–4).
+// ordered polylines (docs/DESIGN.md §3.3.3–4).
 //
 // Define g(v) = n(v) · (direction toward the eye) at each vertex, using the
 // *interpolated* vertex normal. The silhouette is the zero set of g. Interpolating
@@ -50,7 +50,7 @@ function cmpEdgeKey(a: string, b: string): number {
 
 /**
  * A chained zero-set contour in **canonical orientation** with a per-frame
- * identity anchor (temporal coherence, ai/DESIGN.md §3.3.7).
+ * identity anchor (temporal coherence, docs/DESIGN.md §3.3.7).
  *
  * - **Direction is intrinsic**: the chain is oriented so the positive-g side
  *   (front-facing, for a silhouette) lies consistently to one side of the walk —

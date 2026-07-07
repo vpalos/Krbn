@@ -3,7 +3,7 @@
 The mesh-based `FeatureSource` for organic/scanned geometry. Because everything
 from the stage-2 contract onward is shared with the analytic path, adding it means
 implementing one interface (`FeatureSource`) plus the numerical machinery behind
-it. See **ai/DESIGN.md §3** for the phased plan and hard-parts registry.
+it. See **docs/DESIGN.md §3** for the phased plan and hard-parts registry.
 
 ## Here now
 

@@ -1,4 +1,4 @@
-// Adaptive screen-flatness sampling of an analytic curve (ai/DESIGN.md §2.3,
+// Adaptive screen-flatness sampling of an analytic curve (docs/DESIGN.md §2.3,
 // stage-5 emit). We subdivide a parameter interval only where the curve's
 // *projected* midpoint strays from the chord by more than a pixel tolerance, so
 // straight or nearly-straight spans stay cheap while tight bends get resolved —

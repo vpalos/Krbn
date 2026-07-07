@@ -1,4 +1,4 @@
-// Temporal coherence, step 1: the identity spine (ai/DESIGN.md §3.3.7, §4).
+// Temporal coherence, step 1: the identity spine (docs/DESIGN.md §3.3.7, §4).
 //
 // Chains must be canonically oriented from topology (not face-iteration order
 // relative to the current view) and carry identity anchors that survive small

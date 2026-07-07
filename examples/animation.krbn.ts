@@ -2,7 +2,7 @@
 //
 // A slow camera orbit of a mixed analytic + mesh scene (wobble, hatching,
 // abstraction, suggestive contours all on) driven through a `FrameSession`
-// (ai/DESIGN.md §3.3.7; ROADMAP Phase-2 item 6). Render it with:
+// (docs/DESIGN.md §3.3.7; ROADMAP Phase-2 item 6). Render it with:
 //
 //     bun run render examples/animation.krbn.ts
 //

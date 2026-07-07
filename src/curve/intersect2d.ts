@@ -1,5 +1,5 @@
 // Screen-space crossing points between two projected curves. This is where QI
-// interval boundaries come from (ai/DESIGN.md §2.4): every place a feature's
+// interval boundaries come from (docs/DESIGN.md §2.4): every place a feature's
 // image meets an occluder's apparent contour is a candidate visibility change.
 // Built entirely on the exact conic kernel; segments are clipped to their extent
 // so a finite ruling/edge never produces phantom crossings on its extension.

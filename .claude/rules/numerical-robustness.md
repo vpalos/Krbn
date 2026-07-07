@@ -32,5 +32,5 @@ This is the highest-risk code in the engine. Treat it accordingly.
 - When a case is genuinely undecidable at a tolerance, fail loudly (typed result /
   explicit "degenerate" outcome), never silently.
 
-See `ai/DESIGN.md` §2.4 (quantitative invisibility) and §5 (the conic kernel as
+See `docs/DESIGN.md` §2.4 (quantitative invisibility) and §5 (the conic kernel as
 the critical path).

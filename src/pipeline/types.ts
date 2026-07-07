@@ -6,7 +6,7 @@ export type ElementId = string;
 
 /**
  * Stable identity of a feature *instance* across frames — the spine of temporal
- * coherence (ai/DESIGN.md §3.3.7, §4). Downstream stages key per-stroke state on
+ * coherence (docs/DESIGN.md §3.3.7, §4). Downstream stages key per-stroke state on
  * it (dash phase, taper direction, frame-to-frame correspondence), so it must not
  * churn under small camera motion. Sources that can anchor a view-dependent chain
  * to view-independent data supply it themselves (a mesh silhouette loop is keyed
@@ -28,7 +28,7 @@ export type FeatureType =
   | "suggestive"
   | "intersection";
 
-/** Stage 1 → 2. Object space, already chained (ai/DESIGN.md §1.4). */
+/** Stage 1 → 2. Object space, already chained (docs/DESIGN.md §1.4). */
 export interface Feature {
   type: FeatureType;
   /** carried end-to-end so importance/styling stay resolvable in stages 3–4 */
@@ -69,7 +69,7 @@ export interface Stroke {
 export type HatchMode = "single" | "cross" | "triple";
 
 /**
- * A surface region to be filled with hatching (ai/DESIGN.md §2.6).
+ * A surface region to be filled with hatching (docs/DESIGN.md §2.6).
  * Its outline is clipped to the visible portion so gaps reveal what is behind
  * (alpha-free transparency).
  */
@@ -94,7 +94,7 @@ export interface HatchRegion {
 }
 
 /**
- * A curved hatch *direction field* (ai/DESIGN.md §2.6). Instead of straight
+ * A curved hatch *direction field* (docs/DESIGN.md §2.6). Instead of straight
  * parallel screen lines, a primitive can emit its exact iso-parameter curves
  * (a cylinder's rings + rulings, a torus's poloidal/toroidal circles) as
  * world-space samples carrying the surface normal. The scene projects each
@@ -141,7 +141,7 @@ export interface RenderStroke {
   /**
    * Optional per-vertex stroke width (px), same length as `path`. When present
    * (and the stroke is solid), the backend draws a filled *ribbon* of varying
-   * width instead of a uniform stroke. (ai/DESIGN.md §4)
+   * width instead of a uniform stroke. (docs/DESIGN.md §4)
    */
   width?: readonly number[];
 }

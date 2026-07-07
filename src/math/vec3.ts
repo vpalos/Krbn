@@ -1,6 +1,6 @@
 // Immutable 3-vector algebra. Pure functions over the `Vec3` tuple type; no
 // hidden state, no allocation of classes. Kept exact/closed-form — this is
-// foundation for the analytic primitive path (ai/DESIGN.md §2.9.1).
+// foundation for the analytic primitive path (docs/DESIGN.md §2.9.1).
 
 import type { Vec3 } from "./types.js";
 

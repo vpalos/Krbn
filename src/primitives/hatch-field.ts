@@ -1,5 +1,5 @@
 // Helpers shared by the primitives that expose a curved hatch direction field
-// (ai/DESIGN.md §2.6). A field is a list of *families*, each a list of exact
+// (docs/DESIGN.md §2.6). A field is a list of *families*, each a list of exact
 // iso-parameter curves given as world-space samples with normals; the scene
 // projects them and clips to the visible, tonally-dark, front-facing surface.
 //
@@ -36,7 +36,7 @@ export interface LadderStop {
 
 /**
  * Dyadic iso-parameter ladder — temporal coherence for analytic hatch fields
- * (ai/DESIGN.md §3.3.7). Instead of `round(span/spacing)` evenly re-spaced
+ * (docs/DESIGN.md §3.3.7). Instead of `round(span/spacing)` evenly re-spaced
  * values (which *move every curve* whenever the camera changes the count),
  * iso-values live on a fixed dyadic grid: level 0 = {1/2} (open) or {0}
  * (periodic), and each level adds the midpoints between existing values — so

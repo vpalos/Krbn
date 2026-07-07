@@ -1,7 +1,7 @@
 // Stage 4 — styling. Resolves a per-element `StyleSpec` (weight, colour, wobble,
 // dash/ghost, hatch) and emits a classified `Stroke` as styled `RenderStroke`s:
 // one run per visibility interval, visible solid / hidden ghosted, with seeded
-// wobble applied to the sampled polyline (ai/DESIGN.md §2.8, §4).
+// wobble applied to the sampled polyline (docs/DESIGN.md §2.8, §4).
 //
 // `importance`/`role` do not set style directly (that is the abstraction stage's
 // job, §2.8); but `role` still supplies sensible styling defaults now — a
@@ -25,7 +25,7 @@ export interface HatchSpec {
   /**
    * Use the primitive's exact curved direction field (rings/rulings/poloidal…)
    * when it offers one. Defaults to `true`; set `false` to force straight
-   * parallel hatch even on a cylinder/cone/torus. (ai/DESIGN.md §2.6)
+   * parallel hatch even on a cylinder/cone/torus. (docs/DESIGN.md §2.6)
    */
   field?: boolean;
 }

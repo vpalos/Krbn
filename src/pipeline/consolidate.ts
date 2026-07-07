@@ -1,4 +1,4 @@
-// Cross-primitive consolidation (ai/DESIGN.md §2.7): merge near-collinear,
+// Cross-primitive consolidation (docs/DESIGN.md §2.7): merge near-collinear,
 // overlapping *line* strokes — from any primitives — into one representative
 // line, so coincident edges are drawn once instead of piled up. A view-dependent
 // abstraction: it works in screen space, then reconstructs the merged 3-D segment

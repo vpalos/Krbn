@@ -179,5 +179,5 @@ the `Drawing`/`Film` types); core math types (`Camera`, `Vec3`, …).
 **`krbn/shapes`** — mesh generators (`cube`, `uvSphere`, `torusMesh`,
 `gravitySheet`, `knotTube`, …) and `translate` / `rotate`.
 
-See [`ai/DESIGN.md`](ai/DESIGN.md) for how the engine works and
+See [`docs/DESIGN.md`](docs/DESIGN.md) for how the engine works and
 [`examples/`](examples) for the full gallery and animation.

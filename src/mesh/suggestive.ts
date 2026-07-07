@@ -1,4 +1,4 @@
-// Phase-2 step 5: suggestive contours (ai/DESIGN.md §3.3.5).
+// Phase-2 step 5: suggestive contours (docs/DESIGN.md §3.3.5).
 //
 // DeCarlo, Finkelstein, Rusinkiewicz & Santella (SIGGRAPH 2003): the lines an
 // artist draws where the surface *would* turn away under a slightly different

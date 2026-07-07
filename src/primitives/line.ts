@@ -1,7 +1,7 @@
 // A bare line segment / ray as a scene element. It is a drawn edge, not a
 // surface: it has no silhouette and does not occlude (a 1-D set casts no area
 // shadow), but it is occludABLE along its length — that visibility is resolved
-// downstream by QI (ai/DESIGN.md §2.3, "Line segment / ray").
+// downstream by QI (docs/DESIGN.md §2.3, "Line segment / ray").
 
 import type { AABB, Camera, Hit, Ray, Vec3 } from "../math/types.js";
 import type { Curve2D } from "../curve/types.js";

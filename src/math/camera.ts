@@ -1,7 +1,7 @@
 // Camera model + projection. Builds a 3×4 projection matrix P mapping a
 // homogeneous world point (x, y, z, 1) to a homogeneous screen point (u, v, w),
 // with pixel coordinates (u/w, v/w). Orthographic and perspective are handled by
-// swapping the intrinsic block only (ai/DESIGN.md §5: support both, default ortho).
+// swapping the intrinsic block only (docs/DESIGN.md §5: support both, default ortho).
 
 import type { Camera, Ray, Vec2, Vec3 } from "./types.js";
 import { cross, dot, normalize, sub } from "./vec3.js";
@@ -80,7 +80,7 @@ export function projectPoint(P: Proj, p: Vec3): { point: Vec2; w: number } {
  * Inverse of {@link projectPoint}: the world-space viewing ray through a pixel.
  * Perspective rays fan out from the eye; orthographic rays are parallel along the
  * view axis, offset across the image plane. Used by the visibility stage to map a
- * screen crossing back onto a feature's supporting geometry (ai/DESIGN.md §2.4).
+ * screen crossing back onto a feature's supporting geometry (docs/DESIGN.md §2.4).
  */
 export function unproject(cam: Camera, pixel: Vec2): Ray {
   const { right, up, forward } = cameraFrame(cam);

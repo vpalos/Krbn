@@ -1,4 +1,4 @@
-// Intersection-curve features (ai/DESIGN.md §2.5): the "waterline" where two
+// Intersection-curve features (docs/DESIGN.md §2.5): the "waterline" where two
 // analytic surfaces meet. Exact for the cases below; each is emitted as a
 // first-class `Feature` of type `intersection` that flows through the same
 // visibility + styling pipeline as any other curve.
@@ -175,7 +175,7 @@ function aabbRangeAlong(box: AABB, dir: Vec3): [number, number] {
  * low-degree carrier exists for a quartic, so it is traced: sweep cutting planes;
  * in each plane both quadrics section to conics whose *exact* intersections
  * (conic∩conic kernel) are points on the quartic. Points are then chained into
- * one or more polyline loops (ai/DESIGN.md §2.5).
+ * one or more polyline loops (docs/DESIGN.md §2.5).
  */
 export function intersectQuadricQuadric(Q1: Mat4, Q2: Mat4, b1: AABB, b2: AABB): Section[] {
   const c1 = quadricCenter(Q1);

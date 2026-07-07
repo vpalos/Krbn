@@ -1,4 +1,4 @@
-// Phase-2 step 2: per-vertex curvature precompute (ai/DESIGN.md §3.3.2).
+// Phase-2 step 2: per-vertex curvature precompute (docs/DESIGN.md §3.3.2).
 //
 // A faithful port of Rusinkiewicz, "Estimating Curvatures and Their Derivatives
 // on Triangle Meshes" (SGP 2004) — the method trimesh2 uses. For each face we fit

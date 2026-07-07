@@ -5,7 +5,7 @@
 //
 // Recovering the parameter geometrically (not by interpolating screen distance)
 // is what keeps QI exact under perspective, where a line's 3-D parameter maps to
-// screen position through a non-affine projective function (ai/DESIGN.md §2.4).
+// screen position through a non-affine projective function (docs/DESIGN.md §2.4).
 
 import type { Camera, Vec2, Vec3 } from "../math/types.js";
 import type { Curve } from "../curve/types.js";
@@ -135,7 +135,7 @@ export function buildFeatureModel(curve: Curve, cam: Camera): FeatureCurveModel 
 
     case "bezier": {
       // No exact screen carrier — sample to a polyline (this is the sanctioned
-      // exception for genuinely free curves, ai/DESIGN.md §2.3) and reuse the
+      // exception for genuinely free curves, docs/DESIGN.md §2.3) and reuse the
       // polyline model.
       const project = (p: Vec3): Vec2 => projectPoint(P, p).point;
       // minDepth floor: a Bézier whose t=0.5 point lands on the P0–P3 chord (any

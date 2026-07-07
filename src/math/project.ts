@@ -4,7 +4,7 @@
 // P it maps to another conic in screen space — no sampling. The plane→screen map
 // is the 3×3 homography H = P · [ x̂ | ŷ | origin ] (columns homogeneous), and a
 // point conic transforms as  C_screen = H⁻ᵀ · C_plane · H⁻¹. This keeps rim
-// ellipses (cylinder/cone caps) analytic for the QI stage (ai/DESIGN.md §2.4).
+// ellipses (cylinder/cone caps) analytic for the QI stage (docs/DESIGN.md §2.4).
 
 import type { Curve2D } from "../curve/types.js";
 import type { Vec3 } from "./types.js";

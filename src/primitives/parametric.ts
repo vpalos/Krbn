@@ -1,7 +1,7 @@
 // Parametric curves: Bézier (exact carrier) and general function-defined curves
 // (helix, function plot). A general parametric curve has no closed-form feature
 // carrier, so it is the one primitive where per-frame, screen-adaptive sampling
-// is legitimate (ai/DESIGN.md §2.3). Like a Line, a 1-D curve does not occlude.
+// is legitimate (docs/DESIGN.md §2.3). Like a Line, a 1-D curve does not occlude.
 
 import type { AABB, Camera, Hit, Ray, Vec3 } from "../math/types.js";
 import type { Curve2D } from "../curve/types.js";

@@ -1,5 +1,5 @@
 // The exact conic kernel — the critical path of the whole engine
-// (ai/DESIGN.md §2.9.1, §5). Quantitative-invisibility crossings reduce to
+// (docs/DESIGN.md §2.9.1, §5). Quantitative-invisibility crossings reduce to
 // line–conic and conic–conic intersections, so this file has to be both exact
 // and robust in every degenerate configuration (see numerical-robustness.md).
 //

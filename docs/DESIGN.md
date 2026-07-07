@@ -7,11 +7,11 @@ artist: ghosted hidden lines, cross-hatched surfaces, emphasized/dashed contours
 and deliberate reduction of detail.
 
 This document specifies **Phase 1 (analytic primitives)** in detail and keeps the
-**mesh/organ regime** fully roadmapped so it is deferred, not lost.
+**mesh/organ regime** (§3) fully roadmapped — now underway behind the same seam.
 
 ---
 
-## Implementation status (as of 2026-07-05)
+## Implementation status (as of 2026-07-07)
 
 The engine is past scaffold: the math kernel and the full analytic-primitive
 catalog are implemented and tested. What exists, by area (✅ done · 🚧 partial ·
@@ -48,8 +48,8 @@ catalog are implemented and tested. What exists, by area (✅ done · 🚧 parti
   `src/pipeline/render.ts`): the whole Phase-1 chain (extract → visibility → emit
   → SVG) runs end to end. Each visibility interval is adaptively sampled to a
   screen polyline and drawn — solid for visible runs, faint-dashed "ghost" for
-  hidden (a minimal stand-in until stage 4). See `examples/demo.ts` →
-  `examples/demo.svg` for a visual check.
+  hidden (a minimal stand-in until stage 4). See the `examples/gallery/*.krbn.ts`
+  renders for a visual check.
 - ✅ **Stage 4 — styling** (`src/pipeline/style.ts`, `wobble.ts`, `hatch.ts`):
   per-element style resolution, seeded deterministic wobble (anchored to
   object-space arclength, continuous across visibility intervals), dash/ghost, and
@@ -101,6 +101,16 @@ catalog are implemented and tested. What exists, by area (✅ done · 🚧 parti
   follows curvature and its hidden half drops out of the visibility test.
   Deferred refinement: a contour Newton-projection for sampled silhouettes
   (Phase-2 meshes).
+- ✅ **Authoring & output** (`src/layout`, `src/cli/render.ts`): a scene is a
+  standalone `*.krbn.ts` file that default-exports a deliverable — a `Drawing`
+  (one SVG, `.toSvg()`) or a `Film` (a driven frame sequence) — composed with the
+  layout helpers (`view`/`grid`/`stack`/`film`/`flipbook`); the `render` CLI ships
+  any of them to SVG. Element identity is **scene-scoped** (`src/scene/auto-id.ts`;
+  `Scene.add` assigns deterministic per-scene ids), so a scene's wobble is
+  independent of process construction order. The public API exports the engine
+  mechanics from `krbn` (primitives, `Scene`, `FrameSession`, `Mesh` + `MeshInput`,
+  the layout deliverables) with the mesh shape generators on a separate
+  `krbn/shapes` subpath; see [`API.md`](../API.md).
 
 All nine Phase-1 build-order steps (§2.9) are implemented end to end.
 
@@ -341,7 +351,7 @@ scene.highlight(s, { weight: 2.5, dashWhenHidden: true });
 
 ### 2.9 Suggested build order (Phase 1)
 
-Status marks reflect the tree as of 2026-07-05 (see "Implementation status" above).
+Status marks reflect the tree as of 2026-07-07 (see "Implementation status" above).
 
 1. ✅ Core math: `Vec3`, `Basis`, `Camera` (ortho + perspective), `Ray`, `Curve`,
    `Curve2D` (conic/arc/line with exact intersection).
@@ -351,7 +361,7 @@ Status marks reflect the tree as of 2026-07-05 (see "Implementation status" abov
    `Cylinder`/`Cone` as configurations. `Plane`/`Polygon`, `Line`,
    `ParametricCurve`.
 4. ✅ Stage 1 emit of raw features — via the render facade (`renderScene`),
-   verify by eye (`examples/demo.svg`).
+   verify by eye (the `examples/gallery/*.krbn.ts` renders).
 5. ✅ Stage 2: exact QI (crossing events + reference test) → visible/hidden
    intervals (`src/pipeline/visibility.ts`).
 6. ✅ Intersection curves (`src/primitives/intersection.ts`).
@@ -364,7 +374,7 @@ Status marks reflect the tree as of 2026-07-05 (see "Implementation status" abov
 
 ---
 
-## 3. Roadmap — Mesh / organ regime (deferred, not forgotten)
+## 3. Mesh / organ regime (Phase 2 — underway)
 
 ### 3.1 The payoff
 
@@ -379,6 +389,11 @@ discipline, backend. The mesh path must only produce `Feature`s (as chained
 polyline `Curve`s) and support `raycast` / `projectedSilhouettes`.
 
 ### 3.3 Phased plan
+
+**Steps 1–7 are implemented** — a triangle mesh now renders end to end through the
+shared pipeline (silhouette zero-set, creases, suggestive contours, curvature-driven
+hatch, hidden-line visibility, and temporal coherence via `FrameSession`). See
+`docs/ROADMAP.md` for the annotated per-step status.
 
 1. **Static scaffold.** Half-edge structure (oriented, manifold; cleanup at load).
    Face normals, area; angle-weighted vertex normals; per-edge dihedral; pre-tag
@@ -426,6 +441,12 @@ polyline `Curve`s) and support `raycast` / `projectedSilhouettes`.
   late-sampled polyline.
 - **Alpha (optional, later).** A faint fill composited under hatching; a pure
   drawing op, decoupled from geometry.
+- **Authoring & output.** A scene is a standalone `*.krbn.ts` file that
+  default-exports a deliverable (`Drawing`/`Film`, `.toSvg()`), composed with the
+  `src/layout` helpers and shipped to SVG by the `render` CLI. Element identity is
+  scene-scoped (`src/scene/auto-id.ts`) so output is order-independent; the public
+  API splits into core mechanics (`krbn`) and mesh shape generators (`krbn/shapes`),
+  documented in [`API.md`](../API.md).
 
 ---
 
@@ -438,12 +459,12 @@ polyline `Curve`s) and support `raycast` / `projectedSilhouettes`.
   line–conic intersector (the numerical core of exact QI) is implemented and is
   the most-tested module (`src/curve/conic.ts`; see the Implementation status
   section and §2.4).
-- **Torus and non-quadric primitives:** numerical silhouette from implicit form;
-  still deferred, scope for later in Phase 1.
+- **Torus and non-quadric primitives:** _resolved._ The torus ships
+  (`src/primitives/torus.ts`: numerical silhouette as two contour loops from the
+  implicit form; ray-torus via a real quartic solver).
 
-The full Phase-1 pipeline is now in place (extract → visibility → abstraction →
-styling → emit → SVG), including intersection curves (§2.5). Next is **Phase-1
-polish** — cross-primitive consolidation (§2.7), cylinder/cone surface hatching
-(§2.6), quadric ∩ quadric quartics and torus (§2.3), `scene.highlight` (§2.8) —
-and then **Phase 2**, the mesh/organ regime (§3), which is one more `FeatureSource`
-behind the same seam.
+Phase 1 and its polish backlog are complete (extract → visibility → abstraction →
+styling → emit → SVG, plus consolidation, cylinder/cone surface hatching, quadric
+∩ quadric quartics, the torus, `scene.highlight`, and curved hatch direction
+fields). **Phase 2** — the mesh/organ regime (§3) — is underway behind the same
+`FeatureSource` seam; see `docs/ROADMAP.md` for the annotated status.

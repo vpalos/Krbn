@@ -1,5 +1,5 @@
 // The first analytic primitive: a quadric surface, and Sphere/Ellipsoid as
-// configurations of it (ai/DESIGN.md §2.2 — "the organizing fact of the
+// configurations of it (docs/DESIGN.md §2.2 — "the organizing fact of the
 // primitive layer"). One implementation of `FeatureSource` gives every quadric
 // an exact silhouette (a conic) and closed-form ray hits.
 //

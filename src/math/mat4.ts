@@ -1,6 +1,6 @@
 // 4x4 matrix algebra, row-major. A quadric surface is the symmetric 4×4 matrix Q
 // with Pᵀ Q P = 0 for homogeneous P = (x, y, z, 1). The apparent-contour method
-// (ai/DESIGN.md §2.2) needs the *dual* quadric adj(Q), so determinant and
+// (docs/DESIGN.md §2.2) needs the *dual* quadric adj(Q), so determinant and
 // adjugate live here alongside the basic ops.
 
 import type { Vec3 } from "./types.js";

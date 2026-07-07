@@ -1,4 +1,4 @@
-// A point, rendered as a small camera-facing mark (ai/DESIGN.md §2.3). The mark
+// A point, rendered as a small camera-facing mark (docs/DESIGN.md §2.3). The mark
 // is emitted as short 3-D segments at the point's depth, so ordinary QI decides
 // its visibility (a single depth test in effect) and the styling/emit stages need
 // no special case. Like a Line, a point has no area and does not occlude.

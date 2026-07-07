@@ -1,5 +1,5 @@
 // Temporal coherence, steps 2–3: the frame session and frame-to-frame
-// correspondence (ai/DESIGN.md §3.3.7, §4; ai/ROADMAP.md Phase-2 item 6).
+// correspondence (docs/DESIGN.md §3.3.7, §4; docs/ROADMAP.md Phase-2 item 6).
 //
 // The per-frame pipeline stays a pure function of the camera; *all* cross-frame
 // state lives here. A `FrameSession` wraps a `Scene` and, each frame, reconciles

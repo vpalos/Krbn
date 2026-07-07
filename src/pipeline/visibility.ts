@@ -1,4 +1,4 @@
-// Stage 2 — exact quantitative invisibility (ai/DESIGN.md §2.4, §3.3.6).
+// Stage 2 — exact quantitative invisibility (docs/DESIGN.md §2.4, §3.3.6).
 //
 // For each feature curve we (1) collect every screen crossing with an occluder's
 // apparent contour — these are the only parameters at which visibility can
@@ -35,7 +35,7 @@ export function sceneScale(sources: readonly FeatureSource[]): number {
 
 /**
  * Is the world point `p` hidden by any surface in the scene? An exact depth-buffer
- * test (ai/DESIGN.md §3.3.6): cast the *primary* ray — from the eye through `p`'s
+ * test (docs/DESIGN.md §3.3.6): cast the *primary* ray — from the eye through `p`'s
  * pixel — and ask whether any surface is hit strictly nearer than `p`. `p`'s own
  * surface registers at its own depth (`t ≈ dp`) and so never self-occludes; a
  * genuinely nearer surface — the front of a fold, or another object — is caught by
@@ -225,7 +225,7 @@ function bisectFlip(occ: (t: number) => boolean, ta: number, occA: boolean, tb: 
 /**
  * Run stage 2 over a whole scene: every source's features, classified against all.
  *
- * `reconcile` is the temporal-coherence seam (ai/DESIGN.md §3.3.7): it sees the
+ * `reconcile` is the temporal-coherence seam (docs/DESIGN.md §3.3.7): it sees the
  * complete feature list for this frame *after* id assignment and *before*
  * classification, and may mutate features in place — remap `id`s to persistent
  * identities, reverse a chain's polyline to match last frame's direction. It runs

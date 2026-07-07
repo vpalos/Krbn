@@ -1,4 +1,4 @@
-// Hatch generation (ai/DESIGN.md §2.6). Parallel lines in the region's direction
+// Hatch generation (docs/DESIGN.md §2.6). Parallel lines in the region's direction
 // field, clipped *exactly* to its projected outline: for a conic outline the clip
 // is a line–conic chord (kernel-exact); for a polygon it is the usual even–odd
 // edge crossing. `single`/`cross`/`triple` stack 1/2/3 angle sets; spacing comes

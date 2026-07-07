@@ -1,4 +1,4 @@
-// SVG backend (ai/DESIGN.md §4: "SVG first — exact, resolution-independent vector
+// SVG backend (docs/DESIGN.md §4: "SVG first — exact, resolution-independent vector
 // output"). Pure: it only turns `RenderStroke`s into an SVG string and knows
 // nothing about geometry, cameras, or the pipeline upstream of the emit contract.
 

@@ -1,4 +1,4 @@
-// Phase-2: curvature-driven hatch field for meshes (ai/DESIGN.md §2.6, §3.3.2).
+// Phase-2: curvature-driven hatch field for meshes (docs/DESIGN.md §2.6, §3.3.2).
 //
 // The analytic primitives hatch along their exact iso-parameter curves. The mesh
 // analogue is to hatch along the **principal-curvature direction field** — the
@@ -274,7 +274,7 @@ export function meshHatchField(mesh: HalfEdgeMesh, curv: CurvatureField, opts: M
 }
 
 // ---------------------------------------------------------------------------
-// Streamline atlas — temporal coherence (ai/DESIGN.md §3.3.7; ROADMAP Phase-2
+// Streamline atlas — temporal coherence (docs/DESIGN.md §3.3.7; ROADMAP Phase-2
 // item 6.4)
 // ---------------------------------------------------------------------------
 

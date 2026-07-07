@@ -1,4 +1,4 @@
-// Variable stroke width (ai/DESIGN.md §4). A pencil line is not a constant-weight
+// Variable stroke width (docs/DESIGN.md §4). A pencil line is not a constant-weight
 // ruler stroke: it swells and thins under hand pressure and tapers at its ends.
 // This computes a per-vertex width for a screen polyline, which the SVG backend
 // turns into a filled *ribbon* (offset the centreline by ±w/2). Width = base

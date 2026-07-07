@@ -1,10 +1,10 @@
 # Roadmap
 
-Detail, contracts, and the hard-parts registry live in [`ai/DESIGN.md`](ai/DESIGN.md).
+Detail, contracts, and the hard-parts registry live in [`docs/DESIGN.md`](DESIGN.md).
 This is the short view.
 
 **Status legend:** ✅ done · 🚧 partial · ⬜ not started. Progress reflects the
-tree as of 2026-07-05; see DESIGN.md §"Implementation status" for module-level
+tree as of 2026-07-07; see DESIGN.md §"Implementation status" for module-level
 detail. Everything below is verified by `bun test` (unit + property + degeneracy
 suites) and `bun run build`.
 
@@ -32,35 +32,58 @@ renders. Before Phase 2 we are hardening Phase 1 — the ordered backlog:
    angle set clipped to the surface region dark enough for it; flat faces stay
    uniform). Hatch weight/opacity are style-driven. `wobble`/`hatch` remain
    pluggable strategies.
-3. **Feature gaps**, in order: ✅ cross-primitive consolidation (§2.7,
-   `src/pipeline/consolidate.ts`; opt-in via `abstraction.consolidate`) →
-   ✅ cylinder/cone surface hatching (§2.6, `hatchRegions` return a silhouette-hull
-   footprint; the scene's per-sample clip carves + shades the surface;
-   `gallery/05`) → ✅ `scene.highlight` (§2.8, re-extract + draw on top, heavier,
-   dashed-where-hidden, optional semi-transparent halo; `gallery/06`) →
-   ✅ `Point` primitive (§2.3, a
-   camera-facing mark emitted as tiny segments so QI decides visibility;
-   `gallery/07`) → ✅ quadric ∩ quadric quartics (§2.5, `intersectQuadrics`: a
-   radical-plane conic where the quadratic parts match, else the quartic traced by
-   plane-sweep + conic∩conic and chained to polyline loops; `gallery/08`) →
-   ✅ torus (§2.3, `src/primitives/torus.ts`: silhouette traced numerically from
-   the implicit form as two contour loops; ray-torus via a real quartic solver;
-   `gallery/10`) → ✅ **curved hatch direction fields** (§2.6,
-   `FeatureSource.hatchField`: cylinder = rings + rulings, cone = rings +
-   generators, torus = poloidal + toroidal circles, sphere = parallels +
-   meridians (`Sphere` configuration), ellipsoid = chart parallels + meridians
-   with exact gradient normals (`Ellipsoid` configuration); each surface also
-   emits a *diagonal third family* for `triple` — 45° helices / spiral
-   generators / (1,1) torus loops / tilted-axis circles / pole-to-pole chart
-   spirals — exact iso-parameter curves emitted as world samples with normals;
-   the scene clips each to the front-facing, unoccluded, tonally-dark surface
-   via `clipHatchField`; `gallery/12` (4 surfaces × single/cross/triple),
-   `gallery/08` (curved-field column), and now the default for
-   `gallery/05/10/11`). **All feature gaps done.** Deferred refinement: a contour Newton-projection so a *sampled*
-   silhouette's grazing points can be visibility-tested without the small nudge
-   tolerance (matters for Phase-2 meshes).
-4. ⬜ **Verification & DX**: golden-SVG snapshot regression tests → more
-   adversarial property tests → a real-`bun` test/CI note → an API-ergonomics pass.
+3. ✅ **Feature gaps** — all done, in build order:
+
+   - ✅ **cross-primitive consolidation** (§2.7, `src/pipeline/consolidate.ts`;
+     opt-in via `abstraction.consolidate`).
+   - ✅ **cylinder/cone surface hatching** (§2.6, `hatchRegions` return a
+     silhouette-hull footprint; the scene's per-sample clip carves + shades the
+     surface; `gallery/05`).
+   - ✅ **`scene.highlight`** (§2.8, re-extract + draw on top, heavier,
+     dashed-where-hidden, optional semi-transparent halo; `gallery/06`).
+   - ✅ **`Point` primitive** (§2.3, a camera-facing mark emitted as tiny segments
+     so QI decides visibility; `gallery/07`).
+   - ✅ **quadric ∩ quadric quartics** (§2.5, `intersectQuadrics`: a radical-plane
+     conic where the quadratic parts match, else the quartic traced by
+     plane-sweep + conic∩conic and chained to polyline loops; `gallery/08`).
+   - ✅ **torus** (§2.3, `src/primitives/torus.ts`: silhouette traced numerically
+     from the implicit form as two contour loops; ray-torus via a real quartic
+     solver; `gallery/10`).
+   - ✅ **curved hatch direction fields** (§2.6, `FeatureSource.hatchField`:
+     cylinder = rings + rulings, cone = rings + generators, torus = poloidal +
+     toroidal circles, sphere = parallels + meridians (`Sphere` configuration),
+     ellipsoid = chart parallels + meridians with exact gradient normals
+     (`Ellipsoid` configuration); each surface also emits a *diagonal third
+     family* for `triple` — 45° helices / spiral generators / (1,1) torus loops /
+     tilted-axis circles / pole-to-pole chart spirals — exact iso-parameter curves
+     emitted as world samples with normals; the scene clips each to the
+     front-facing, unoccluded, tonally-dark surface via `clipHatchField`;
+     `gallery/12` (4 surfaces × single/cross/triple), `gallery/08` (curved-field
+     column), and now the default for `gallery/05/10/11`).
+
+   Deferred refinement: a contour Newton-projection so a *sampled* silhouette's
+   grazing points can be visibility-tested without the small nudge tolerance
+   (matters for Phase-2 meshes).
+4. 🚧 **Verification & DX.**
+
+   - ✅ **Authoring surface** — a scene is a standalone `*.krbn.ts` file that
+     default-exports a deliverable: a `Drawing` (one SVG, `.toSvg()`) or a `Film`
+     (a driven frame sequence), composed with the `src/layout` helpers (`view` /
+     `raw` / `grid` / `stack` / `film` / `flipbook` / labels).
+   - ✅ **Render CLI** — `render` ships any deliverable to SVG (`render` /
+     `render:gallery` / `render:animation`): a still → `<name>.svg`, a film →
+     `<name>/frame-###.svg` + a `flipbook.html`.
+   - ✅ **Scene-scoped identity** (`src/scene/auto-id.ts`) — `Scene.add` assigns
+     deterministic per-scene ids, so a scene's wobble no longer depends on process
+     construction order; a file renders identically alone or in a batch.
+   - ✅ **Public API** — engine mechanics export from `krbn` (primitives, `Scene`,
+     `FrameSession`, `Mesh` + `MeshInput`, the layout deliverables); the mesh
+     **shape generators** sit on a separate `krbn/shapes` subpath; usage is
+     documented in [`API.md`](../API.md).
+   - ⬜ **Golden-SVG regression tests** — raw SVG bytes are **not** stable across
+     platforms/runtimes (floating-point differences), so these must assert
+     structure/tolerances, not bytes.
+   - ⬜ **Further adversarial property tests.**
 
 ### Deferred strategies (captured for later)
 
@@ -91,7 +114,7 @@ renders. Before Phase 2 we are hardening Phase 1 — the ordered backlog:
    `functionPlot`). All expose closed-form `raycast` and `projectedSilhouettes`.
 4. ✅ Stage 1 / emit / render: a runnable pass wires extract → visibility → emit
    → SVG (`renderScene` / `renderSceneSVG` in `src/pipeline/render.ts`). Verify by
-   eye via `examples/demo.ts` → `examples/demo.svg`.
+   eye via the `examples/gallery/*.krbn.ts` renders.
 5. ✅ Stage 2: exact quantitative-invisibility → visible/hidden intervals.
    Analytic crossings (`projectedSilhouettes` × the feature's screen curve) place
    transversal boundaries exactly; each interval's state is an exact depth
@@ -286,12 +309,21 @@ hatch, empty (→ straight-hatch fallback) where isotropic.
 
 ## Cross-cutting
 
-Seeded/deterministic wobble ✅ (`src/pipeline/wobble.ts`; anchored to object-space
-arclength; bends outlines **and** hatch from one knob), variable stroke width ✅
-(`src/pipeline/width.ts`; filled ribbons = emphasis × camera-depth × taper ×
-pressure), temporal-coherence discipline ✅ (stable identity end to end:
-canonical chains + persistent ids via `FrameSession`, identity-keyed wobble
-seeds, static hatch atlases/ladders, stateless threshold fades; verified by the
-animation harness), SVG-first backend ✅ (`src/backend/svg.ts`), optional alpha as a pure drawing op
-⬜. The adaptive analytic-curve sampler this all leans on is ✅
-(`curve/sample.ts`).
+- ✅ **Seeded/deterministic wobble** (`src/pipeline/wobble.ts`; anchored to
+  object-space arclength; bends outlines **and** hatch from one knob).
+- ✅ **Variable stroke width** (`src/pipeline/width.ts`; filled ribbons =
+  emphasis × camera-depth × taper × pressure).
+- ✅ **Temporal-coherence discipline** — stable identity end to end: canonical
+  chains + persistent ids via `FrameSession`, identity-keyed wobble seeds, static
+  hatch atlases/ladders, stateless threshold fades; verified by the animation
+  harness.
+- ✅ **SVG-first backend** (`src/backend/svg.ts`).
+- ✅ **Adaptive analytic-curve sampler** (`curve/sample.ts`) — the shared sampling
+  everything above leans on.
+- ✅ **Authoring & output** — a scene is a `*.krbn.ts` file that default-exports a
+  `Drawing`/`Film` deliverable (`.toSvg()`), composed with the `src/layout` helpers
+  (`view`/`grid`/`stack`/`film`/`flipbook`) and shipped to SVG by the `render` CLI;
+  element identity is scene-scoped (`src/scene/auto-id.ts`) so output is
+  order-independent; the public API splits into core mechanics (`krbn`) and mesh
+  shape generators (`krbn/shapes`), documented in [`API.md`](../API.md).
+- ⬜ **Optional alpha** — a pure drawing op, not yet built.

@@ -1,5 +1,5 @@
 // Phase-2 groundwork: the static half-edge scaffold for a triangle mesh
-// (ai/DESIGN.md §3.3.1). View-independent, built once at load. It is the
+// (docs/DESIGN.md §3.3.1). View-independent, built once at load. It is the
 // foundation the mesh `FeatureSource` will stand on: silhouette zero-sets and
 // chaining (§3.3.3–4) need the twin/next adjacency; hatch fields and suggestive
 // contours (§3.3.2, §3.3.5) need the normals and curvature this precomputes.

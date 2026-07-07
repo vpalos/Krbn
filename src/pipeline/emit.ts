@@ -1,6 +1,6 @@
 // Stage 5 (emit), first half: turn visibility-classified `Stroke`s into
 // backend-ready `RenderStroke`s by sampling each visible/hidden interval to a
-// screen polyline (ai/DESIGN.md §1.2 stage 5). Analytic curves stay analytic
+// screen polyline (docs/DESIGN.md §1.2 stage 5). Analytic curves stay analytic
 // until exactly here — sampling is adaptive in screen space (`curve/sample.ts`).
 //
 // Styling proper is stage 4 (not built yet). Until then this module applies a

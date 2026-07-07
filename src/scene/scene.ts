@@ -1,5 +1,5 @@
 // The Scene: the authoring model and the one place the full styled pipeline runs
-// (ai/DESIGN.md §2.8). It holds elements (FeatureSource + semantics), resolves a
+// (docs/DESIGN.md §2.8). It holds elements (FeatureSource + semantics), resolves a
 // per-element style, and renders: classify → styled/wobbled emit → hatch (clipped
 // to the visible surface) → SVG.
 //
@@ -139,7 +139,7 @@ export class Scene {
 
   /**
    * Emphasize an element: its features are re-extracted and drawn heavier and
-   * *on top of everything* (ai/DESIGN.md §2.8). With `dashWhenHidden`, occluded
+   * *on top of everything* (docs/DESIGN.md §2.8). With `dashWhenHidden`, occluded
    * parts are dashed rather than dropped — an x-ray highlight.
    */
   highlight(el: Element, opts: HighlightOptions = {}): this {
@@ -149,7 +149,7 @@ export class Scene {
 
   /**
    * Add the intersection curve of two elements as a first-class feature
-   * (ai/DESIGN.md §2.5). Supports quadric ∩ plane, quadric ∩ quadric (radical-
+   * (docs/DESIGN.md §2.5). Supports quadric ∩ plane, quadric ∩ quadric (radical-
    * plane conic where the quadratic parts match, otherwise the traced quartic),
    * and plane ∩ plane. `emphasis: 'bold'` draws the waterline heavier.
    */

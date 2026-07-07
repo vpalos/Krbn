@@ -7,7 +7,7 @@ import { anyPerpendicular, cross, normalize, sub, dot, addScaled } from "./vec3.
 /**
  * Build a right-handed orthonormal basis at `origin` whose z axis is `normal`.
  * The in-plane x/y axes are chosen deterministically (stable across frames, so
- * seeded wobble and arc parametrization stay coherent — ai/DESIGN.md §4).
+ * seeded wobble and arc parametrization stay coherent — docs/DESIGN.md §4).
  */
 export function basisFromNormal(origin: Vec3, normal: Vec3): Basis {
   const z = normalize(normal);

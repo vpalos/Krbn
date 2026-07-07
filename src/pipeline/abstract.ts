@@ -1,4 +1,4 @@
-// Stage 3 — abstraction (ai/DESIGN.md §2.7). Lighter here than in the mesh
+// Stage 3 — abstraction (docs/DESIGN.md §2.7). Lighter here than in the mesh
 // regime: an analytic arc is already one confident stroke, so simplification is
 // mostly a no-op. What still runs:
 //   • screen-size thresholding — drop a feature whose projected extent < N px,

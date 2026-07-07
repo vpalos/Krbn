@@ -1,6 +1,6 @@
 // 3x3 matrix algebra, row-major. Used by the conic kernel: a projective conic is
 // a symmetric 3x3 acting on homogeneous points p = (x, y, 1), with pᵀ M p = 0.
-// The pencil/degenerate-split intersection method (ai/DESIGN.md §2.4) needs
+// The pencil/degenerate-split intersection method (docs/DESIGN.md §2.4) needs
 // determinant, adjugate, and the skew (cross-product) matrix, so they live here.
 
 import type { Vec3 } from "./types.js";

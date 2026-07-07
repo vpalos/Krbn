@@ -1,7 +1,7 @@
 // Orchestration facade: scene → classified strokes → emitted render strokes →
 // SVG. This is the one place the whole Phase-1 pipeline is wired end to end
 // (extract → visibility → emit → backend); keeping it here leaves the backend
-// pure (ai/DESIGN.md §4).
+// pure (docs/DESIGN.md §4).
 
 import type { Camera } from "../math/types.js";
 import type { FeatureSource } from "../scene/feature-source.js";

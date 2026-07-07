@@ -3,7 +3,7 @@ import type { Curve2D } from "../curve/types.js";
 import type { ElementId, Feature, HatchFamily, HatchFieldOptions, HatchRegion, Light } from "../pipeline/types.js";
 
 /**
- * The seam of the engine (ai/DESIGN.md §1.1).
+ * The seam of the engine (docs/DESIGN.md §1.1).
  *
  * Analytic primitives and triangle meshes both implement this interface;
  * nothing downstream of stage 1 knows which kind produced its input. Adding the
@@ -34,7 +34,7 @@ export interface FeatureSource {
    * iso-parameter curves (rings/rulings/poloidal circles) as world-space samples
    * with normals, ordered families first. Sources with a natural parametrization
    * (cylinder, cone, torus) provide it; the rest omit it and the scene falls back
-   * to straight parallel hatch over `hatchRegions`. (ai/DESIGN.md §2.6)
+   * to straight parallel hatch over `hatchRegions`. (docs/DESIGN.md §2.6)
    */
   hatchField?(cam: Camera, opts: HatchFieldOptions): HatchFamily[];
 
@@ -50,7 +50,7 @@ export interface FeatureSource {
    * test. A smooth analytic surface omits it (its silhouette lies exactly on the
    * surface); a faceted mesh returns ≈ its edge length, since a silhouette point on
    * one facet can be a chord-sagitta nearer than an adjacent facet — a tolerance
-   * inherent to discrete surfaces. (ai/DESIGN.md §3.3.6)
+   * inherent to discrete surfaces. (docs/DESIGN.md §3.3.6)
    */
   selfNudge?(): number;
 }

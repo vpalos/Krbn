@@ -1,5 +1,5 @@
 // A planar polygon (also serves as a bounded Plane). Its outline is exact edge
-// geometry; its interior is a hatch region (ai/DESIGN.md §2.3 / §2.6). Unlike a
+// geometry; its interior is a hatch region (docs/DESIGN.md §2.3 / §2.6). Unlike a
 // Line, a polygon has area and therefore occludes — its ray–plane + point-in-
 // polygon test is the first real occluder feeding the visibility stage.
 

@@ -56,9 +56,9 @@ degenerate cases as the spec) are human; much of the code was written in
 collaboration with AI, then reviewed and tested like any other code. The
 results above speak for themselves.
 
-> **Status & roadmap** live in one place, not here: **[`ai/ROADMAP.md`](ai/ROADMAP.md)**
+> **Status & roadmap** live in one place, not here: **[`docs/ROADMAP.md`](docs/ROADMAP.md)**
 > holds the annotated build status and polish backlog, and
-> **[`ai/DESIGN.md`](ai/DESIGN.md)** holds the design, the implementation-status
+> **[`docs/DESIGN.md`](docs/DESIGN.md)** holds the design, the implementation-status
 > breakdown, and the hard-parts registry. This README stays high-level.
 
 ## Features
@@ -134,7 +134,7 @@ A scene is a set of `FeatureSource`s. Each frame runs a five-stage pass:
 5. **Emit** — sample analytic curves and hand to the backend (SVG first).
 
 Full detail, contracts, and the mesh/organ roadmap live in
-[`ai/DESIGN.md`](ai/DESIGN.md). A short phase view is in [`ai/ROADMAP.md`](ai/ROADMAP.md).
+[`docs/DESIGN.md`](docs/DESIGN.md). A short phase view is in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Project layout
 
@@ -147,9 +147,9 @@ src/
   primitives/  analytic primitives (Quadric→Sphere/Ellipsoid/Cylinder/Cone, Plane,
                Polygon, Line, ParametricCurve, Point, Torus)
   backend/     renderers — SVG (implemented)
-  mesh/        deferred organ/mesh regime — see ai/DESIGN.md §3
+  mesh/        deferred organ/mesh regime — see docs/DESIGN.md §3
 examples/    runnable demos → *.svg (demo, styled, waterline)
-ai/DESIGN.md the full design & roadmap
+docs/DESIGN.md the full design & roadmap
 ```
 
 ## Development

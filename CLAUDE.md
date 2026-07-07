@@ -2,8 +2,8 @@
 
 Krbn is a web engine for non-photorealistic, **pencil-style** rendering of abstract
 and technical scenes (math/physics now; medical/organic later). This file is the
-onboarding brief. The authoritative design is **`ai/DESIGN.md`** — read it before
-any non-trivial work. `ai/ROADMAP.md` holds the phase/build order (it, not this file,
+onboarding brief. The authoritative design is **`docs/DESIGN.md`** — read it before
+any non-trivial work. `docs/ROADMAP.md` holds the phase/build order (it, not this file,
 is where the plan lives).
 
 ## The mental model (get this right — it's non-obvious)
@@ -77,7 +77,7 @@ a set of standalone `examples/gallery/*.krbn.ts` scene files (each default-expor
 `bun run render <file.krbn.ts>` for one — each renders in its own process, so a
 scene is deterministic regardless of how many render together). **Only deferred items remain** before Phase 2: a contour
 Newton-projection for sampled silhouettes (Phase-2-adjacent) and group-highlight
-(pushed to post-Phase-2). See `ai/ROADMAP.md` for the annotated build order and
+(pushed to post-Phase-2). See `docs/ROADMAP.md` for the annotated build order and
 `.claude/rules/numerical-robustness.md` for the kernel's robustness bar.
 
 ## Rules
@@ -152,7 +152,7 @@ field** (`src/mesh/mesh-hatch.ts`: evenly-spaced Jobard–Lefebvre streamlines o
 principal-direction field, returned via `Mesh.hatchField`; empty on isotropic
 surfaces so the scene falls back to straight hatch). **Temporal coherence is
 complete** (Phase-2 item 6, all six sub-steps ✅ — full record in
-`ai/ROADMAP.md`). The pieces: the **identity spine** — `Feature.id` in the
+`docs/ROADMAP.md`). The pieces: the **identity spine** — `Feature.id` in the
 stage-1 contract; mesh chains canonically oriented (an intrinsic
 positive-g-side vote, so camera motion cannot flip a stroke's parameterization
 outside topological events) and anchor-keyed on their minimal crossed edge
@@ -186,4 +186,4 @@ interface; do not fork the pipeline.
 
 ## Deferred — don't build unless asked
 
-Alpha compositing, paper grain. Both are roadmapped in `ai/DESIGN.md`.
+Alpha compositing, paper grain. Both are roadmapped in `docs/DESIGN.md`.

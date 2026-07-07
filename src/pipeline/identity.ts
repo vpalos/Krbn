@@ -1,4 +1,4 @@
-// Feature identity — the spine of temporal coherence (ai/DESIGN.md §3.3.7, §4).
+// Feature identity — the spine of temporal coherence (docs/DESIGN.md §3.3.7, §4).
 //
 // Every stroke the pipeline draws should be nameable across frames, so that
 // per-stroke state (dash phase, taper direction, wobble anchoring, frame-to-frame
