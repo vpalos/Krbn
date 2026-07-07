@@ -39,8 +39,9 @@ The cylinder's far rim halves are **dashed** (self-occlusion); the sphere's
 silhouette is **solid where it juts past** the cylinder and **dashed where
 hidden** behind it; the rod is dashed only where it passes through the body.
 These are ruler-clean (`wobble: 0`), so the only weight variation is **depth
-emphasis** — the nearer cylinder reads bolder than the receding sphere, and the
-rod thins as it travels away.
+emphasis** — each line segment is drawn thinner or bolder depending on how far
+away it is from the camera, so the nearer cylinder reads bolder than the
+receding sphere.
 
 ### 02 · Hatching + tonal shading (stage 4)
 
