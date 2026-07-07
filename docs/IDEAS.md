@@ -35,6 +35,30 @@ respect: color must stay a *stroke* property — tinted ink, colored pencils —
 never a fill/shading model through the back door. Transparency-without-alpha
 and strokes-not-surfaces remain the ethos.
 
+## Mesh import — STL/OBJ loaders
+
+Making a mesh out of an import file: the highest benefit-to-effort item on
+this list. The seam is already shaped for it — `Mesh` eats a `MeshInput`
+(`positions` + `triangles`), and `BuildOptions.weldEps` already handles the
+one thing STL needs most (STL is unwelded triangle soup; welding reconstructs
+the shared topology that creases and silhouette chaining depend on).
+
+Sketch: a new `src/mesh/loaders.ts` with pure `parseSTL(buffer): MeshInput`
+(binary ~40 lines: 80-byte header, uint32 count, 50 bytes/facet; ASCII
+detection +30) and, later, `parseOBJ(text): MeshInput` (the useful subset:
+`v`/`f`, negative indices, fan-triangulated quads; ~70 lines). One robustness
+touch: STL stores each facet's normal — flip any triangle whose winding
+disagrees, since CAD exports are sloppy and the pipeline assumes CCW-outward.
+Zero dependencies, zero downstream changes. Caveat to document, not solve:
+real CAD STLs are often non-manifold; `weldEps` fixes most of it, "your mesh
+may need cleanup" covers the rest.
+
+Afternoon-sized, tests included (binary/ASCII detection, empty input,
+degenerate triangles, a winding-flip case). First champion use case, proposed
+by [u/ShelfordPrefect](https://www.reddit.com/user/ShelfordPrefect/) in the
+launch thread: a plotter owner drawing a **self-portrait of the plotter from
+its own CAD model**.
+
 ## Temporal *de*coherence as a style
 
 The coherence machinery exists so lines **don't** boil. Which means boiling is
