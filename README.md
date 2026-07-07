@@ -53,15 +53,15 @@ something like this, and never had the time to research and learn everything
 it needed — until a recent medical issue suspended my normal work and,
 unexpectedly, handed me a few months to invest in the old idea.
 
-What fascinated me from the start is going *against* photorealism. A human
+What fascinated me from the start is going _against_ photorealism. A human
 being can convey far more **meaning** in a drawing than any machine-like
 photorealistic render — precisely by being willing to go the other way: to
 renounce detail, to drop precision, even to deliberately introduce impurities
-and imperfections. Ah — but *which* detail to drop? *Which* imperfections to
+and imperfections. Ah — but _which_ detail to drop? _Which_ imperfections to
 introduce? That is the fascinating part, and it is the question this engine is
 really trying to answer.
 
-As a kid I wanted to call it *genesis imperfecta*, for exactly these reasons.
+As a kid I wanted to call it _genesis imperfecta_, for exactly these reasons.
 What can I say — I was a kid. The name matured into Krbn; the fascination
 didn't.
 
@@ -182,8 +182,8 @@ bun test
 
 ## About the author
 
-I build tools that make math visible. Krbn is the open-source half; the other
-is **[AhaBlitz](https://ahablitz.ro)** — an interactive math-missions platform
+I like building things that run well; tools that make math visible. Krbn is an
+open-source attempt; another is **[AhaBlitz](https://ahablitz.ro)** — a game
 for Romanian students (Evaluare Națională and Bacalaureat), built on
 hand-crafted simulators and expert-authored content.
 

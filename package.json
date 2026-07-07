@@ -5,7 +5,7 @@
   "type": "module",
   "author": {
     "name": "Valeriu Paloș",
-    "email": "vp@gcas.ro"
+    "url": "https://github.com/vpalos"
   },
   "license": "MIT",
   "keywords": [
@@ -55,6 +55,6 @@
   },
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "git+https://github.com/vpalos/Krbn.git"
   }
 }
