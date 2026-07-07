@@ -26,7 +26,7 @@ const scene = new Scene({
   abstraction: { toneLevels: 3 },
 });
 const ball = scene
-  .add(sphere([0, 0, 0.55], 1))
+  .add(sphere([0, 0, 0.25], 1))
   .setImportance(1, { role: "subject" })
   .style({ wobble: 0.35, hatch: { mode: "cross", angle: 25, field: false } });
 const water = scene
