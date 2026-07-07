@@ -184,8 +184,8 @@ bun test
 
 I like building things that run well; tools that make math visible. Krbn is an
 open-source attempt; another is **[AhaBlitz](https://ahablitz.ro)** — a game
-for Romanian students (Evaluare Națională and Bacalaureat), built on
-hand-crafted simulators and expert-authored content.
+that helps Romanian students prepare for their math exams (Evaluare Națională,
+Bacalaureat), built on hand-crafted simulators.
 
 ## License
 
