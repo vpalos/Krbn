@@ -35,29 +35,31 @@ respect: color must stay a *stroke* property — tinted ink, colored pencils —
 never a fill/shading model through the back door. Transparency-without-alpha
 and strokes-not-surfaces remain the ethos.
 
-## Mesh import — STL/OBJ loaders
+## Mesh import — STL + OBJ loaders (shipped ✅)
 
-Making a mesh out of an import file: the highest benefit-to-effort item on
-this list. The seam is already shaped for it — `Mesh` eats a `MeshInput`
-(`positions` + `triangles`), and `BuildOptions.weldEps` already handles the
-one thing STL needs most (STL is unwelded triangle soup; welding reconstructs
-the shared topology that creases and silhouette chaining depend on).
+**Both have landed** — `parseSTL` and `parseOBJ` in
+[`src/mesh/loaders.ts`](../src/mesh/loaders.js), pure `bytes → MeshInput` decoders
+behind the existing seam (`Mesh` eats a `MeshInput`; nothing downstream changed).
+`parseSTL` auto-detects binary + ASCII (exact size formula, not the header),
+repairs winding against each facet's stored normal, and returns unwelded soup
+(welded via `weldEps`). `parseOBJ` reads the geometry subset (`v`/`f`, all index
+forms, 1-based/negative indices, fan-triangulated quads/n-gons) and keeps OBJ's
+shared vertex table, so topology comes for free. Both drop degenerate faces;
+welding tolerance (`BuildOptions.weldEps`) doubles as the decimation knob (coarse
+welding now drops faces it collapses). See
+[`examples/importers/`](../examples/importers) (`bun run render:importers` — STL:
+cube + heart; OBJ: mushroom + Hanoi + fist) and [`API.md`](../API.md).
 
-Sketch: a new `src/mesh/loaders.ts` with pure `parseSTL(buffer): MeshInput`
-(binary ~40 lines: 80-byte header, uint32 count, 50 bytes/facet; ASCII
-detection +30) and, later, `parseOBJ(text): MeshInput` (the useful subset:
-`v`/`f`, negative indices, fan-triangulated quads; ~70 lines). One robustness
-touch: STL stores each facet's normal — flip any triangle whose winding
-disagrees, since CAD exports are sloppy and the pipeline assumes CCW-outward.
-Zero dependencies, zero downstream changes. Caveat to document, not solve:
-real CAD STLs are often non-manifold; `weldEps` fixes most of it, "your mesh
-may need cleanup" covers the rest.
+Documented caveat, not solved: real CAD/scan meshes are often non-manifold;
+`weldEps` fixes most of it, "your mesh may need cleanup" covers the rest. Room to
+grow if wanted: an `.mtl`-driven per-object ink color (ties into the "colored
+pencils" idea below), or a structure-preserving decimation (quadric error metrics)
+as an alternative to weld-based coarsening.
 
-Afternoon-sized, tests included (binary/ASCII detection, empty input,
-degenerate triangles, a winding-flip case). First champion use case, proposed
-by [u/ShelfordPrefect](https://www.reddit.com/user/ShelfordPrefect/) in the
-launch thread: a plotter owner drawing a **self-portrait of the plotter from
-its own CAD model**.
+Original champion use case, proposed by
+[u/ShelfordPrefect](https://www.reddit.com/user/ShelfordPrefect/) in the launch
+thread: a plotter owner drawing a **self-portrait of the plotter from its own CAD
+model**.
 
 ## Temporal *de*coherence as a style
 

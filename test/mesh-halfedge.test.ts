@@ -141,6 +141,23 @@ describe("HalfEdgeMesh — cleanup", () => {
     expect(welded.edges.find((e) => !e.boundary)).toBeDefined();
   });
 
+  test("a triangle that collapses under the weld is dropped, not crashed", () => {
+    // A good triangle plus a sliver whose two far corners sit within `eps` of each
+    // other: welding merges them, collapsing the sliver to a line. It must be
+    // dropped (a degenerate face has no apex — leaving it in crashes the tags).
+    const positions: Vec3[] = [
+      [0, 0, 0], [1, 0, 0], [0, 1, 0], // good triangle
+      [2, 0, 0], [2.0001, 0, 0], [3, 1, 0], // sliver: verts 3,4 coincide under eps
+    ];
+    const triangles: Tri[] = [
+      [0, 1, 2],
+      [3, 4, 5],
+    ];
+    const welded = HalfEdgeMesh.build({ positions, triangles }, { weldEps: 1e-2 });
+    expect(welded.faceCount).toBe(1); // the collapsed sliver is gone
+    for (let f = 0; f < welded.faceCount; f++) expect(welded.faceAreas[f]!).toBeGreaterThan(0);
+  });
+
   test("organic generators are clean closed manifolds (blob ≅ sphere, knot ≅ torus)", () => {
     const blob = HalfEdgeMesh.build(bumpyBlob(1, 0.2, 4, 5, 24, 16));
     expect(blob.isClosed).toBe(true);

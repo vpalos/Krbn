@@ -3,8 +3,9 @@
 Runnable demos that render Krbn scenes to SVG. All output is deterministic
 (wobble is seeded, no randomness), so the SVGs are stable and diffable. The
 [gallery](#gallery) is a set of still renders, one per feature; the
-[animation](#animation--temporal-coherence) is a frame sequence exercising the
-temporal-coherence machinery end to end.
+[importers](#importing-meshes--stl--obj) turn real STL and OBJ files into pencil
+renders; the [animation](#animation--temporal-coherence) is a frame sequence
+exercising the temporal-coherence machinery end to end.
 
 Two cross-cutting effects run through the whole gallery: the per-element **wobble**
 knob bends both **outlines and hatch** (one hand knob per object), and solid strokes
@@ -245,6 +246,66 @@ over the hatched faces — which is what a wireframe/technical drawing wants.
 outline. The visibility classification underneath is identical; only the styling of
 the hidden intervals changes. Drop is what the [gravity well](#16--gravity-well)
 uses, so an opaque surface doesn't ghost its own far side back through itself.
+
+## Importing meshes — STL & OBJ
+
+Two scene files import real mesh files from [`importers/`](importers) and render
+each to its own SVG. Render them both with:
+
+```bash
+bun run render:importers
+```
+
+The import path is two calls: a pure format decoder — **`parseSTL(bytes)`** or
+**`parseOBJ(bytes)`** — that returns a full-detail `MeshInput`, then **`new
+Mesh(input, { weldEps })`**, which renders through the very same pipeline as the
+analytic primitives. Once the bytes are a `MeshInput`, nothing is format-specific:
+hidden-line visibility, wobble, hatch, and creases all apply.
+
+`weldEps` is the **decimation knob** — a coarser weld merges more vertices, so the
+mesh gets lighter (faster to hidden-line, cleaner sketch, at the cost of fidelity).
+That level is the caller's to choose, per model, never baked into the loader.
+
+Most panels below are a **side-by-side comparison of the two hatch modes** on the
+same geometry: **flat** straight parallels vs the surface's **curvature-driven
+field** (streamlines of the principal-direction field that wrap the form). Same
+shape, same tone — only the stroke *flow* differs, and the curved field is what
+makes a surface read as solid rather than decal-flat.
+
+### STL — [`stl.krbn.ts`](importers/stl.krbn.ts)
+
+**`parseSTL`** auto-detects binary vs ASCII (by the exact size formula, *not* the
+header — binary files often start with `solid` too), repairs each triangle's winding
+against its stored facet normal, and returns unwelded triangle soup, so `weldEps`
+fuses the shared corners back.
+
+A tiny watertight **cube** — full detail (12 facets), faceted triple hatch, back
+edges dashed by the hidden-line stage:
+
+![cube import](importers/cube.svg)
+
+An anatomical **heart** shown flat vs curvature hatch — the streamlines pool around
+the lobes and vessels where flat parallels stay blind to the form:
+
+![heart import](importers/heart.svg)
+
+### OBJ — [`obj.krbn.ts`](importers/obj.krbn.ts)
+
+**`parseOBJ`** reads the geometry subset (`v`/`f`, all index forms, negative
+indices, fan-triangulated quads/n-gons). OBJ already ships a *shared* vertex table,
+so topology comes for free — no weld needed to reconstruct it.
+
+A low-poly **mushroom** (208 faces), a **Tower of Hanoi** stack, and an organic
+**fist** scan — the curved field wraps the cap, the turned discs, and the knuckles
+as rings and flow lines, while the flat hatch stays uniformly diagonal:
+
+![mushroom import](importers/mushroom.svg)
+
+![hanoi import](importers/hanoi.svg)
+
+![fist import](importers/fist.svg)
+
+> The sample meshes are third-party fixtures; they're input data, not Krbn artifacts.
 
 ## Animation — temporal coherence
 

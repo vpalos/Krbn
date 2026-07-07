@@ -184,6 +184,18 @@ displacement, byte-identical replays). For animated output, drive rendering
 through a `FrameSession`; keep new sources behind the *same* `FeatureSource`
 interface; do not fork the pipeline.
 
+**Mesh import** (`src/mesh/loaders.ts`): `parseSTL` and `parseOBJ` — pure
+`bytes → MeshInput` decoders. `parseSTL` auto-detects binary + ASCII (exact size
+formula, not the header), repairs winding against the stored facet normal, returns
+unwelded soup; `parseOBJ` reads the `v`/`f` subset (all index forms, 1-based/negative
+indices, fan-triangulated n-gons) and keeps OBJ's shared vertex table (topology for
+free). Both drop degenerate faces. Welding/decimation stays the caller's `weldEps`
+(welding tolerance doubles as the decimation knob; coarse welding now drops
+collapsed faces in `HalfEdgeMesh.weld`). Examples (`bun run render:importers`,
+`Figures` deliverables → one SVG per model, shared framing in
+`examples/importers/frame.ts`): `stl.krbn.ts` (cube + heart), `obj.krbn.ts`
+(mushroom + Hanoi + fist); several panels contrast flat vs curvature hatch.
+
 ## Deferred — don't build unless asked
 
 Alpha compositing, paper grain. Both are roadmapped in `docs/DESIGN.md`.

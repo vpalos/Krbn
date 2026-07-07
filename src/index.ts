@@ -70,6 +70,9 @@ export * from "./primitives/intersection.js";
 // subpath — see src/shapes.ts — kept off the core API as starter content.)
 export type { MeshInput, Tri, BuildOptions } from "./mesh/halfedge.js";
 export * from "./mesh/mesh-source.js";
+// mesh import: file formats → MeshInput (mechanics, so on the core API — unlike
+// the `krbn/shapes` fixtures)
+export * from "./mesh/loaders.js";
 
 // --- deliverable / figure-composition layer (ships scenes to SVG) ---
 export * from "./layout/index.js";

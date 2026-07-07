@@ -135,6 +135,40 @@ bring your own geometry, or use the starter generators in **`krbn/shapes`**
 `bumpyBlob`, `knotTube`, plus `translate` / `rotate`). These are convenience
 content, kept off the core API.
 
+### Importing meshes (STL / OBJ)
+
+`parseSTL(bytes | string)` and `parseOBJ(bytes | string)` turn a mesh file into a
+`MeshInput`. Both are pure decoders — they read no files, so you bring the bytes —
+and drop degenerate triangles.
+
+```ts
+import { readFileSync } from "node:fs";
+import { Mesh, parseSTL, parseOBJ } from "krbn";
+
+scene.add(new Mesh(parseSTL(readFileSync("car.stl")), { weldEps: 0.05 }));
+scene.add(new Mesh(parseOBJ(readFileSync("hand.obj"))));   // OBJ: no weld needed for topology
+```
+
+- **`parseSTL`** auto-detects **binary vs ASCII** (by the exact size formula, not
+  the header text — binary files often start with `solid` too) and repairs each
+  triangle's winding against its stored facet normal. STL is unwelded triangle
+  soup (no shared vertices), so pass **`weldEps`** to fuse coincident corners back
+  into the shared topology that creases and silhouette chaining need.
+- **`parseOBJ`** reads the geometry subset (`v`/`f`), skips the rest
+  (`vt`/`vn`/`g`/`usemtl`/…), handles all face-index forms (`v`, `v/vt`,
+  `v/vt/vn`, `v//vn`), 1-based and negative indices, and fan-triangulates quads /
+  n-gons. OBJ already ships a shared vertex table, so topology is there for free —
+  `weldEps` is optional (use it only to decimate).
+
+`weldEps` is the **decimation knob** — a distance in model units; turning it up
+merges more vertices, so the mesh gets lighter. Tiny keeps full detail; larger
+trades detail for a faster hidden-line pass and a cleaner sketch. That level is the
+caller's choice, never baked into the loader. Real CAD/scan meshes are often
+non-manifold; welding fixes most of it, and any faces that collapse under the weld
+are dropped. See [`examples/importers/`](examples/importers) (`bun run
+render:importers`) — STL (`stl.krbn.ts`: cube + heart) and OBJ (`obj.krbn.ts`:
+mushroom + Tower of Hanoi + fist), several showing flat vs curvature hatch side by side.
+
 ## Animations
 
 An animation is a `Film`: a driven sequence of frames, **each an ordinary
@@ -172,9 +206,10 @@ browser). `session.render(cam)` returns `{ svg, strokes, renderStrokes, coherenc
 
 **`krbn`** — `Scene`, `FrameSession`; primitives (`sphere`, `ellipsoid`,
 `Cylinder`, `Cone`, `Torus`, `Line`, `Polygon`, `Point`, `BezierCurve`, `helix`,
-`functionPlot`); `Mesh` + the `MeshInput`/`Tri` types; deliverables & layout
-(`view`, `raw`, `grid`, `stack`, `film`, `flipbook`, `textAt`, `withLabels`, and
-the `Drawing`/`Film` types); core math types (`Camera`, `Vec3`, …).
+`functionPlot`); `Mesh` + the `MeshInput`/`Tri` types + the `parseSTL` / `parseOBJ`
+loaders; deliverables & layout (`view`, `raw`, `grid`, `stack`, `figures`, `film`,
+`flipbook`, `textAt`, `withLabels`, and the `Drawing`/`Figures`/`Film` types); core
+math types (`Camera`, `Vec3`, …).
 
 **`krbn/shapes`** — mesh generators (`cube`, `uvSphere`, `torusMesh`,
 `gravitySheet`, `knotTube`, …) and `translate` / `rotate`.

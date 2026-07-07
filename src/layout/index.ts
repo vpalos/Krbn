@@ -162,6 +162,23 @@ export function stack(
 }
 
 // ---------------------------------------------------------------------------
+// Multi-figure deliverable: several independently-named stills from one file.
+// ---------------------------------------------------------------------------
+
+/** A deliverable that emits several *separate* SVGs from one scene file — each
+ *  entry writes its own `<name>.svg` beside the source. Use it when one file
+ *  produces a set of stills that should stay separate rather than be stitched
+ *  into a single `grid`/`stack` sheet (e.g. one render per imported model). */
+export interface Figures {
+  readonly figures: { name: string; drawing: Drawing }[];
+}
+
+/** Ship a set of independently-named drawings (see `Figures`). */
+export function figures(items: { name: string; drawing: Drawing }[]): Figures {
+  return { figures: items };
+}
+
+// ---------------------------------------------------------------------------
 // Animation deliverable: a sequence of frames, each an ordinary Drawing.
 // ---------------------------------------------------------------------------
 

@@ -62,7 +62,13 @@ function weld(positions: readonly Vec3[], triangles: readonly Tri[], eps: number
     }
     remap.push(idx);
   }
-  const tris = triangles.map((t) => [remap[t[0]]!, remap[t[1]]!, remap[t[2]]!] as Tri);
+  // Welding can merge two of a triangle's corners onto one index (near-coincident
+  // scan vertices, T-junctions), collapsing it to a line or point. Such a face has
+  // no orientation and no apex, so drop it — it is genuinely no longer a triangle,
+  // and leaving it in would poison normals and crash the apex/dihedral tags below.
+  const tris = triangles
+    .map((t) => [remap[t[0]]!, remap[t[1]]!, remap[t[2]]!] as Tri)
+    .filter((t) => t[0] !== t[1] && t[1] !== t[2] && t[0] !== t[2]);
   return { positions: out, triangles: tris };
 }
 
