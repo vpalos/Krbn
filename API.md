@@ -165,9 +165,18 @@ merges more vertices, so the mesh gets lighter. Tiny keeps full detail; larger
 trades detail for a faster hidden-line pass and a cleaner sketch. That level is the
 caller's choice, never baked into the loader. Real CAD/scan meshes are often
 non-manifold; welding fixes most of it, and any faces that collapse under the weld
-are dropped. See [`examples/importers/`](examples/importers) (`bun run
-render:importers`) — STL (`stl.krbn.ts`: cube + heart) and OBJ (`obj.krbn.ts`:
-mushroom + Tower of Hanoi + fist), several showing flat vs curvature hatch side by side.
+are dropped.
+
+> **Importing meshes is early.** The analytic primitives are exact, but arbitrary
+> imported meshes are the young part of the engine — a complex model won't render
+> beautifully out of the box, and there's a lot of refinement still ahead. Expect
+> to tinker per model: dial **`weldEps`** (decimation) and **`creaseAngle`** (raise
+> it to suppress the spurious creases a decimated/noisy tessellation invents; past
+> π turns creases off for smooth organic scans) to find the sweet spot.
+
+See [`examples/importers/`](examples/importers) (`bun run render:importers`) — STL
+(`stl.krbn.ts`: cube + heart) and OBJ (`obj.krbn.ts`: mushroom + Tower of Hanoi +
+fist), several showing flat vs curvature hatch side by side.
 
 ## Animations
 

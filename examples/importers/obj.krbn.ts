@@ -67,7 +67,7 @@ const MODELS: Model[] = [
     creaseAngle: Math.PI, // organic scan — suppress the pseudo-creases decimation would invent
     hidden: "drop",
     up: [0, 1, 0],
-    spin: 190, // face the fist toward the camera
+    spin: 250, // face the fist toward the camera
     fov: Math.PI / 4.6,
     viewport: { width: 420, height: 420 },
     light: [-0.45, -0.5, -0.6],

@@ -266,6 +266,20 @@ hidden-line visibility, wobble, hatch, and creases all apply.
 mesh gets lighter (faster to hidden-line, cleaner sketch, at the cost of fidelity).
 That level is the caller's to choose, per model, never baked into the loader.
 
+> ⚠️ **Importing meshes is early — expect to tinker.** This caveat is about
+> *imported* files specifically: the analytic primitives are exact, but arbitrary
+> real-world meshes are the young part of the engine, with a lot of refinement
+> still ahead. A complex mesh will *not* render beautifully out of the box. Two
+> knobs get you most of the way to a decent result, and finding the sweet spot is
+> trial and error per model:
+> - **`weldEps`** (decimation) — turn it up until the silhouette is clean and the
+>   render is quick, down until you stop losing detail that matters.
+> - **`creaseAngle`** (crease attenuation) — raise it to suppress the spurious
+>   "creases" a decimated or noisy tessellation invents (they read as speckle all
+>   over the surface); push it past π to turn creases off entirely for smooth /
+>   organic scans, or keep it low to preserve genuine sharp edges (a cube, a
+>   machined part). See how the demos in [`frame.ts`](importers/frame.ts) set both.
+
 Most panels below are a **side-by-side comparison of the two hatch modes** on the
 same geometry: **flat** straight parallels vs the surface's **curvature-driven
 field** (streamlines of the principal-direction field that wrap the form). Same
