@@ -46,6 +46,25 @@ variable-width strokes. It is MIT-licensed and written in TypeScript — see the
 full **[example gallery](examples/README.md)**, and open a discussion if this
 problem space interests you.
 
+## Genesis imperfecta
+
+This project is a childhood dream, finally built. I always wanted to make
+something like this, and never had the time to research and learn everything
+it needed — until a recent medical issue suspended my normal work and,
+unexpectedly, handed me a few months to invest in the old idea.
+
+What fascinated me from the start is going *against* photorealism. A human
+being can convey far more **meaning** in a drawing than any machine-like
+photorealistic render — precisely by being willing to go the other way: to
+renounce detail, to drop precision, even to deliberately introduce impurities
+and imperfections. Ah — but *which* detail to drop? *Which* imperfections to
+introduce? That is the fascinating part, and it is the question this engine is
+really trying to answer.
+
+As a kid I wanted to call it *genesis imperfecta*, for exactly these reasons.
+What can I say — I was a kid. The name matured into Krbn; the fascination
+didn't.
+
 ## Disclaimer — built with AI, unapologetically
 
 Krbn was developed with heavy AI assistance, and there is no reason to hide it.
