@@ -30,6 +30,7 @@ const MODELS: Model[] = [
     parse: parseSTL,
     levels: [{ detail: 0.001, tag: "full detail" }],
     hatch: "triple",
+    variableWidth: false, // plain lines; set true for filled variable-width ribbons
     spin: 5,
     fov: Math.PI / 4.2,
     viewport: { width: 380, height: 380 },
@@ -46,6 +47,7 @@ const MODELS: Model[] = [
     ],
     hidden: "drop",
     hatch: "triple",
+    variableWidth: false,
     creaseAngle: (50 * Math.PI) / 180, // keep the sharp panel edges, drop tessellation noise
     fov: Math.PI / 6,
     viewport: { width: 420, height: 320 },

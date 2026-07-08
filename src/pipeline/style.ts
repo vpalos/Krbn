@@ -35,6 +35,14 @@ export interface StyleSpec {
   color: string;
   /** 0 = ruler, ~1 = hero sketchy */
   wobble: number;
+  /**
+   * When false, suppress variable stroke width even if `wobble > 0`: strokes stay
+   * constant-weight polylines instead of filled ribbons. This is the plotter-safe
+   * mode — a single-pen plotter traces centrelines and ignores width entirely, so
+   * ribbons (and every other width representation) are meaningless to it. Wobble on
+   * the centreline is unaffected. Defaults to `true`. (docs/DESIGN.md §4)
+   */
+  variableWidth: boolean;
   /** how hidden runs are drawn */
   hidden: "ghost" | "drop";
   ghostOpacity: number;
@@ -55,6 +63,7 @@ export const BASE_STYLE: StyleSpec = {
   weight: 1.5,
   color: "#1a1a1a",
   wobble: 0,
+  variableWidth: true,
   hidden: "ghost",
   ghostOpacity: 0.32,
   hiddenDash: [4, 3],
@@ -143,8 +152,9 @@ export function emitStyledStroke(
     const style = depthScale === 1 ? base : { ...base, weight: base.weight * depthScale };
     // Variable width rides the same hand knob and only the solid, non-dashed runs
     // (a filled ribbon can't be dashed); hidden/ghost runs stay uniform strokes.
+    // `variableWidth: false` opts out entirely (plotter-safe constant lines).
     const w =
-      spec.wobble > 0 && iv.visible && !style.dash
+      spec.variableWidth && spec.wobble > 0 && iv.visible && !style.dash
         ? width.widths({ path, seed, baseWidth: style.weight, amount: spec.wobble })
         : undefined;
     out.push(w ? { path, style, width: w } : { path, style });

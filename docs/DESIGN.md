@@ -11,7 +11,7 @@ This document specifies **Phase 1 (analytic primitives)** in detail and keeps th
 
 ---
 
-## Implementation status (as of 2026-07-07)
+## Implementation status (as of 2026-07-08)
 
 The engine is past scaffold: the math kernel and the full analytic-primitive
 catalog are implemented and tested. What exists, by area (✅ done · 🚧 partial ·
@@ -88,7 +88,10 @@ catalog are implemented and tested. What exists, by area (✅ done · 🚧 parti
   (`src/pipeline/width.ts`, `WidthStrategy`): solid runs render as filled *ribbons*
   whose width = emphasis (role/importance × camera-depth — nearer bolder) × end
   taper × seeded pressure, the taper/pressure scaled by the same wobble knob; dashed
-  hidden runs stay uniform strokes.
+  hidden runs stay uniform strokes. A **`variableWidth`** style knob (per-element or
+  scene-wide, default `true`) opts out: `false` keeps strokes constant-weight
+  polylines even under wobble — the plotter-safe mode (see §4), the centreline
+  wobble unaffected.
 - ✅ **Phase-1 polish complete:** consolidation, cylinder/cone surface hatching,
   `scene.highlight` (+ halo), `Point`, quadric ∩ quadric quartics, the
   **torus** (`src/primitives/torus.ts`: numerical silhouette as two contour loops
@@ -436,6 +439,16 @@ hatch, hidden-line visibility, and temporal coherence via `FrameSession`). See
 - **Backend.** SVG first — exact, resolution-independent vector output matches the
   analytic pipeline and the printed-manual use case. Canvas/WebGL later for high
   stroke counts or effects; the emit stage abstracts the backend.
+- **Pen plotters (plotter-safe mode).** A single-pen plotter traces *centrelines*
+  with a fixed physical nib and ignores `stroke-width` outright — so variable width
+  in **any** SVG form is meaningless to it: a filled ribbon is either outlined as
+  two thin lines or slowly infilled, and per-segment `stroke-width` is simply
+  dropped. The honest fallback is therefore constant-weight centrelines, exposed as
+  the **`variableWidth: false`** style knob (per-element or scene-wide): it withholds
+  the `RenderStroke.width` array so every outline and hatch line emits as a plain
+  `<polyline>`, while centreline wobble — still a single traceable path — is kept.
+  This is the enabling piece for plotter output (e.g. the plotter self-portrait in
+  [`IDEAS.md`](IDEAS.md)).
 - **Wobble.** A style parameter (amount + bowing/overshoot), 0 = ruler, hero =
   very sketchy; per-element, per-scene-default, overridable; applied to the
   late-sampled polyline.

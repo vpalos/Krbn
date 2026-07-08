@@ -257,7 +257,12 @@ export class Scene {
         }
         const seed = ownerSeed ^ hashSeed(lineKey);
         const path = this.wobble.apply({ path: run.path, points3: run.points3, seed, amount: wobbleAmt });
-        // hatch width rides the same (scaled) hand knob as its wobble
+        // hatch width rides the same (scaled) hand knob as its wobble — unless the
+        // element opts out of variable width (plotter-safe), then stays a plain line.
+        if (!spec.variableWidth) {
+          hatchStrokes.push({ path, style: { ...hstyle } });
+          return;
+        }
         const width = this.width.widths({ path, seed, baseWidth: hstyle.weight, amount: wobbleAmt });
         hatchStrokes.push({ path, style: { ...hstyle }, width });
       };

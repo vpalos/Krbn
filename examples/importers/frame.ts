@@ -38,6 +38,9 @@ export interface Level {
   /** override the model's `flatHatch` for this panel — lets a two-panel grid
    *  compare flat vs curvature hatch on the same geometry, not just decimation. */
   flat?: boolean;
+  /** override the model's `variableWidth` for this panel — lets a two-panel grid
+   *  compare filled ribbons vs plain lines on the same geometry. */
+  variableWidth?: boolean;
 }
 
 export interface Model {
@@ -54,6 +57,13 @@ export interface Model {
   /** force straight parallel hatch instead of the surface's curved direction
    *  field (curvature streamlines). Only matters when `hatch` is set. */
   flatHatch?: boolean;
+  /** Variable stroke width: filled ribbons (`true`) vs plain constant-weight
+   *  polylines (`false` — the default here). On a dense/high-curvature mesh
+   *  silhouette a ribbon's ±w/2 offset can self-intersect into blobby outline
+   *  artifacts, so these figures default to plain lines (also plotter-safe,
+   *  DESIGN §4). Set `true` to opt back into ribbons, per model — or per panel via
+   *  `Level.variableWidth`. Centreline wobble is unaffected either way. */
+  variableWidth?: boolean;
   /** how occluded lines are drawn: "ghost" (faint x-ray dashes, the default) or
    *  "drop" (omitted, so the surface reads as opaque). */
   hidden?: "ghost" | "drop";
@@ -155,7 +165,13 @@ function renderPanel(
   level: Level,
 ): { svg: string; faces: number } {
   const light: Light = { direction: m.light };
-  const scene = new Scene({ svg: { background: BG }, light });
+  // Variable width is controllable per model (`Model.variableWidth`) or per panel
+  // (`Level.variableWidth`), defaulting to plain lines: a dense mesh silhouette makes
+  // filled ribbons self-intersect (blobby outline artifacts), and plain polylines are
+  // also plotter-safe (DESIGN §4). Set per scene so the .krbn.ts model configs drive
+  // it; the centreline wobble is unaffected either way.
+  const variableWidth = level.variableWidth ?? m.variableWidth ?? false;
+  const scene = new Scene({ svg: { background: BG }, light, style: { variableWidth } });
   const mesh = new Mesh(mi, {
     weldEps: SIZE * level.detail,
     ...(m.creaseAngle !== undefined ? { creaseAngle: m.creaseAngle } : {}),

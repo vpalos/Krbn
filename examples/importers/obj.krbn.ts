@@ -28,6 +28,7 @@ const MODELS: Model[] = [
       { detail: 0.01, tag: "curved hatch", flat: false },
     ],
     hatch: "triple",
+    variableWidth: false, // plain lines; set true for filled variable-width ribbons
     creaseAngle: Math.PI / 3, // organic scan — suppress the pseudo-creases decimation would invent
     flatHatch: true,
     hidden: "drop",
@@ -46,6 +47,7 @@ const MODELS: Model[] = [
       { detail: 0.01, tag: "curved hatch", flat: false },
     ],
     hatch: "triple",
+    variableWidth: false,
     creaseAngle: Math.PI, // organic scan — suppress the pseudo-creases decimation would invent
     flatHatch: true,
     hidden: "drop",
@@ -64,6 +66,7 @@ const MODELS: Model[] = [
       { detail: 0.012, tag: "curved hatch", flat: false },
     ],
     hatch: "triple",
+    variableWidth: false,
     creaseAngle: Math.PI, // organic scan — suppress the pseudo-creases decimation would invent
     hidden: "drop",
     up: [0, 1, 0],

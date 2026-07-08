@@ -25,6 +25,37 @@ they'd ride on already exist:
 - **Tonal gradients** — continuous density modulation along a stroke or across
   a region, instead of quantized tone steps.
 
+## Variable width without filled ribbons (stroke bands)
+
+Variable stroke width renders today as a filled *ribbon* — the centreline offset by
+±w/2 into a closed `<path fill>` ([`src/backend/svg.ts`](../src/backend/svg.js)
+`ribbon()`). That offset can self-intersect where the half-width exceeds the local
+radius of curvature — suspected in the denser mesh-import figures, and now
+A/B-testable since `variableWidth: false` toggles ribbons off (DESIGN §4): if the
+artifacts vanish with plain lines, they were ribbon self-intersection.
+
+An alternative *screen* renderer for the same width channel: **piecewise-constant
+stroke bands** — quantize the per-vertex width into a few levels, split the polyline
+at level boundaries, and emit one round-capped `<polyline stroke-width=…>` per band.
+Never self-intersects (round caps, no offset geometry), and stays light if width is
+quantized to ~3–4 levels. It lives entirely behind the emit contract as a backend
+option (`SvgOptions.widthMode: "ribbon" | "bands"`); `RenderStroke.width` is
+unchanged, so nothing upstream moves.
+
+Two things to get right, both already solved elsewhere in the codebase:
+
+- **Semi-transparent seams.** Overlapping round caps would double-darken a ghost
+  run — except we already flatten per-stroke opacity with a `<g opacity>` group (the
+  highlight halo, `SvgGroup`): draw a stroke's bands opaque inside one group and the
+  ghost opacity applies once over their union, reproducing ribbon compositing exactly
+  (no self-compound within a stroke, normal alpha across strokes).
+- **True taper.** A ribbon tapers to a fine point; bands floor at the round-cap
+  radius. Cosmetic — shrink the end bands to approximate.
+
+Explicitly **not** a plotter feature: a single-pen plotter ignores `stroke-width`
+outright (that path is the shipped constant-line mode, `variableWidth: false`). This
+is a screen/print convenience — build it only once a ribbon artifact is confirmed.
+
 ## Colored pencils
 
 Per-object ink color is the easy half (a style property flowing to emit — the
