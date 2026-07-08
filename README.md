@@ -8,6 +8,10 @@ constructions today, medical/organic illustration on the roadmap.
 
 ![a sphere resting in a gravity well, the sheet's hatching flowing into the dent](examples/gallery/16-gravity-well.svg)
 
+> 🖼️ **[See the full example gallery →](examples/README.md)** — 19 annotated
+> renders, real STL/OBJ imports, and an animated camera orbit that stays calm
+> (the hand-drawn lines don't boil).
+
 ## Why a pencil is a rendering problem
 
 Most graphics code answers one question: _what color is this pixel?_ A pencil
