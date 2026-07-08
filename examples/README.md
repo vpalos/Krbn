@@ -280,6 +280,15 @@ That level is the caller's to choose, per model, never baked into the loader.
 >   organic scans, or keep it low to preserve genuine sharp edges (a cube, a
 >   machined part). See how the demos in [`frame.ts`](importers/frame.ts) set both.
 
+**These demos render with variable stroke width turned off**
+(`variableWidth: false`): every line is a plain constant-weight polyline instead
+of a filled ribbon. The reason is **pen plotters** — a ribbon is a closed outline
+that a plotter traces around (drawing every line twice), while a plain polyline
+is a true single stroke, one pen pass. It also avoids the blobby self-intersection
+artifacts ribbons can produce on dense mesh silhouettes. The hand-drawn wobble is
+unaffected; opt back into ribbons per scene or per model with
+`variableWidth: true`.
+
 Most panels below are a **side-by-side comparison of the two hatch modes** on the
 same geometry: **flat** straight parallels vs the surface's **curvature-driven
 field** (streamlines of the principal-direction field that wrap the form). Same
