@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { Camera } from "../src/math/types.js";
+import type { Camera, Vec3 } from "../src/math/types.js";
+import type { MeshInput, Tri } from "../src/mesh/halfedge.js";
 import { Mesh } from "../src/mesh/mesh-source.js";
 import { cube, tube, uvSphere } from "../src/mesh/shapes.js";
 import { Point } from "../src/primitives/point.js";
@@ -24,6 +25,34 @@ describe("Mesh — raycast", () => {
 
   test("a ray missing the sphere returns nothing", () => {
     expect(m.raycast({ origin: [5, 5, 10], dir: [0, 0, -1] })).toHaveLength(0);
+  });
+
+  test("the flat lid of an extruded solid shades flat (crease-aware normals, no dome)", () => {
+    // 24-sided prism: flat top lid + smooth wall, rim is a 90° crease. A ray dropped
+    // onto the lid near its rim must report a +z normal, not a rim-averaged tilt —
+    // otherwise the lid hatches like a sliced dome (the reported artifact).
+    const n = 24, r = 1, h = 1;
+    const ring = (z: number): Vec3[] => Array.from({ length: n }, (_, i) => {
+      const a = (2 * Math.PI * i) / n;
+      return [r * Math.cos(a), r * Math.sin(a), z] as Vec3;
+    });
+    const positions: Vec3[] = [...ring(0), ...ring(h)];
+    const cB = positions.length; positions.push([0, 0, 0]);
+    const cT = positions.length; positions.push([0, 0, h]);
+    const triangles: Tri[] = [];
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      triangles.push([i, j, n + j]);
+      triangles.push([i, n + j, n + i]);
+      triangles.push([cT, n + i, n + j]);
+      triangles.push([cB, j, i]);
+    }
+    const prism: MeshInput = { positions, triangles };
+    const tile = new Mesh(prism);
+    const hit = tile.raycast({ origin: [0.85, 0, 5], dir: [0, 0, -1] })[0]!; // near the rim
+    expect(hit.frontFacing).toBe(true);
+    expect(hit.point[2]).toBeCloseTo(h, 6); // landed on the lid
+    expect(hit.normal[2]).toBeCloseTo(1, 6); // flat, not domed
   });
 });
 

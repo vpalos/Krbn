@@ -1,9 +1,37 @@
 import { describe, expect, test } from "bun:test";
 import type { Camera, Vec3 } from "../src/math/types.js";
 import { HalfEdgeMesh } from "../src/mesh/halfedge.js";
-import { facetedSilhouetteLoops, silhouetteLoops } from "../src/mesh/silhouette.js";
+import {
+  creaseAwareSilhouetteChains,
+  creaseAwareSilhouetteLoops,
+  facetedSilhouetteLoops,
+  silhouetteChains,
+  silhouetteLoops,
+} from "../src/mesh/silhouette.js";
+import type { MeshInput, Tri } from "../src/mesh/halfedge.js";
 import { Mesh } from "../src/mesh/mesh-source.js";
 import { cube, tube, uvSphere } from "../src/mesh/shapes.js";
+
+// a many-sided prism: flat top/bottom lids + a smooth (finely-facetted) wall, the
+// archetypal capped solid where the shared-normal zero-set wanders the flat lids.
+function prism(nSides: number, r: number, h: number): MeshInput {
+  const ring = (z: number): Vec3[] => Array.from({ length: nSides }, (_, i) => {
+    const a = (2 * Math.PI * i) / nSides;
+    return [r * Math.cos(a), r * Math.sin(a), z] as Vec3;
+  });
+  const positions: Vec3[] = [...ring(0), ...ring(h)];
+  const cB = positions.length; positions.push([0, 0, 0]);
+  const cT = positions.length; positions.push([0, 0, h]);
+  const triangles: Tri[] = [];
+  for (let i = 0; i < nSides; i++) {
+    const j = (i + 1) % nSides;
+    triangles.push([i, j, nSides + j]);
+    triangles.push([i, nSides + j, nSides + i]);
+    triangles.push([cT, nSides + i, nSides + j]);
+    triangles.push([cB, j, i]);
+  }
+  return { positions, triangles };
+}
 
 const ortho = (eye: Vec3, up: Vec3): Camera => ({
   eye,
@@ -76,6 +104,54 @@ describe("faceted silhouette — cube (exact edge-based contour)", () => {
     expect(feats.filter((f) => f.type === "crease").length).toBeGreaterThan(0);
     // and the apparent contour is available for occlusion/hatch
     expect(new Mesh(cube()).projectedSilhouettes(cam).length).toBe(1);
+  });
+});
+
+describe("crease-aware silhouette (capped solids)", () => {
+  const cam: Camera = {
+    eye: [2.2, 1.8, 1.8], target: [0, 0, 0.3], up: [0, 0, 1],
+    projection: "perspective", scale: 0.6, viewport: { width: 400, height: 400 },
+  };
+  // count crossing points that sit in the *interior* of a flat cap (z on a lid,
+  // well inside the rim) — a real silhouette can only cross a cap at its rim, so any
+  // such point is the phantom the shared-normal zero-set drifts across the lid.
+  const capInterior = (loops: Vec3[][], h: number, r: number): number => {
+    let n = 0;
+    for (const L of loops) for (const p of L) {
+      const rad = Math.hypot(p[0], p[1]);
+      if ((Math.abs(p[2] - h) < 1e-6 || Math.abs(p[2]) < 1e-6) && rad < 0.9 * r) n++;
+    }
+    return n;
+  };
+
+  test("the classic zero-set wanders the flat lids; the crease-aware one does not", () => {
+    const m = HalfEdgeMesh.build(prism(24, 1, 1));
+    expect(capInterior(silhouetteLoops(m, cam), 1, 1)).toBeGreaterThan(0); // phantom present
+    expect(capInterior(creaseAwareSilhouetteLoops(m, cam), 1, 1)).toBe(0); // phantom gone
+  });
+
+  test("reduces to the classic zero-set on a creaseless mesh (no organic-mesh regression)", () => {
+    const s = HalfEdgeMesh.build(uvSphere(2, 40, 28));
+    const A = silhouetteChains(s, cam);
+    const B = creaseAwareSilhouetteChains(s, cam);
+    expect(B.length).toBe(A.length);
+    let maxDiff = 0;
+    for (let i = 0; i < A.length; i++) {
+      expect(B[i]!.pts.length).toBe(A[i]!.pts.length);
+      for (let k = 0; k < A[i]!.pts.length; k++)
+        for (let c = 0; c < 3; c++) maxDiff = Math.max(maxDiff, Math.abs(A[i]!.pts[k]![c]! - B[i]!.pts[k]![c]!));
+    }
+    expect(maxDiff).toBeLessThan(1e-9); // corner normals == vertex normals ⇒ identical
+  });
+
+  test("a capped solid draws a crease-aware silhouette feature + rim creases, and fills from a closed region", () => {
+    const m = new Mesh(prism(24, 1, 1));
+    const feats = m.extractFeatures(cam);
+    expect(feats.some((f) => f.type === "silhouette")).toBe(true); // smooth drawn contour
+    expect(feats.some((f) => f.type === "crease")).toBe(true); //     the flat-lid rims
+    // the fillable region comes from the exact face contour — a closed loop
+    const regions = m.hatchRegions(cam, { direction: [0, 0, -1] });
+    expect(regions.length).toBeGreaterThan(0);
   });
 });
 

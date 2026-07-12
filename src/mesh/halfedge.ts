@@ -45,6 +45,7 @@ export interface EdgeInfo {
 }
 
 const DEFAULT_CREASE = Math.PI / 6; // 30°
+const FLAT_COS = Math.cos(Math.PI / 180); // faces within 1° count as coplanar
 
 /** Weld vertices within `eps` (grid-quantized) and remap the triangles. */
 function weld(positions: readonly Vec3[], triangles: readonly Tri[], eps: number): MeshInput {
@@ -86,12 +87,25 @@ export class HalfEdgeMesh {
   readonly faceNormals: Vec3[];
   readonly faceAreas: number[];
   readonly vertexNormals: Vec3[];
+  /** Crease-aware shading normals, one per half-edge (corner `3f+k` = the normal at
+   *  vertex `tri[f][k]` as seen from face `f`). Faces joined across non-crease
+   *  interior edges form a smoothing group and share a normal; a crease or boundary
+   *  starts a new group, so a vertex sitting on a hard edge gets a *distinct* normal
+   *  per side. This is what lets an extruded solid's flat lid shade flat while its
+   *  rounded walls stay smooth — without tagging every wall facet as a drawn crease.
+   *  On a mesh with no creases every corner collapses to `vertexNormals[v]`. */
+  readonly cornerNormals: Vec3[];
   readonly edges: EdgeInfo[];
 
   readonly boundaryEdgeCount: number;
   readonly nonManifoldEdgeCount: number;
+  /** Area fraction of the largest planar smoothing group (0 = no flat facets, up to
+   *  1 = a flat sheet). Distinguishes a capped/flat-faceted solid from an organic
+   *  mesh; `mesh-source` thresholds it to pick the silhouette regime. */
+  readonly flatFacetFraction: number;
 
   private constructor(init: {
+    flatFacetFraction: number;
     positions: readonly Vec3[];
     triangles: readonly Tri[];
     heFrom: Int32Array;
@@ -102,6 +116,7 @@ export class HalfEdgeMesh {
     faceNormals: Vec3[];
     faceAreas: number[];
     vertexNormals: Vec3[];
+    cornerNormals: Vec3[];
     edges: EdgeInfo[];
     boundaryEdgeCount: number;
     nonManifoldEdgeCount: number;
@@ -116,9 +131,11 @@ export class HalfEdgeMesh {
     this.faceNormals = init.faceNormals;
     this.faceAreas = init.faceAreas;
     this.vertexNormals = init.vertexNormals;
+    this.cornerNormals = init.cornerNormals;
     this.edges = init.edges;
     this.boundaryEdgeCount = init.boundaryEdgeCount;
     this.nonManifoldEdgeCount = init.nonManifoldEdgeCount;
+    this.flatFacetFraction = init.flatFacetFraction;
   }
 
   static build(input: MeshInput, opts: BuildOptions = {}): HalfEdgeMesh {
@@ -239,7 +256,83 @@ export class HalfEdgeMesh {
       });
     }
 
+    // Crease-aware corner normals (smoothing groups). Union faces across every
+    // *smooth* interior edge (not a crease, not a boundary); each connected
+    // component is one smoothing group. A vertex's normal within a group is the
+    // angle-weighted average of that group's faces at the vertex, so a vertex on a
+    // crease carries one normal per side. Smooth meshes (no creases) fall into a
+    // single group and reproduce `vertexNormals` exactly. (docs/DESIGN.md §3.3.2)
+    const parent = new Int32Array(F);
+    for (let f = 0; f < F; f++) parent[f] = f;
+    const find = (x: number): number => {
+      while (parent[x] !== x) {
+        parent[x] = parent[parent[x]!]!;
+        x = parent[x]!;
+      }
+      return x;
+    };
+    for (const e of edges) {
+      if (e.boundary || e.crease || e.halfEdges.length < 2) continue;
+      const ra = find(heFace[e.halfEdges[0]!]!);
+      const rb = find(heFace[e.halfEdges[1]!]!);
+      if (ra !== rb) parent[ra] = rb;
+    }
+    const cornerAngle = (f: number, k: number): number => {
+      const t = triangles[f]!;
+      const p = positions[t[k]!]!;
+      const eNext = sub(positions[t[(k + 1) % 3]!]!, p);
+      const ePrev = sub(positions[t[(k + 2) % 3]!]!, p);
+      const l1 = length(eNext);
+      const l2 = length(ePrev);
+      return l1 > 0 && l2 > 0 ? Math.acos(Math.max(-1, Math.min(1, dot(eNext, ePrev) / (l1 * l2)))) : 0;
+    };
+    // Accumulate per (vertex, group) angle-weighted normals, then read back per corner.
+    const groupAccum = new Map<number, Vec3>();
+    const gkey = (v: number, g: number) => v * F + g; // F ≥ any group id ⇒ unique
+    for (let f = 0; f < F; f++) {
+      const t = triangles[f]!;
+      const g = find(f);
+      const n = faceNormals[f]!;
+      for (let k = 0; k < 3; k++) {
+        const key = gkey(t[k]!, g);
+        groupAccum.set(key, addScaled(groupAccum.get(key) ?? [0, 0, 0], n, cornerAngle(f, k)));
+      }
+    }
+    const cornerNormals: Vec3[] = new Array(H);
+    for (let f = 0; f < F; f++) {
+      const t = triangles[f]!;
+      const g = find(f);
+      for (let k = 0; k < 3; k++) {
+        const acc = groupAccum.get(gkey(t[k]!, g))!;
+        cornerNormals[3 * f + k] = length(acc) > 0 ? normalize(acc) : faceNormals[f]!;
+      }
+    }
+
+    // Largest *flat* smoothing group as a fraction of surface area. A group is flat
+    // when all its faces share one normal (a planar facet: an extrusion's lid, a box
+    // face); an organic surface has none. This is how a caller tells a capped solid
+    // (flat lids meeting curved walls at creases) from a fully smooth mesh — the
+    // interpolated silhouette wanders across exactly these flat facets, so a mesh
+    // with a big one wants the exact face-based contour instead. (docs/DESIGN.md §3.3)
+    let totalArea = 0;
+    for (let f = 0; f < F; f++) totalArea += faceAreas[f]!;
+    const groupArea = new Map<number, number>();
+    const groupRef = new Map<number, Vec3>();
+    const groupFlat = new Map<number, boolean>();
+    for (let f = 0; f < F; f++) {
+      const g = find(f);
+      const n = faceNormals[f]!;
+      groupArea.set(g, (groupArea.get(g) ?? 0) + faceAreas[f]!);
+      const ref = groupRef.get(g);
+      if (!ref) groupRef.set(g, n);
+      else if (groupFlat.get(g) !== false && dot(ref, n) < FLAT_COS) groupFlat.set(g, false);
+      if (!groupFlat.has(g)) groupFlat.set(g, true);
+    }
+    let flatFacetFraction = 0;
+    if (totalArea > 0) for (const [g, area] of groupArea) if (groupFlat.get(g)) flatFacetFraction = Math.max(flatFacetFraction, area / totalArea);
+
     return new HalfEdgeMesh({
+      flatFacetFraction,
       positions,
       triangles,
       heFrom,
@@ -250,6 +343,7 @@ export class HalfEdgeMesh {
       faceNormals,
       faceAreas,
       vertexNormals,
+      cornerNormals,
       edges,
       boundaryEdgeCount,
       nonManifoldEdgeCount,

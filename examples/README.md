@@ -247,6 +247,38 @@ outline. The visibility classification underneath is identical; only the styling
 the hidden intervals changes. Drop is what the [gravity well](#16--gravity-well)
 uses, so an opaque surface doesn't ghost its own far side back through itself.
 
+### 20 · Extruded hard solids
+
+![extruded solids](gallery/20-extrusion.svg)
+
+A 2-D profile pushed to a height by **`extrude`** (`krbn/shapes`): a flat lid, a
+flat floor, and one wall per edge, with the caps **ear-clipped** so non-convex
+outlines work. Both panels are prisms; only the profile differs. **Left**, a
+**rounded** rectangle — the corners are sampled finely, so the wall reads as one
+**smooth curved band** while the **lid stays flat**. That mix is the point:
+crease-aware corner normals shade the flat lid flat while the rounded wall shades
+light→dark, instead of averaging the lid into a spurious dome. **Right**, a
+**sharp** five-point star — every corner is a real crease, so the solid is
+**faceted** and each flat wall takes a single tone by its angle to the light. One
+generator, two regimes, chosen entirely by the profile.
+
+### 21 · Capped solids in the wild — the Slack mark
+
+![slack logo](gallery/21-slack-logo.svg)
+
+The Slack mark rebuilt as its true geometry — four elongated **bar** capsules
+pinwheeling around the central square plus four rounded **knob** caps — extruded to
+eight rounded 3-D tiles laid flat on a sheet of paper. With no colour to work with,
+the four brand hues map to four **hatch tones** (aubergine darkest → yellow
+lightest). Every tile is a plain extrusion, and every tile is a **capped solid**:
+a flat lid meeting a smooth wall at a 90° crease rim. So this is the [capped
+regime](#20--extruded-hard-solids) doing its job with no per-scene help — the lids
+shade flat (crease-aware corner normals) while the rounded walls shade smooth, the
+drawn outline is the crease-aware silhouette (a clean curve, no phantom drifting
+across the lid), and the hatch fills from the exact face contour so it clips to the
+real rounded edges. The same eight tiles rendered as plain smooth meshes would dome
+their lids and fray their edges.
+
 ## Importing meshes — STL & OBJ
 
 Two scene files import real mesh files from [`importers/`](importers) and render

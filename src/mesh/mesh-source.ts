@@ -18,7 +18,12 @@ import type { FeatureSource } from "../scene/feature-source.js";
 import { cross, dot, normalize, sub } from "../math/vec3.js";
 import { cameraFrame, projectionMatrix, projectPoint } from "../math/camera.js";
 import { HalfEdgeMesh, type BuildOptions, type MeshInput } from "./halfedge.js";
-import { chainVertexEdges, facetedSilhouetteLoops, silhouetteChains, silhouetteLoops } from "./silhouette.js";
+import { chainVertexEdges, creaseAwareSilhouetteChains, facetedSilhouetteLoops, silhouetteChains, silhouetteLoops } from "./silhouette.js";
+
+// A mesh counts as a *capped* solid once its largest planar smoothing group covers
+// at least this fraction of its surface area (an extrusion's lid clears it easily;
+// an organic mesh with an incidental coplanar triangle-pair does not).
+const FLAT_FACET_MIN = 0.02;
 import { computeCurvature, type CurvatureField } from "./curvature.js";
 import { StreamlineAtlas } from "./mesh-hatch.js";
 import { suggestiveContourChains } from "./suggestive.js";
@@ -49,6 +54,16 @@ export class Mesh implements FeatureSource {
    * gravity sheet — few or no creases) keeps the interpolated path unchanged.
    */
   private readonly faceted: boolean;
+  /**
+   * A *capped* solid — smooth walls meeting flat lids at crease rims (an extruded
+   * rounded slab, the Slack tiles). Neither faceted (its walls are smooth) nor
+   * plainly smooth (the shared-normal zero-set would wander a phantom contour across
+   * the flat lids). It takes a hybrid: the **exact face-based contour** bounds the
+   * fillable region (a clean closed loop, so hatch clips to real edges) while the
+   * drawn outline is the **crease-aware** interpolated silhouette (a smooth curve, no
+   * phantom, terminating at the rims); shading stays smooth via the corner normals.
+   */
+  private readonly capped: boolean;
 
   constructor(input: MeshInput, opts: MeshOptions = {}, id?: ElementId) {
     this.autoNamed = id === undefined;
@@ -59,6 +74,7 @@ export class Mesh implements FeatureSource {
     const interior = this.he.edges.filter((e) => !e.boundary).length;
     const creases = this.he.creases().length;
     this.faceted = creases > 0 && creases >= 0.5 * interior;
+    this.capped = !this.faceted && creases > 0 && this.he.flatFacetFraction >= FLAT_FACET_MIN;
   }
 
   /** Curvature precompute, lazily (only when suggestive contours are requested). */
@@ -79,6 +95,8 @@ export class Mesh implements FeatureSource {
    *  the base analytic floor alone keeps the visible/hidden boundary crisp instead
    *  of smeared across a whole face. */
   selfNudge(): number {
+    // A capped solid still *draws* an interpolated silhouette (it floats off the
+    // facets), so it keeps the smooth slack; only a faceted mesh is exact everywhere.
     return this.faceted ? 0 : 0.75 * this.he.meanEdgeLength;
   }
 
@@ -96,8 +114,12 @@ export class Mesh implements FeatureSource {
     // chains (creases/boundaries) are keyed on their minimal vertex index — fully
     // stable; view-dependent chains (silhouette/suggestive) on their minimal
     // crossed mesh edge — stable for as long as that edge stays crossed.
+    // A capped solid draws the crease-aware silhouette (smooth, no phantom on the
+    // flat lids); a plain smooth mesh draws the classic interpolated zero-set. A
+    // faceted mesh draws neither — its creases already trace the whole outline.
     if (!this.faceted) {
-      for (const c of silhouetteChains(this.he, cam)) {
+      const chains = this.capped ? creaseAwareSilhouetteChains(this.he, cam) : silhouetteChains(this.he, cam);
+      for (const c of chains) {
         if (c.pts.length >= 2) feats.push({ type: "silhouette", owner: this.id, id: `${this.id}/silhouette:${c.key}`, curve: { kind: "polyline", pts: c.pts }, attrs: {} });
       }
     }
@@ -123,9 +145,14 @@ export class Mesh implements FeatureSource {
   }
 
   /** The apparent contour used to seed QI crossings and bound hatch: the exact
-   *  face-based outline for a faceted mesh, the interpolated zero-set otherwise. */
+   *  face-based outline for a faceted or capped solid, the interpolated zero-set for
+   *  a plainly smooth mesh. */
   private silhouetteWorld(cam: Camera): Vec3[][] {
-    return this.faceted ? facetedSilhouetteLoops(this.he, cam) : silhouetteLoops(this.he, cam);
+    // Both faceted and capped solids fill from the exact face contour — a closed
+    // loop that hugs real edges. (A capped solid's *drawn* silhouette is the
+    // crease-aware curve, but that terminates at rims and can't bound a region.)
+    if (this.faceted || this.capped) return facetedSilhouetteLoops(this.he, cam);
+    return silhouetteLoops(this.he, cam);
   }
 
   projectedSilhouettes(cam: Camera): Curve2D[] {
@@ -208,11 +235,11 @@ export class Mesh implements FeatureSource {
   }
 
   /** Möller–Trumbore ray–triangle intersection over all faces; interpolated
-   *  (smooth) normals for shading, face normal for the front/back flag. */
+   *  crease-aware corner normals for shading, face normal for the front/back flag. */
   raycast(ray: Ray): Hit[] {
     const { origin: o, dir: d } = ray;
     const P = this.he.positions;
-    const VN = this.he.vertexNormals;
+    const CN = this.he.cornerNormals;
     const hits: Hit[] = [];
     for (let f = 0; f < this.he.faceCount; f++) {
       const t = this.he.triangles[f]!;
@@ -234,17 +261,19 @@ export class Mesh implements FeatureSource {
       const tHit = inv * dot(e2, q);
       const point: Vec3 = [o[0] + d[0] * tHit, o[1] + d[1] * tHit, o[2] + d[2] * tHit];
       // A faceted mesh shades flat: return the face normal so each facet reads as a
-      // single uniform tone. A smooth mesh interpolates the vertex normals so it
-      // shades continuously light→dark.
+      // single uniform tone. A smooth mesh interpolates the *corner* normals so it
+      // shades continuously light→dark — and, because those normals are crease-aware,
+      // a flat lid meeting rounded walls at a crease still shades flat rather than
+      // being averaged into a spurious dome.
       const fn = this.he.faceNormals[f]!;
       let normal: Vec3;
       if (this.faceted) {
         normal = fn;
       } else {
         const w0 = 1 - u - v;
-        const n0 = VN[t[0]]!;
-        const n1 = VN[t[1]]!;
-        const n2 = VN[t[2]]!;
+        const n0 = CN[3 * f]!;
+        const n1 = CN[3 * f + 1]!;
+        const n2 = CN[3 * f + 2]!;
         normal = normalize([
           w0 * n0[0] + u * n1[0] + v * n2[0],
           w0 * n0[1] + u * n1[1] + v * n2[1],

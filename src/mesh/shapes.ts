@@ -1,7 +1,7 @@
 // A few indexed triangle meshes for tests and demos. All are oriented CCW when
 // seen from outside, so face normals point outward.
 
-import type { Vec3 } from "../math/types.js";
+import type { Vec2, Vec3 } from "../math/types.js";
 import type { MeshInput, Tri } from "./halfedge.js";
 import { add, cross, dot, length, normalize, scale, sub } from "../math/vec3.js";
 
@@ -288,4 +288,79 @@ export function knotTube(tubeR = 0.28, nSeg = 160, nTube = 16, s = 0.55): MeshIn
     return best;
   };
   return { positions, triangles: orient(positions, triangles, (c) => sub(c, nearest(c))) };
+}
+
+/** Signed area of a 2-D polygon (positive ⇒ CCW winding). */
+function signedArea(poly: readonly Vec2[]): number {
+  let a = 0;
+  for (let i = 0, n = poly.length; i < n; i++) {
+    const p = poly[i]!;
+    const q = poly[(i + 1) % n]!;
+    a += p[0] * q[1] - q[0] * p[1];
+  }
+  return a / 2;
+}
+
+/** Ear-clip a simple (possibly non-convex) CCW polygon into a triangle fan-free
+ *  triangulation, returned as triples of the *input* vertex indices, each CCW.
+ *  O(n²) — fine for the modest profiles these generators produce. A profile that
+ *  self-intersects or has near-zero area may leave a few triangles unclipped; the
+ *  caps degrade gracefully rather than throwing. */
+function earClip(poly: readonly Vec2[]): [number, number, number][] {
+  const n = poly.length;
+  const idx: number[] = Array.from({ length: n }, (_, i) => i); // assumed CCW (caller normalizes)
+  const tris: [number, number, number][] = [];
+  const cross2 = (o: Vec2, a: Vec2, b: Vec2) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const inTri = (p: Vec2, a: Vec2, b: Vec2, c: Vec2): boolean => {
+    const d1 = cross2(a, b, p), d2 = cross2(b, c, p), d3 = cross2(c, a, p);
+    return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0)); // same side of all edges
+  };
+  let guard = idx.length * idx.length;
+  while (idx.length > 3 && guard-- > 0) {
+    let clipped = false;
+    for (let i = 0; i < idx.length; i++) {
+      const ia = idx[(i - 1 + idx.length) % idx.length]!, ib = idx[i]!, ic = idx[(i + 1) % idx.length]!;
+      const a = poly[ia]!, b = poly[ib]!, c = poly[ic]!;
+      if (cross2(a, b, c) <= 0) continue; // reflex/collinear corner — not an ear
+      let ear = true;
+      for (const k of idx) {
+        if (k === ia || k === ib || k === ic) continue;
+        if (inTri(poly[k]!, a, b, c)) { ear = false; break; }
+      }
+      if (!ear) continue;
+      tris.push([ia, ib, ic]);
+      idx.splice(i, 1);
+      clipped = true;
+      break;
+    }
+    if (!clipped) break; // degenerate profile — stop rather than spin
+  }
+  if (idx.length === 3) tris.push([idx[0]!, idx[1]!, idx[2]!]);
+  return tris;
+}
+
+/** Extrude a simple polygon `profile` (in the z=0 plane, any winding) straight up
+ *  to `height` along +z: a flat lid, a flat floor, and one wall quad per profile
+ *  edge. The caps are ear-clipped, so **non-convex** profiles (an L, a star, a
+ *  gear) extrude correctly, not just convex ones. Corners become vertical **crease**
+ *  edges and the rim is a 90° crease, so a sharp-cornered profile reads faceted;
+ *  a finely-sampled **rounded** profile instead gives smooth walls under a flat lid
+ *  — the crease-aware corner normals keep the flat top from being averaged into the
+ *  walls (see `HalfEdgeMesh.cornerNormals`). Oriented outward for either winding. */
+export function extrude(profile: readonly Vec2[], height: number): MeshInput {
+  const prof = signedArea(profile) < 0 ? [...profile].reverse() : [...profile]; // normalize to CCW
+  const n = prof.length;
+  const positions: Vec3[] = [];
+  for (const p of prof) positions.push([p[0], p[1], 0]); //       0 .. n-1   floor
+  for (const p of prof) positions.push([p[0], p[1], height]); //  n .. 2n-1  lid
+  const cap = earClip(prof);
+  const triangles: Tri[] = [];
+  for (const [a, b, c] of cap) triangles.push([n + a, n + b, n + c]); // +z lid (CCW from above)
+  for (const [a, b, c] of cap) triangles.push([a, c, b]); //            −z floor (reversed)
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    triangles.push([i, j, n + j]); //  outward walls (prof is CCW)
+    triangles.push([i, n + j, n + i]);
+  }
+  return { positions, triangles };
 }

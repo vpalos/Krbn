@@ -132,8 +132,14 @@ scene.add(new Mesh(gravitySheet(3, 72, 1.7, 0.95)));
 `MeshInput` is `{ positions: Vec3[], triangles: [number, number, number][] }` —
 bring your own geometry, or use the starter generators in **`krbn/shapes`**
 (`cube`, `tetrahedron`, `uvSphere`, `tube`, `torusMesh`, `gravitySheet`,
-`bumpyBlob`, `knotTube`, plus `translate` / `rotate`). These are convenience
-content, kept off the core API.
+`bumpyBlob`, `knotTube`, `extrude`, plus `translate` / `rotate`). These are
+convenience content, kept off the core API.
+
+`extrude(profile, height)` pushes a 2-D polygon (`Vec2[]` in the z=0 plane, any
+winding) up to `height`: a flat lid, a flat floor, and one wall per edge, with the
+caps ear-clipped so **non-convex** outlines (an L, a star, a gear) work. A rounded
+profile reads as smooth walls under a flat lid; a sharp one reads faceted — see
+[`gallery/20`](examples/gallery/20-extrusion.svg).
 
 ### Importing meshes (STL / OBJ)
 
@@ -221,7 +227,7 @@ loaders; deliverables & layout (`view`, `raw`, `grid`, `stack`, `figures`, `film
 math types (`Camera`, `Vec3`, …).
 
 **`krbn/shapes`** — mesh generators (`cube`, `uvSphere`, `torusMesh`,
-`gravitySheet`, `knotTube`, …) and `translate` / `rotate`.
+`gravitySheet`, `knotTube`, `extrude`, …) and `translate` / `rotate`.
 
 See [`docs/DESIGN.md`](docs/DESIGN.md) for how the engine works and
 [`examples/`](examples) for the full gallery and animation.
