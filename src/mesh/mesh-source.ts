@@ -18,7 +18,7 @@ import type { FeatureSource } from "../scene/feature-source.js";
 import { cross, dot, normalize, sub } from "../math/vec3.js";
 import { cameraFrame, projectionMatrix, projectPoint } from "../math/camera.js";
 import { HalfEdgeMesh, type BuildOptions, type MeshInput } from "./halfedge.js";
-import { chainVertexEdges, creaseAwareSilhouetteChains, facetedSilhouetteLoops, silhouetteChains, silhouetteLoops } from "./silhouette.js";
+import { chainVertexEdges, facetedSilhouetteLoops, silhouetteChains, silhouetteLoops } from "./silhouette.js";
 
 // A mesh counts as a *capped* solid once its largest planar smoothing group covers
 // at least this fraction of its surface area (an extrusion's lid clears it easily;
@@ -58,10 +58,13 @@ export class Mesh implements FeatureSource {
    * A *capped* solid — smooth walls meeting flat lids at crease rims (an extruded
    * rounded slab, the Slack tiles). Neither faceted (its walls are smooth) nor
    * plainly smooth (the shared-normal zero-set would wander a phantom contour across
-   * the flat lids). It takes a hybrid: the **exact face-based contour** bounds the
-   * fillable region (a clean closed loop, so hatch clips to real edges) while the
-   * drawn outline is the **crease-aware** interpolated silhouette (a smooth curve, no
-   * phantom, terminating at the rims); shading stays smooth via the corner normals.
+   * the flat lids). Its contour — both the drawn outline and the fillable region —
+   * is the **exact face-based contour**: a clean closed loop that hugs the real
+   * rounded edges and joins the rim creases, so the hatch clips to real edges and the
+   * outline never dangles. Shading stays smooth via the crease-aware corner normals,
+   * which is what keeps the flat lids from doming. (The interpolated zero-set, even a
+   * crease-aware one, is open arcs that leave gaps on a thin lid — hence the face
+   * contour here.)
    */
   private readonly capped: boolean;
 
@@ -114,12 +117,19 @@ export class Mesh implements FeatureSource {
     // chains (creases/boundaries) are keyed on their minimal vertex index — fully
     // stable; view-dependent chains (silhouette/suggestive) on their minimal
     // crossed mesh edge — stable for as long as that edge stays crossed.
-    // A capped solid draws the crease-aware silhouette (smooth, no phantom on the
-    // flat lids); a plain smooth mesh draws the classic interpolated zero-set. A
-    // faceted mesh draws neither — its creases already trace the whole outline.
-    if (!this.faceted) {
-      const chains = this.capped ? creaseAwareSilhouetteChains(this.he, cam) : silhouetteChains(this.he, cam);
-      for (const c of chains) {
+    // A capped solid draws its exact face-based contour: a *closed* loop that hugs
+    // the real rounded edges and joins the rim creases. The interpolated zero-set —
+    // even the crease-aware one — is a set of *open* arcs that terminate at the
+    // creases, and on a thin lid those arcs are short stubs that don't reach the rim,
+    // leaving dangling gaps in the outline. The face contour has no such seam and is
+    // smooth at any reasonable tessellation. A plain smooth mesh keeps the classic
+    // interpolated zero-set; a faceted mesh draws neither (its creases trace it all).
+    if (this.capped) {
+      facetedSilhouetteLoops(this.he, cam).forEach((loop, i) => {
+        if (loop.length >= 2) feats.push({ type: "silhouette", owner: this.id, id: `${this.id}/silhouette:${i}`, curve: { kind: "polyline", pts: loop }, attrs: {} });
+      });
+    } else if (!this.faceted) {
+      for (const c of silhouetteChains(this.he, cam)) {
         if (c.pts.length >= 2) feats.push({ type: "silhouette", owner: this.id, id: `${this.id}/silhouette:${c.key}`, curve: { kind: "polyline", pts: c.pts }, attrs: {} });
       }
     }

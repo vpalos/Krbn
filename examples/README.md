@@ -273,11 +273,12 @@ the four brand hues map to four **hatch tones** (aubergine darkest → yellow
 lightest). Every tile is a plain extrusion, and every tile is a **capped solid**:
 a flat lid meeting a smooth wall at a 90° crease rim. So this is the [capped
 regime](#20--extruded-hard-solids) doing its job with no per-scene help — the lids
-shade flat (crease-aware corner normals) while the rounded walls shade smooth, the
-drawn outline is the crease-aware silhouette (a clean curve, no phantom drifting
-across the lid), and the hatch fills from the exact face contour so it clips to the
-real rounded edges. The same eight tiles rendered as plain smooth meshes would dome
-their lids and fray their edges.
+shade flat (crease-aware corner normals) while the rounded walls shade smooth, and
+both the drawn outline and the hatch region come from the **exact face contour**: a
+closed curve that hugs the rounded edges and joins the rim creases, with no phantom
+drifting across the lid and no dangling gap where a thin lid's wall silhouette would
+otherwise fail to reach the rim. The same eight tiles rendered as plain smooth
+meshes would dome their lids and fray their edges.
 
 ## Importing meshes — STL & OBJ
 

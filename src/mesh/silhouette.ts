@@ -104,11 +104,10 @@ function canonicalKeys(keys: string[]): { keys: string[]; key: string; closed: b
 
 /**
  * Chain contour segments (each a pair of crossed-edge node keys) into canonically
- * oriented, identity-keyed `ZeroSetChain`s. This is the shared spine behind both
- * the per-vertex zero-set (`zeroSetChains`) and the crease-aware silhouette
- * (`creaseAwareSilhouetteChains`): the two differ only in how they place crossings
- * into `segA`/`segB` and the node maps; the walk, canonical start, intrinsic
- * orientation vote, and stable list order are identical (temporal coherence).
+ * oriented, identity-keyed `ZeroSetChain`s: the walk through shared nodes, the
+ * topology-anchored canonical start, the intrinsic orientation vote, and the stable
+ * list order (temporal coherence). Split out of `zeroSetChains` so the crossing
+ * extraction and the chaining read as separate steps.
  */
 function chainSegments(
   segA: readonly string[],
@@ -230,81 +229,6 @@ export function facetedSilhouetteLoops(mesh: HalfEdgeMesh, cam: Camera): Vec3[][
     if (front[f0] !== front[f1]) edges.push([e.v0, e.v1]);
   }
   return chainVertexEdges(edges).map((chain) => chain.vertices.map((v) => P[v]!));
-}
-
-/**
- * The mesh silhouette, made **crease-aware**. Same interpolated zero-set as
- * `silhouetteChains`, but the view signal `g = n·toEye` is read per **face corner**
- * from the crease-aware corner normals (docs/DESIGN.md §3.3.2) rather than the one
- * shared vertex normal. Two consequences, both wanted on a capped solid:
- *
- * - A **flat facet** (an extrusion's lid) has all corners sharing the cap normal, so
- *   `g` keeps one sign across the whole face → no interior crossing → the contour
- *   can no longer *wander the lid* the way the shared-normal zero-set does (it drifts
- *   inward as the averaged rim normals tilt). That drift was the phantom silhouette.
- * - Across a **crease** the two incident faces read different corner normals, so the
- *   zero-set is discontinuous there and simply **terminates at the crease** — which
- *   is already drawn as a crease feature — instead of leaking onto the flat cap.
- *
- * On a smooth edge both faces share the corner normals, so the crossing point is
- * identical from either side (nodes chain normally); on a mesh with **no creases**
- * corner normals equal vertex normals, so this reduces to `silhouetteChains`.
- */
-export function creaseAwareSilhouetteChains(mesh: HalfEdgeMesh, cam: Camera): ZeroSetChain[] {
-  const P = mesh.positions;
-  const CN = mesh.cornerNormals;
-  const N = mesh.vertexNormals;
-  const persp = cam.projection === "perspective";
-  const fwd = cameraFrame(cam).forward;
-  const toEyeOrtho: Vec3 = [-fwd[0], -fwd[1], -fwd[2]];
-  const toEye: Vec3[] = new Array(mesh.vertexCount);
-  for (let v = 0; v < mesh.vertexCount; v++) toEye[v] = persp ? normalize(sub(cam.eye, P[v]!)) : toEyeOrtho;
-  const positive = (x: number) => x >= 0;
-
-  const nodePoint = new Map<string, Vec3>();
-  const nodePlus = new Map<string, Vec3>();
-  const nodeNormal = new Map<string, Vec3>();
-  const segA: string[] = [];
-  const segB: string[] = [];
-
-  for (let f = 0; f < mesh.faceCount; f++) {
-    const t = mesh.triangles[f]!;
-    // g per face corner (crease-aware): a flat facet keeps one sign ⇒ no crossing
-    const gc: number[] = [0, 0, 0];
-    for (let k = 0; k < 3; k++) {
-      const nk = CN[3 * f + k]!;
-      const e = toEye[t[k]!]!;
-      gc[k] = nk[0] * e[0] + nk[1] * e[1] + nk[2] * e[2];
-    }
-    const crossed: string[] = [];
-    for (let k = 0; k < 3; k++) {
-      const a = t[k]!;
-      const b = t[(k + 1) % 3]!;
-      const ga = gc[k]!;
-      const gb = gc[(k + 1) % 3]!;
-      if (positive(ga) === positive(gb)) continue; // no sign change on this corner-pair
-      const s = ga / (ga - gb); // crossing a→b; identical point from the twin face on a smooth edge
-      const key = edgeKey(a, b);
-      if (!nodePoint.has(key)) {
-        nodePoint.set(key, addScaled(P[a]!, sub(P[b]!, P[a]!), s));
-        const toB = sub(P[b]!, P[a]!);
-        nodePlus.set(key, ga >= gb ? [-toB[0], -toB[1], -toB[2]] : toB);
-        const na = N[a]!;
-        nodeNormal.set(key, addScaled(na, sub(N[b]!, na), s));
-      }
-      crossed.push(key);
-    }
-    if (crossed.length === 2) {
-      segA.push(crossed[0]!);
-      segB.push(crossed[1]!);
-    }
-  }
-
-  return chainSegments(segA, segB, nodePoint, nodePlus, nodeNormal);
-}
-
-export function creaseAwareSilhouetteLoops(mesh: HalfEdgeMesh, cam: Camera): Vec3[][] {
-  return creaseAwareSilhouetteChains(mesh, cam).map((c) => c.pts);
 }
 
 /** A canonically oriented vertex-index chain with a stable identity anchor:

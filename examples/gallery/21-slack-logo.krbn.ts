@@ -31,21 +31,35 @@ const F = (a: number, b: number, c: number): Tri => [a, b, c];
 
 // convex stadium / half-stadium footprint (CCW list of [x, y]); a knob has one
 // rounded and one flat end, a bar has two rounded ends.
-function outline(c0: P2, c1: P2, r: number, round0: boolean, round1: boolean, seg: number): P2[] {
-  const dx = c1[0] - c0[0], dy = c1[1] - c0[1];
+function outline(
+  c0: P2,
+  c1: P2,
+  r: number,
+  round0: boolean,
+  round1: boolean,
+  seg: number,
+): P2[] {
+  const dx = c1[0] - c0[0],
+    dy = c1[1] - c0[1];
   const len = Math.hypot(dx, dy) || 1;
-  const ux = dx / len, uy = dy / len, nx = -uy, ny = ux;
+  const ux = dx / len,
+    uy = dy / len,
+    nx = -uy,
+    ny = ux;
   const ang = Math.atan2(uy, ux);
   const P: P2[] = [];
   const arc = (c: P2, a0: number, a1: number) => {
-    for (let i = 1; i < seg; i++) { const a = a0 + (a1 - a0) * i / seg; P.push([c[0] + r * Math.cos(a), c[1] + r * Math.sin(a)]); }
+    for (let i = 1; i < seg; i++) {
+      const a = a0 + ((a1 - a0) * i) / seg;
+      P.push([c[0] + r * Math.cos(a), c[1] + r * Math.sin(a)]);
+    }
   };
   P.push([c0[0] - r * nx, c0[1] - r * ny]);
   P.push([c1[0] - r * nx, c1[1] - r * ny]);
   if (round1) arc(c1, ang - Math.PI / 2, ang + Math.PI / 2);
   P.push([c1[0] + r * nx, c1[1] + r * ny]);
   P.push([c0[0] + r * nx, c0[1] + r * ny]);
-  if (round0) arc(c0, ang + Math.PI / 2, ang + 3 * Math.PI / 2);
+  if (round0) arc(c0, ang + Math.PI / 2, ang + (3 * Math.PI) / 2);
   return P;
 }
 
@@ -92,19 +106,32 @@ const scene = new Scene({
 });
 
 // the flat surface (a sheet of paper): a quiet, un-hatched context plane
-scene.add(new Polygon([V3(-108, -95, 0), V3(108, -95, 0), V3(108, 95, 0), V3(-108, 95, 0)]))
-  .setImportance(0.25, { role: "context" })
-  .style({ wobble: 0.5, weight: 1.0, hatch: null, hidden: "drop" });
+// DELETED 'because it looks better without it.
+// scene.add(new Polygon([V3(-108, -95, 0), V3(108, -95, 0), V3(108, 95, 0), V3(-108, 95, 0)]))
+//   .setImportance(0.25, { role: "context" })
+//   .style({ wobble: 0.5, weight: 1.0, hatch: null, hidden: "drop" });
 
 for (const [c, a, b, r0, r1] of SHAPES) {
-  scene.add(new Mesh(tile(outline(a, b, R, r0, r1, SEG), T)))
+  scene
+    .add(new Mesh(tile(outline(a, b, R, r0, r1, SEG), T)))
     .setImportance(0.9, { role: "subject" })
-    .style({ wobble: 0.4, weight: 1.4, hidden: "drop", hatch: { ...COL[c], field: false }, hatchWeight: 0.8, hatchOpacity: 0.5 });
+    .style({
+      wobble: 0.4,
+      weight: 1.4,
+      hidden: "drop",
+      hatch: { ...COL[c], field: false },
+      hatchWeight: 0.8,
+      hatchOpacity: 0.5,
+    });
 }
 
 const cam: Camera = {
-  eye: [5, -166, 116], target: [0, 6, 4], up: [0, 0, 1],
-  projection: "perspective", scale: 0.525, viewport: { width: 900, height: 680 },
+  eye: [5, -146, 166],
+  target: [0, -8, 4],
+  up: [0, 0, 1],
+  projection: "perspective",
+  scale: 0.525,
+  viewport: { width: 900, height: 680 },
 };
 
 export default view(scene, cam);
