@@ -138,6 +138,9 @@ Each links to a demo in the [gallery](examples/README.md).
   something hides it. ([highlight](examples/gallery/06-highlight.svg))
 - **Deterministic SVG** — pure, seeded vector output; the same scene always yields
   the same, diffable file.
+- **Pen-plotter output** — `svg: { centerline: true }` emits every stroke as a
+  single-line `<path>` centreline (no `<polyline>`, no filled ribbons), so the render
+  goes straight to an SVG→G-code converter. ([API.md](API.md#pen-plotters))
 
 ## Why it works this way
 

@@ -9,6 +9,15 @@ export interface SvgOptions {
   background?: string | null;
   /** decimal places for coordinates (smaller files vs. precision) */
   precision?: number;
+  /**
+   * Pen-plotter / SVG→G-code mode. Every stroke is emitted as a single-line
+   * **`<path>`** centreline (`M … L …`) with a constant `stroke-width` — never a
+   * `<polyline>` and never a filled variable-width **ribbon** (which a pen would
+   * trace as a double outline or try to fill). One open path per stroke, so a
+   * plotter draws each line exactly once. Dashes and colours are preserved; the
+   * calligraphic taper/pressure is dropped (it has no meaning for a fixed pen).
+   */
+  centerline?: boolean;
 }
 
 function fmt(n: number, prec: number): string {
@@ -93,8 +102,28 @@ function ribbon(s: RenderStroke, prec: number, indent: string): string {
   return `${indent}<path ${attrs.join(" ")} />`;
 }
 
-/** A solid variable-width stroke renders as a ribbon; everything else as a stroke. */
-function strokeSVG(s: RenderStroke, prec: number, indent: string): string {
+/** A stroke's centreline as a single open `<path>` (M…L…) at constant width — the
+ *  pen-plotter form: one path per stroke, no fill, no ribbon. */
+function centerlinePath(s: RenderStroke, prec: number, indent: string): string {
+  const st = s.style;
+  const d = s.path.map((p, i) => `${i === 0 ? "M" : "L"} ${fmt(p[0], prec)},${fmt(p[1], prec)}`).join(" ");
+  const attrs = [
+    `d="${d}"`,
+    `fill="none"`,
+    `stroke="${st.color}"`,
+    `stroke-width="${fmt(st.weight, 3)}"`,
+    st.opacity !== 1 ? `stroke-opacity="${fmt(st.opacity, 3)}"` : "",
+    st.dash && st.dash.length ? `stroke-dasharray="${st.dash.map((d) => fmt(d, 3)).join(",")}"` : "",
+    `stroke-linecap="round"`,
+    `stroke-linejoin="round"`,
+  ].filter(Boolean);
+  return `${indent}<path ${attrs.join(" ")} />`;
+}
+
+/** A solid variable-width stroke renders as a ribbon; everything else as a stroke.
+ *  In `centerline` mode every stroke is a single-line `<path>` (see `SvgOptions`). */
+function strokeSVG(s: RenderStroke, prec: number, indent: string, centerline: boolean): string {
+  if (centerline) return centerlinePath(s, prec, indent);
   const dashed = s.style.dash && s.style.dash.length;
   return s.width && s.width.length === s.path.length && !dashed ? ribbon(s, prec, indent) : polyline(s, prec, indent);
 }
@@ -106,6 +135,7 @@ export function renderItemsSVG(
   opts: SvgOptions = {},
 ): string {
   const prec = opts.precision ?? 2;
+  const centerline = opts.centerline ?? false;
   const { width, height } = viewport;
   const body: string[] = [];
   body.push(
@@ -117,10 +147,10 @@ export function renderItemsSVG(
       const members = item.strokes.filter((s) => s.path.length >= 2);
       if (members.length === 0) continue;
       body.push(`  <g opacity="${fmt(item.opacity, 3)}">`);
-      for (const s of members) body.push(strokeSVG(s, prec, "    "));
+      for (const s of members) body.push(strokeSVG(s, prec, "    ", centerline));
       body.push(`  </g>`);
     } else if (item.path.length >= 2) {
-      body.push(strokeSVG(item, prec, "  "));
+      body.push(strokeSVG(item, prec, "  ", centerline));
     }
   }
   body.push(`</svg>`);

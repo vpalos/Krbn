@@ -78,6 +78,24 @@ describe("SVG backend", () => {
     expect(svg).toContain("stroke-dasharray");
   });
 
+  test("centerline mode: every stroke is a single-line <path>, no polylines or filled ribbons", () => {
+    const s = sphere([0, 0, 0], 1);
+    const line = new Line([-3, 0, -2], [3, 0, -2]);
+    const strokes = [
+      classifyFeature(s.extractFeatures(front)[0]!, front, [s, line]),
+      classifyFeature(line.extractFeatures(front)[0]!, front, [s, line]),
+    ];
+    const plain = renderStrokesSVG(emitScene(strokes, front), front.viewport);
+    const cl = renderStrokesSVG(emitScene(strokes, front), front.viewport, { centerline: true });
+    // same number of strokes, but every one is now an open path (M…L…), no <polyline>
+    expect((cl.match(/<polyline/g) ?? []).length).toBe(0);
+    expect((cl.match(/<path /g) ?? []).length).toBe((plain.match(/<polyline/g) ?? []).length);
+    expect(cl).toContain('d="M ');
+    expect(cl).toContain('fill="none"'); // centrelines, not filled ribbons
+    expect(cl).not.toContain("Z\""); // no closed ribbon outline
+    expect(cl).toContain("stroke-dasharray"); // dashes preserved
+  });
+
   test("renderScene exposes intermediate stages", () => {
     const s = sphere([0, 0, 0], 1);
     const result = renderScene([s], front);

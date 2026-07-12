@@ -54,9 +54,9 @@ export default view(scene, cam);                 // a Drawing
 scale, viewport: { width, height } }`. `scale` is the half-FOV (radians) for
 perspective, world-units-per-pixel for orthographic. Points are `[x, y, z]`.
 
-**`new Scene(opts?)`** options: `light: { direction }`, `svg: { background }`,
-`style` (scene-wide default style), `abstraction: { toneLevels?, minFeaturePx?,
-consolidate? }`.
+**`new Scene(opts?)`** options: `light: { direction }`, `svg: { background,
+centerline }` (see [Pen plotters](#pen-plotters)), `style` (scene-wide default
+style), `abstraction: { toneLevels?, minFeaturePx?, consolidate? }`.
 
 **Primitives** (each returns a source you pass to `scene.add`):
 
@@ -216,6 +216,32 @@ export default film(
 `onFrame(k)` hook runs after each frame (progress, coherence reports, …). The CLI
 writes the frames + a `flipbook.html` that references them (scrub/play in a
 browser). `session.render(cam)` returns `{ svg, strokes, renderStrokes, coherence }`.
+
+## Pen plotters
+
+By default the SVG backend draws pencil-like lines: constant-width strokes as
+`<polyline>` and the calligraphic variable-width strokes as **filled `<path>`
+ribbons**. A pen plotter wants neither — a filled ribbon gets traced as a double
+outline, and many SVG→G-code converters choke on `<polyline>`. Set the backend flag:
+
+```ts
+const scene = new Scene({
+  svg: { centerline: true, background: null }, // plotter-ready output
+  light: { direction: [-0.4, -0.5, -0.7] },
+});
+```
+
+With `centerline`, **every stroke is emitted as a single open `<path>` centreline**
+(`M … L …`) at a constant `stroke-width` — no `<polyline>`, no filled ribbons. One
+path per stroke, so the pen draws each line exactly once; dashes (`hidden: "ghost"`)
+and colours are preserved, and only the calligraphic taper is dropped (it has no
+meaning for a fixed pen). `background: null` omits the background rectangle so the
+file is nothing but stroke paths.
+
+It's a backend option carried on each `Scene`, so it composes with `grid` / `stack`
+/ `film` — set it on every `Scene` whose panels you want in centreline form. The
+whole pipeline stays headless: `bun run render scene.krbn.ts` emits a file you can
+hand straight to a G-code converter, no Inkscape round-trip.
 
 ## Exports at a glance
 
