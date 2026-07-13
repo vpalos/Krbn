@@ -93,6 +93,31 @@ Hatch `mode` is `"single" | "cross" | "triple"` (1/2/3 tonal layers); `field: tr
 straight parallels. `importance`/`role` drive the abstraction stage (how much
 detail to keep) and supply styling defaults.
 
+**Output masking — splitting a scene into layers.** `output: false` mutes an
+element's *own* strokes while keeping it fully in the pipeline: it still occludes
+other elements and is still occluded by them (hidden-line, hatch clipping). Render
+the scene once per subset — muting the rest — and every layer keeps correct
+visibility against the *whole* scene. This is the split for **multi-pen / multi-
+colour plotting**: one SVG per pen, and no layer draws what another is in front of.
+
+```ts
+const well = scene.add(new Mesh(gravitySheet(3, 72, 1.7, 0.95))).style({ /* … */ });
+const ball = scene.add(sphere([0, 0, -0.66], 0.8)).style({ /* … */ });
+
+ball.setOutput(false);                 // or: scene.add(src, { output: false })
+const wellLayer = scene.render(cam).svg; // only the well — but the ball still
+                                         // carves its silhouette out of the hatch
+ball.setOutput(true);
+well.setOutput(false);
+const ballLayer = scene.render(cam).svg; // only the ball — its base still cut by
+well.setOutput(true);                    // the (invisible) sheet's near lip
+```
+
+`output` defaults to `true`; set it in `scene.add(src, { output })` or with the
+chainable `el.setOutput(bool)`. It gates only the final emit — the visibility
+classification upstream always runs over every element. See
+[`examples/gallery/22-output-split.krbn.ts`](examples/gallery/22-output-split.krbn.ts).
+
 **Relations.**
 
 ```ts

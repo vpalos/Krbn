@@ -169,7 +169,7 @@ variable-width ribbons apply exactly as they do to the analytic primitives.
 
 ![suggestive contours](gallery/14-suggestive.svg)
 
-The extra lines an artist draws where the surface *almost* turns away —
+The extra lines an artist draws where the surface _almost_ turns away —
 **suggestive contours** (DeCarlo et al.): the zero-set of radial curvature on the
 front-facing surface, where that curvature is increasing toward the eye. They come
 from the mesh's curvature precompute (principal curvatures for κ_r, the derivative
@@ -209,9 +209,9 @@ same visibility stage.
 
 The free-form primitive — no closed-form silhouette, so it is the one place
 per-frame **adaptive sampling** is sanctioned. **Left**: a **helix** wound just
-outside a cylinder — a 1-D curve doesn't occlude, but it *is* occludable, so the
+outside a cylinder — a 1-D curve doesn't occlude, but it _is_ occludable, so the
 back of every turn is **dashed** where the cylinder hides it and the coil reads in
-depth. **Middle**: a cubic **Bézier** carried *exactly* as its control points (the
+depth. **Middle**: a cubic **Bézier** carried _exactly_ as its control points (the
 faint control polygon + dots); the smooth curve threads an S the straight handles
 can't fake, and it is only sampled to a polyline at emit. **Right**: a **function
 plot** `y = g(x)`, a damped sine over an axis cross. The sampler carries a small
@@ -280,6 +280,27 @@ drifting across the lid and no dangling gap where a thin lid's wall silhouette w
 otherwise fail to reach the rim. The same eight tiles rendered as plain smooth
 meshes would dome their lids and fray their edges.
 
+### 22 · Per-object output masking — split a scene into layers
+
+![output split](gallery/22-output-split.svg)
+
+The **same** gravity-well scene ([demo 16](#16--gravity-well)) from one camera,
+emitted as two layers — only `output` differs. **Left** mutes the sphere
+(`output: false`) so just the well draws; **right** mutes the well so just the
+sphere draws. A muted element still **occludes**: it stays in the visibility pass
+and only its _own_ strokes are withheld. So on the left the invisible ball still
+**carves its silhouette out of the sheet's hatch** — the well is drawn exactly as
+it is hidden behind the ball — and on the right the invisible sheet still **cuts
+the ball's base** behind its near lip. The two panels are a faithful decomposition
+of the single combined render, ready to send to two different pens for
+**multi-colour plotting**, with neither layer drawing what the other is in front
+of. Set it per element with `scene.add(src, { output: false })` or
+`el.setOutput(false)` — it gates only the final emit, never the occlusion.
+
+_Thanks to Reddit user
+[u/ShelfordPrefect](https://www.reddit.com/user/ShelfordPrefect/) for requesting
+this feature._
+
 ## Importing meshes — STL & OBJ
 
 Two scene files import real mesh files from [`importers/`](importers) and render
@@ -300,11 +321,12 @@ mesh gets lighter (faster to hidden-line, cleaner sketch, at the cost of fidelit
 That level is the caller's to choose, per model, never baked into the loader.
 
 > ⚠️ **Importing meshes is early — expect to tinker.** This caveat is about
-> *imported* files specifically: the analytic primitives are exact, but arbitrary
+> _imported_ files specifically: the analytic primitives are exact, but arbitrary
 > real-world meshes are the young part of the engine, with a lot of refinement
-> still ahead. A complex mesh will *not* render beautifully out of the box. Two
+> still ahead. A complex mesh will _not_ render beautifully out of the box. Two
 > knobs get you most of the way to a decent result, and finding the sweet spot is
 > trial and error per model:
+>
 > - **`weldEps`** (decimation) — turn it up until the silhouette is clean and the
 >   render is quick, down until you stop losing detail that matters.
 > - **`creaseAngle`** (crease attenuation) — raise it to suppress the spurious
@@ -325,12 +347,16 @@ unaffected; opt back into ribbons per scene or per model with
 Most panels below are a **side-by-side comparison of the two hatch modes** on the
 same geometry: **flat** straight parallels vs the surface's **curvature-driven
 field** (streamlines of the principal-direction field that wrap the form). Same
-shape, same tone — only the stroke *flow* differs, and the curved field is what
+shape, same tone — only the stroke _flow_ differs, and the curved field is what
 makes a surface read as solid rather than decal-flat.
+
+_Thanks to Reddit user
+[u/ShelfordPrefect](https://www.reddit.com/user/ShelfordPrefect/) for being the one
+who made me look into imports in the first place._
 
 ### STL — [`stl.krbn.ts`](importers/stl.krbn.ts)
 
-**`parseSTL`** auto-detects binary vs ASCII (by the exact size formula, *not* the
+**`parseSTL`** auto-detects binary vs ASCII (by the exact size formula, _not_ the
 header — binary files often start with `solid` too), repairs each triangle's winding
 against its stored facet normal, and returns unwelded triangle soup, so `weldEps`
 fuses the shared corners back.
@@ -348,7 +374,7 @@ the lobes and vessels where flat parallels stay blind to the form:
 ### OBJ — [`obj.krbn.ts`](importers/obj.krbn.ts)
 
 **`parseOBJ`** reads the geometry subset (`v`/`f`, all index forms, negative
-indices, fan-triangulated quads/n-gons). OBJ already ships a *shared* vertex table,
+indices, fan-triangulated quads/n-gons). OBJ already ships a _shared_ vertex table,
 so topology comes for free — no weld needed to reconstruct it.
 
 A low-poly **mushroom** (208 faces), a **Tower of Hanoi** stack, and an organic
@@ -367,9 +393,9 @@ as rings and flow lines, while the flat hatch stays uniformly diagonal:
 
 ![the animation as a GIF — seeded wobble, no boiling](krbn-animation.gif)
 
-*(This is a pre-rendered GIF of the sequence below — see
+_(This is a pre-rendered GIF of the sequence below — see
 [Encoding the animation to video / GIF](#encoding-the-animation-to-video--gif)
-to reproduce it.)*
+to reproduce it.)_
 
 `animation.krbn.ts` default-exports a `film(...)` — a sequence of frames, each an
 ordinary `Drawing` (here `raw(session.render(cam).svg)`), so a frame composes with
@@ -397,7 +423,7 @@ What to look for while it plays — each is one piece of the coherence work:
   oriented from geometry and matched frame-to-frame to session-lifetime
   persistent ids; the per-frame report (printed as the script runs) shows
   **zero born / died / reversed** over the whole orbit.
-- **Hatch pans *with* the surfaces.** Straight hatch is phase-anchored to a
+- **Hatch pans _with_ the surfaces.** Straight hatch is phase-anchored to a
   projected object point; mesh streamlines come from a static object-space
   atlas; the analytic ring/ruling fields sit on dyadic iso-parameter ladders —
   the camera selects density, it never re-seeds or re-spaces.
@@ -407,7 +433,7 @@ What to look for while it plays — each is one piece of the coherence work:
 - **Feature detail thins by fading, never popping.** The abstraction cull and
   suggestive contours dissolve through stateless opacity fades (`Stroke.fade`,
   `attrs.strength`). Hatch density is the one deliberate exception: it snaps
-  between *complete* dyadic levels (a partially-drawn interleaving level reads
+  between _complete_ dyadic levels (a partially-drawn interleaving level reads
   as a periodic banding artifact in stills), and the level demand is
   rotation-invariant, so an orbit never triggers a switch.
 

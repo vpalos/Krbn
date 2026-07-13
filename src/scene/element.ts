@@ -20,6 +20,13 @@ export interface ElementOptions {
   importance?: number;
   role?: Role;
   style?: StyleOverride;
+  /** When `false`, the element still participates fully in the pipeline —
+   *  it occludes other elements and is occluded by them (hidden-line, hatch
+   *  clipping) — but emits *no strokes of its own* to the final output. Useful
+   *  for splitting one scene into per-colour SVG layers for multi-pen plotting:
+   *  render once per colour, muting the other colours, and every layer keeps
+   *  correct visibility against the whole scene. Default `true`. */
+  output?: boolean;
 }
 
 export class Element {
@@ -28,6 +35,8 @@ export class Element {
   importance: number;
   role: Role;
   styleOverride: StyleOverride;
+  /** Emit this element's own strokes to the output? (It always still occludes.) */
+  output: boolean;
 
   constructor(source: FeatureSource, opts: ElementOptions = {}) {
     this.source = source;
@@ -35,6 +44,7 @@ export class Element {
     this.importance = opts.importance ?? 0.5;
     this.role = opts.role ?? "default";
     this.styleOverride = { ...opts.style };
+    this.output = opts.output ?? true;
   }
 
   /** Set importance (0..1); optionally the semantic role. Chainable. */
@@ -46,6 +56,13 @@ export class Element {
 
   setRole(role: Role): this {
     this.role = role;
+    return this;
+  }
+
+  /** Toggle whether this element emits its own strokes (it still occludes).
+   *  Chainable. See {@link ElementOptions.output}. */
+  setOutput(value: boolean): this {
+    this.output = value;
     return this;
   }
 

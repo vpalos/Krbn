@@ -225,14 +225,20 @@ export class Scene {
       ];
     }
 
+    // `output: false` elements still occlude (they are in `sources` above and so
+    // classify everything else) but emit no strokes of their own — the per-colour
+    // layer split for multi-pen plotting. Gate every emit path on it (outlines,
+    // hatch, highlights); visibility/occlusion upstream is untouched.
     const outlineStrokes: RenderStroke[] = [];
     for (const st of strokes) {
+      if (this.byId.get(st.feature.owner)?.output === false) continue;
       outlineStrokes.push(...emitStyledStroke(st, cam, this.resolveSpec(st.feature.owner), this.sample, this.wobble, this.width));
     }
 
     const hatchStrokes: RenderStroke[] = [];
     const lightDir = normalize(this.light.direction);
     for (const el of this.elements) {
+      if (!el.output) continue;
       const spec = this.resolveSpec(el.id);
       if (!spec.hatch) continue;
       const levels = this.abstraction.toneLevels ?? 0;
@@ -330,6 +336,7 @@ export class Scene {
     for (const h of this.highlights) {
       const el = this.byId.get(h.id);
       if (!el) continue;
+      if (!el.output) continue;
       const base = this.resolveSpec(h.id);
       const spec = resolveStyle(base, {
         weight: h.opts.weight ?? base.weight * 1.6,
