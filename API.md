@@ -154,6 +154,13 @@ scene.add(new Mesh(torusMesh(1.3, 0.5), { suggestive: { threshold: 0.02 } }));
 scene.add(new Mesh(gravitySheet(3, 72, 1.7, 0.95)));
 ```
 
+Raycasts (which is how hidden-line visibility and tonal hatching are resolved) are
+accelerated by a per-mesh BVH, built lazily on the first ray and reused for the
+mesh's lifetime — worth roughly 20× on a model of a few thousand triangles. It is
+pure culling in front of the same exact intersector, so results are identical
+either way; `new Mesh(input, { bvh: false })` opts out and linear-scans every
+triangle, which is only useful for debugging.
+
 `MeshInput` is `{ positions: Vec3[], triangles: [number, number, number][] }` —
 bring your own geometry, or use the starter generators in **`krbn/shapes`**
 (`cube`, `tetrahedron`, `uvSphere`, `tube`, `torusMesh`, `gravitySheet`,

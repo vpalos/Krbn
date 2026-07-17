@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import type { Ray, Vec3 } from "../src/math/types.js";
+import type { Hit, Ray, Vec3 } from "../src/math/types.js";
 import type { MeshInput } from "../src/mesh/halfedge.js";
 import { HalfEdgeMesh } from "../src/mesh/halfedge.js";
 import { buildTriangleBVH } from "../src/mesh/bvh.js";
+import { Mesh } from "../src/mesh/mesh-source.js";
 import { cube, gravitySheet, torusMesh, tube, uvSphere } from "../src/mesh/shapes.js";
 
 /** Deterministic xorshift — never Math.random: determinism is a project value and a
@@ -250,3 +251,174 @@ function normalizeV(v: readonly number[]): Vec3 {
   const l = Math.hypot(v[0]!, v[1]!, v[2]!) || 1;
   return [v[0]! / l, v[1]! / l, v[2]! / l];
 }
+
+// ---------------------------------------------------------------------------
+// End-to-end parity: Mesh.raycast accelerated vs brute force.
+//
+// This is the claim that actually matters — the candidate-set tests above prove
+// the filter is sound, these prove the *output* is identical. Per-field `toBe`
+// (Object.is), never toEqual: toEqual treats +0 and -0 as equal and would mask a
+// genuine divergence in a normal or a t value.
+// ---------------------------------------------------------------------------
+function expectSameHits(got: Hit[], want: Hit[], msg: string): void {
+  expect(`${msg}: ${got.length} hits`).toBe(`${msg}: ${want.length} hits`);
+  for (let i = 0; i < want.length; i++) {
+    const a = got[i]!;
+    const b = want[i]!;
+    expect(a.t).toBe(b.t);
+    expect(a.frontFacing).toBe(b.frontFacing);
+    for (let k = 0; k < 3; k++) {
+      expect(a.point[k]!).toBe(b.point[k]!);
+      expect(a.normal[k]!).toBe(b.normal[k]!);
+    }
+  }
+}
+
+describe("Mesh.raycast — BVH parity with the linear scan", () => {
+  // Coincident-geometry stress case. Every triangle has a reversed twin at the
+  // same position, which (a) forces the SAH's no-valid-split path a lot, and (b)
+  // is the most likely source of an exact `t` tie between two *distinct* faces.
+  //
+  // On a tie the stable final sort keeps insertion order, so the returned normal
+  // depends on which face was visited first — and surfaceHit() returns the first
+  // hit past the depth floor, so a permuted tie would change a tone and the SVG.
+  // Claim B is what rules that out, and it is asserted directly by the
+  // candidates-are-ascending test above; this case just exercises the geometry
+  // end-to-end. (A tie between faces with *identical* vertex order is
+  // unobservable — bit-identical arithmetic gives bit-identical Hits — so no test
+  // can distinguish their order, and none needs to.)
+  const soup = (): MeshInput => {
+    const base = torusMesh(1.2, 0.45, 16, 10);
+    return {
+      positions: base.positions,
+      triangles: [...base.triangles, ...base.triangles.map((t) => [t[0], t[2], t[1]] as const)],
+    };
+  };
+
+  const CASES: Array<[string, MeshInput]> = [...SHAPES, ["duplicate-face soup", soup()]];
+
+  for (const [name, mi] of CASES) {
+    const fast = new Mesh(mi);
+    const slow = new Mesh(mi, { bvh: false });
+    const { center, radius } = boundsOf(mi);
+
+    test(`${name}: identical hits over seeded random rays`, () => {
+      const r = rng(0xbeef + name.length);
+      for (let i = 0; i < 300; i++) {
+        const dir = normalizeV([r() * 2 - 1, r() * 2 - 1, r() * 2 - 1]);
+        const origin: Vec3 = [
+          center[0] - dir[0] * radius * 3 + (r() * 2 - 1) * radius,
+          center[1] - dir[1] * radius * 3 + (r() * 2 - 1) * radius,
+          center[2] - dir[2] * radius * 3 + (r() * 2 - 1) * radius,
+        ];
+        expectSameHits(fast.raycast({ origin, dir }), slow.raycast({ origin, dir }), `${name} ray ${i}`);
+      }
+    });
+
+    test(`${name}: identical hits from an origin inside the mesh`, () => {
+      const r = rng(0x1234);
+      for (let i = 0; i < 60; i++) {
+        const dir = normalizeV([r() * 2 - 1, r() * 2 - 1, r() * 2 - 1]);
+        expectSameHits(
+          fast.raycast({ origin: center, dir }),
+          slow.raycast({ origin: center, dir }),
+          `${name} inside ${i}`,
+        );
+      }
+    });
+
+    test(`${name}: identical hits for axis-parallel rays (incl. -0 directions)`, () => {
+      const dirs: Vec3[] = [
+        [0, 0, -1], [0, 0, 1], [0, 1, 0], [0, -1, 0], [-1, 0, 0], [1, 0, 0],
+        [-0, -0, -1], [0, -0, 1], [-0, 1, -0],
+      ];
+      const r = rng(0xabcd);
+      for (const dir of dirs) {
+        for (let i = 0; i < 24; i++) {
+          const origin: Vec3 = [
+            center[0] + (r() * 2 - 1) * radius,
+            center[1] + (r() * 2 - 1) * radius,
+            center[2] + (r() * 2 - 1) * radius,
+          ];
+          expectSameHits(
+            fast.raycast({ origin, dir }),
+            slow.raycast({ origin, dir }),
+            `${name} axis ${dir.join(",")} ${i}`,
+          );
+        }
+      }
+    });
+
+    test(`${name}: identical hits aimed exactly at vertices and edge midpoints`, () => {
+      const he = HalfEdgeMesh.build(mi, {});
+      const targets: Vec3[] = [];
+      const step = Math.max(1, Math.floor(he.vertexCount / 40));
+      for (let v = 0; v < he.vertexCount; v += step) targets.push(he.positions[v]!);
+      for (let e = 0; e < Math.min(he.edgeCount, 40); e++) {
+        const info = he.edges[e]!;
+        const a = he.positions[info.v0]!;
+        const b = he.positions[info.v1]!;
+        targets.push([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]);
+      }
+      for (const target of targets) {
+        // cast from outside the bounding sphere, straight at the exact feature
+        const dir = normalizeV([target[0] - center[0], target[1] - center[1], target[2] - center[2] - radius * 4]);
+        const origin: Vec3 = [center[0], center[1], center[2] + radius * 4];
+        expectSameHits(
+          fast.raycast({ origin, dir }),
+          slow.raycast({ origin, dir }),
+          `${name} vertex/edge ${target.join(",")}`,
+        );
+      }
+    });
+
+    test(`${name}: identical hits for coplanar rays along face edges`, () => {
+      const he = HalfEdgeMesh.build(mi, {});
+      const step = Math.max(1, Math.floor(he.faceCount / 30));
+      for (let f = 0; f < he.faceCount; f += step) {
+        const t = he.triangles[f]!;
+        const a = he.positions[t[0]]!;
+        const b = he.positions[t[1]]!;
+        const dir = normalizeV([b[0] - a[0], b[1] - a[1], b[2] - a[2]]);
+        expectSameHits(fast.raycast({ origin: a, dir }), slow.raycast({ origin: a, dir }), `${name} coplanar f${f}`);
+      }
+    });
+
+    test(`${name}: negative-t hits agree and are actually produced`, () => {
+      // raycast has no t>=0 filter: hits behind the origin are part of its
+      // contract. Cast from past the mesh pointing away — every hit is negative-t.
+      // Guards against a future tMin=0 slab clip silently dropping them.
+      const r = rng(0x9999);
+      let sawNegative = 0;
+      for (let i = 0; i < 80; i++) {
+        const dir = normalizeV([r() * 2 - 1, r() * 2 - 1, r() * 2 - 1]);
+        const origin: Vec3 = [
+          center[0] + dir[0] * radius * 3,
+          center[1] + dir[1] * radius * 3,
+          center[2] + dir[2] * radius * 3,
+        ];
+        const a = fast.raycast({ origin, dir });
+        expectSameHits(a, slow.raycast({ origin, dir }), `${name} neg-t ${i}`);
+        if (a.some((h) => h.t < 0)) sawNegative++;
+      }
+      expect(sawNegative).toBeGreaterThan(0);
+    });
+  }
+
+  test("grazing rays tangent to the silhouette agree", () => {
+    // The pad exists for exactly these: a line that misses a triangle's exact box
+    // by an ulp, where MT's rounded u/v may still accept.
+    const mi = uvSphere(2, 32, 24);
+    const fast = new Mesh(mi);
+    const slow = new Mesh(mi, { bvh: false });
+    const r = rng(0x7777);
+    for (let i = 0; i < 500; i++) {
+      // aim at the sphere's limb: offset ~exactly the radius from the axis
+      const ang = r() * Math.PI * 2;
+      const off = 2 + (r() * 2 - 1) * 1e-9; // straddle the tangent to within an ulp band
+      const origin: Vec3 = [Math.cos(ang) * off, Math.sin(ang) * off, 10];
+      const dir: Vec3 = [0, 0, -1];
+      expectSameHits(fast.raycast({ origin, dir }), slow.raycast({ origin, dir }), `grazing ${i}`);
+    }
+  });
+});

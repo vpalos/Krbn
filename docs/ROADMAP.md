@@ -25,10 +25,33 @@ The open items:
   points onto the exact surface so mesh visibility can drop its `selfNudge`
   tolerance. A refinement, not a blocker.
 
+**Performance**
+
+- ✅ **Mesh BVH** *(done, 2026-07-17)* — `src/mesh/bvh.ts`, a lazily-built binned-SAH
+  hierarchy consumed by `Mesh.raycast`. 17–21× on real models (an 18.5k-tri fist
+  from 67s → 3.2s), byte-identical output (gallery + importers + 121 animation
+  frames, zero diffs). Pure culling in front of an unchanged Möller–Trumbore. See
+  `docs/IDEAS.md` for the measured curve — including a correction: the reported
+  "quadratic in triangle count" is scene-dependent (a shape-controlled sweep
+  measures k = 1.1–1.4 pre-BVH, not 2.0).
+- ⬜ **Scene-level BVH over sources** *(small)* — skip whole sources in
+  `isOccluded` via their AABBs. The natural next step; note it does *not* touch
+  the residual silhouette-density factor, which is inherent.
+- ⬜ **Memoize `sceneSphere`** *(trivial)* — `src/pipeline/visibility.ts:90`
+  re-unions every source's AABB on *every* `isOccluded` call (thousands per
+  feature). It's a pure function of view-independent static scaffold.
+- ⬜ **De-allocate the Möller–Trumbore inner loop** *(small)* — `sub`/`cross`
+  allocate ~6 Vec3 tuples per triangle per ray before any hit test. The BVH
+  removed ~99% of these by removing ~99% of triangle visits, so re-measure before
+  deciding it's worth the ulp risk (float op order must not change, or the gallery
+  diffs).
+
 **Testing & DX (continuous)**
 
 - ⬜ **Golden-SVG regression tests** *(medium)* — structure/tolerance comparison
-  over the gallery (raw SVG bytes aren't stable across platforms).
+  over the gallery (raw SVG bytes aren't stable across platforms). Note: bytes
+  *are* stable on a fixed platform — `git status --porcelain examples/` after a
+  re-render is what gated the mesh BVH.
 - ⬜ **More adversarial property tests** *(small)* — extend the conic / visibility
   / mesh suites.
 

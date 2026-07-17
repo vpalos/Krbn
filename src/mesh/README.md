@@ -31,6 +31,19 @@ it. See **docs/DESIGN.md §3** for the phased plan and hard-parts registry.
   `raycast` (interpolated normals for shading, face normal for the front/back
   flag). Hidden-line visibility, wobble, variable width, and shading all come for
   free from the shared stage-2+ machinery (`examples/gallery/13-mesh.svg`).
+- **`bvh.ts` — the raycast acceleration structure.** A lazily-built, binned-SAH
+  bounding-volume hierarchy over the triangles, consumed by `Mesh.raycast`
+  (17–21× on real models). It is **pure culling in front of an unchanged
+  Möller–Trumbore** — it never decides what a hit *is*, only which triangles get
+  asked — and rests on two claims: every face MT would accept is in the candidate
+  set, and candidates arrive in **ascending face index**, so the array reaching
+  the final sort is element-wise identical to a full scan's. **Over-inclusion
+  costs only time; under-inclusion is the only possible bug.** Read the header
+  before touching it: a *tight* triangle box is not a safe filter (MT's rounded
+  barycentrics accept lines that exactly miss the box — hence the pad), and the
+  textbook `1/dir` slab test has a NaN false-miss that the well-known
+  operand-ordering fix only half-repairs. `new Mesh(input, { bvh: false })`
+  linear-scans; `setBvhMode("verify")` runs both paths and throws on divergence.
 - **`shapes.ts`** — indexed `tetrahedron` / `cube` / `grid` / `uvSphere` / `tube` /
   `torusMesh` / `bumpyBlob` / `knotTube` (parallel-transport-framed) / `gravitySheet`
   generators, plus `translate` / `rotate` for composing scenes. All CCW-outward. The

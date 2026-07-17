@@ -92,6 +92,64 @@ Original champion use case, proposed by
 thread: a plotter owner drawing a **self-portrait of the plotter from its own CAD
 model**.
 
+## BVH for mesh visibility raycasts (**shipped ✅**)
+
+The mesh regime's performance wall was reported from outside the project by
+[@HowdyKeith](https://github.com/HowdyKeith)
+([discussion #1](https://github.com/vpalos/Krbn/discussions/1)): render time
+**quadratic in triangle count** (904 tri → 4s, 1,732 → 14s, 2,608 → 34s,
+10,520 → timed out past 800s), with a **shape-dependent constant** (~1.4× for
+curvature-heavy surfaces vs limb-like ones at equal count — silhouette density
+is where the work concentrates). Cause: visibility rays walked every triangle,
+and silhouette length grows with density too.
+
+**Fixed** by a bounding-volume hierarchy under the mesh raycasts
+([`src/mesh/bvh.ts`](../src/mesh/bvh.ts), consumed by `Mesh.raycast`). Measured
+before/after with [`bun run bench:bvh`](../scripts/bench-bvh.ts):
+
+| model | tris | before | after | |
+|---|---|---|---|---|
+| fist.obj | 18,576 | 67.2 s | **3.2 s** | 20.8× |
+| heart.stl | 13,060 | 26.7 s | **1.3 s** | 20.0× |
+| torus 104×52 | 10,816 | 4.9 s | **0.29 s** | 17.1× |
+| sphere 64×44 | 5,504 | 1.9 s | **0.09 s** | 21.7× |
+
+Two corrections to the original write-up, both worth keeping:
+
+- **The exponent is scene-dependent, not a constant of the engine.** A
+  *shape-controlled* sweep (one model, decimated to rising densities, so triangle
+  count is the only variable) measures **k = 1.1–1.4 pre-BVH**, not 2.0 — and
+  ~1.0 lower after. Fitting across *different* models, as is tempting, conflates
+  shape with count and measures nothing in particular. The external k≈2.0 came
+  from a heavier scene config than this harness uses; both are real, which is the
+  point.
+- **The BVH does not remove the residual.** It collapses the per-ray factor to
+  log N; feature count, hatch samples, and silhouette density all still grow with
+  density. Post-BVH exponents land at k = 0.5–0.95, not 0 — expected, and inherent.
+
+The acceptance test was the one this file specified: render the gallery before
+and after, byte-compare every SVG. **Zero diffs** across 22 gallery + 4 importer
+SVGs and 121 animation frames — plus a `setBvhMode("verify")` sweep that runs
+both the accelerated and brute-force paths on *every* raycast in every shipped
+scene and throws on divergence. It is pure culling in front of an unchanged
+Möller–Trumbore, so exactness and determinism are untouched.
+
+Two subtleties that were not obvious going in, both documented at length in
+`bvh.ts` (they will bite anyone who touches it):
+
+- **A tight triangle box is not a safe filter.** When the true line misses the
+  box by an ulp, MT's *computed* barycentrics can still round into range and
+  accept — so the box must be padded (`EPS_BVH_PAD_REL`), uniformly and
+  absolutely, since a *relative* pad is exactly zero on an axis-aligned triangle.
+- **The textbook `1/dir` slab test has a NaN false-miss bug**, and the well-known
+  operand-ordering fix repairs only one side of it. Branching on a per-ray
+  `d[k] === 0` flag makes NaN unreachable by construction.
+
+Natural next steps, neither of which touches the residual above: a **scene-level
+BVH** over source AABBs (skip whole sources in `isOccluded`), and memoizing
+`sceneSphere` in `visibility.ts`, which currently re-unions every source's AABB on
+every single occlusion test.
+
 ## Temporal *de*coherence as a style
 
 The coherence machinery exists so lines **don't** boil. Which means boiling is

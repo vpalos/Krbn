@@ -144,6 +144,20 @@ per-owner depth tolerance: a small floor (`EPS_NUDGE_REL·scale`) for smooth
 surfaces (a raycast's grazing tangent root is only good to ~that — a torus is a
 quartic), widened to `selfNudge()` (≈0.75× edge length) for a faceted mesh.
 Occlusion by other sources is exact.
+**Mesh raycasts are BVH-accelerated** (`src/mesh/bvh.ts`: binned SAH, built lazily
+per `Mesh`, consumed by `Mesh.raycast` — 17–21× on real models, e.g. an 18.5k-tri
+fist from 67s to 3.2s; `bun run bench:bvh`). It is **pure culling in front of an
+unchanged Möller–Trumbore**, and the whole design rests on two claims: every face
+MT would accept is in the candidate set, and candidates arrive in **ascending face
+index** — so the array reaching the final sort is element-wise identical to the old
+linear scan's and output is byte-identical (verified: the whole gallery + importers
++ 121 animation frames, zero diffs). **Over-inclusion costs only time;
+under-inclusion is the only possible bug** — so if you touch `bvh.ts`, read its
+header first: a *tight* triangle box is not a safe filter (MT's rounded
+barycentrics accept lines that exactly miss the box — hence `EPS_BVH_PAD_REL`, a
+uniform absolute pad), and the textbook `1/dir` slab test has a NaN false-miss the
+usual operand-ordering trick only half-fixes. `new Mesh(input, { bvh: false })`
+linear-scans; `setBvhMode("verify")` runs both paths and throws on divergence.
 **Suggestive contours** are in
 (`src/mesh/suggestive.ts`, DeCarlo et al.: front-facing zero-set of radial
 curvature with D_w κ_r > threshold, opt-in via `new Mesh(input, { suggestive })`,

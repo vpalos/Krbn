@@ -42,6 +42,35 @@ const BVH_MAX_LEAF = 4;
 const BVH_TRAVERSAL_COST = 1;
 const BVH_TRI_COST = 1;
 
+/**
+ * Global override for the acceleration path. Deliberately module-level and absent
+ * from src/index.ts: it exists for sweeps that must reach *every* mesh in a scene
+ * they don't construct (see scripts/), which a per-Mesh option cannot express.
+ *
+ *   "on"     use the BVH (default; per-Mesh `bvh: false` still wins)
+ *   "off"    linear-scan everything
+ *   "verify" run BOTH paths on every raycast and throw on any divergence
+ *
+ * "verify" is the strongest check we have: the SVG byte-compare only sees rays
+ * that reach a pixel, while this compares every raycast a render performs —
+ * including any whose divergence would be latent today and load-bearing tomorrow.
+ * It is also the only empirical answer to the one residual risk the pad cannot
+ * cover: a near-coplanar ray that squeaks past |a| < EPS_ABS, where MT's accept
+ * set is dominated by rounding amplified by 1/a and is not geometrically
+ * characterizable. Astronomically unlikely; verified rather than assumed.
+ *
+ * `process.env` is not used anywhere in src/ (browser-targeted, sideEffects:false),
+ * hence a typed setter rather than an env var.
+ */
+export type BvhMode = "on" | "off" | "verify";
+let bvhMode: BvhMode = "on";
+export function setBvhMode(m: BvhMode): void {
+  bvhMode = m;
+}
+export function getBvhMode(): BvhMode {
+  return bvhMode;
+}
+
 export interface TriangleBVH {
   /** [minx,miny,minz,maxx,maxy,maxz] per node. */
   readonly nodeBounds: Float64Array;

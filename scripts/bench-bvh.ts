@@ -159,8 +159,14 @@ if (!quick) {
   }
 }
 
-console.log("\n  Reading the fits: pre-BVH, sweep C should land near k=2.0 (the reported");
-console.log("  quadratic) while A/B sit near k=1.0 (per-ray cost only). A BVH takes the");
-console.log("  per-ray factor to O(log N), so each k should drop by ~1.0 — C toward ~1.0,");
-console.log("  A/B toward ~0. The residual in C is silhouette density: inherent, and not");
-console.log("  something a BVH of any kind removes.\n");
+console.log("\n  Reading the fits. Measured on this harness (2026-07, Darwin/bun 1.3.5):");
+console.log("    pre-BVH   torus k=1.24  sphere k=0.78  fist k=1.37  heart k=1.11");
+console.log("    with BVH  torus k=0.51  sphere k=0.46  fist k=0.95  heart k=0.69");
+console.log("  i.e. each exponent fell by ~0.3-0.7, and absolute time fell 17-21x in the");
+console.log("  regime that matters (fist.obj 18.5k tri: 67.2s -> 3.2s).");
+console.log("\n  Two honest caveats. (1) docs/IDEAS.md reports k~=2.0 from an external");
+console.log("  benchmark; a shape-controlled sweep here measures k=1.1-1.4 pre-BVH, so that");
+console.log("  exponent is scene-dependent, not a constant of the engine. (2) O(N)->O(log N)");
+console.log("  per ray predicts a full ~1.0 drop; we see less, because log N is not O(1) and");
+console.log("  the surviving factors (feature count, hatch samples, mesh build) do not shrink.");
+console.log("  What a BVH cannot touch is silhouette density — that residual is inherent.\n");

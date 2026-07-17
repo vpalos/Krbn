@@ -18,6 +18,7 @@ import type { FeatureSource } from "../scene/feature-source.js";
 import { cross, dot, normalize, sub } from "../math/vec3.js";
 import { cameraFrame, projectionMatrix, projectPoint } from "../math/camera.js";
 import { HalfEdgeMesh, type BuildOptions, type MeshInput } from "./halfedge.js";
+import { buildTriangleBVH, getBvhMode, type TriangleBVH } from "./bvh.js";
 import { chainVertexEdges, facetedSilhouetteLoops, silhouetteChains, silhouetteLoops } from "./silhouette.js";
 
 // A mesh counts as a *capped* solid once its largest planar smoothing group covers
@@ -36,6 +37,12 @@ export interface MeshOptions extends BuildOptions {
    *  band (`fade`: contours fade in over that D_w κ_r margin instead of popping
    *  at the threshold). (docs/DESIGN.md §3.3.5, §3.3.7) */
   suggestive?: boolean | { threshold?: number; fade?: number };
+  /** Escape hatch: skip the acceleration structure and linear-scan every triangle
+   *  on each raycast. Results are identical by construction — the BVH is pure
+   *  culling in front of an unchanged intersector (src/mesh/bvh.ts) — so this
+   *  exists only for parity testing and for bisecting a suspected culling bug.
+   *  Defaults to true (accelerated). */
+  bvh?: boolean;
 }
 
 export class Mesh implements FeatureSource {
@@ -46,6 +53,8 @@ export class Mesh implements FeatureSource {
   private readonly aabb: AABB;
   private readonly suggestiveOpt: false | { threshold?: number; fade?: number };
   private _curv?: CurvatureField;
+  private readonly bvhEnabled: boolean;
+  private _bvh?: TriangleBVH;
   /**
    * A *faceted* mesh — a hard-edged polyhedron (cube, gem, low-poly), where most
    * interior edges are creases. Its silhouette is the exact face-based contour
@@ -73,6 +82,7 @@ export class Mesh implements FeatureSource {
     this.id = id ?? autoName(this.kind);
     this.he = HalfEdgeMesh.build(input, opts);
     this.aabb = boundsOf(this.he.positions);
+    this.bvhEnabled = opts.bvh ?? true;
     this.suggestiveOpt = opts.suggestive ? (opts.suggestive === true ? {} : opts.suggestive) : false;
     const interior = this.he.edges.filter((e) => !e.boundary).length;
     const creases = this.he.creases().length;
@@ -244,14 +254,45 @@ export class Mesh implements FeatureSource {
     return spacingPx / (pxPerWorld || 1);
   }
 
-  /** Möller–Trumbore ray–triangle intersection over all faces; interpolated
-   *  crease-aware corner normals for shading, face normal for the front/back flag. */
+  /** The BVH over this mesh's triangles, built on first use. Static scaffold
+   *  (docs/DESIGN.md §0.4): `he.positions` is readonly and never mutated, so one
+   *  build lasts the instance's life. Lazy rather than eager because `Mesh` is
+   *  public API — a consumer may only ever want `extractFeatures` /
+   *  `projectedSilhouettes` and never cast a ray. Mirrors `curvature()` above. */
+  private bvh(): TriangleBVH {
+    return (this._bvh ??= buildTriangleBVH(this.he, this.aabb));
+  }
+
+  /** Möller–Trumbore ray–triangle intersection; interpolated crease-aware corner
+   *  normals for shading, face normal for the front/back flag.
+   *
+   *  The BVH only narrows *which* faces are tested — it is pure culling in front of
+   *  an unchanged intersector, offering candidates in ascending face index exactly
+   *  as the old full scan visited them (see src/mesh/bvh.ts for why that ordering
+   *  is load-bearing). Brute force is the same code path with a null candidate set,
+   *  never a second implementation: that is what makes the parity tests meaningful. */
   raycast(ray: Ray): Hit[] {
+    const mode = getBvhMode();
+    if (!this.bvhEnabled || mode === "off" || this.he.faceCount === 0) {
+      return this.intersectFaces(ray, null);
+    }
+    const fast = this.intersectFaces(ray, this.bvh().candidates(ray));
+    if (mode !== "verify") return fast;
+    // Fail loudly, never silently (.claude/rules/numerical-robustness.md): a BVH
+    // that drops a hit must not degrade quietly into a wrong-but-plausible render.
+    assertSameHits(fast, this.intersectFaces(ray, null), this.id, ray);
+    return fast;
+  }
+
+  /** `faces === null` ⇒ scan every face in index order (the pre-BVH behavior). */
+  private intersectFaces(ray: Ray, faces: Int32Array | null): Hit[] {
     const { origin: o, dir: d } = ray;
     const P = this.he.positions;
     const CN = this.he.cornerNormals;
     const hits: Hit[] = [];
-    for (let f = 0; f < this.he.faceCount; f++) {
+    const n = faces === null ? this.he.faceCount : faces.length;
+    for (let i = 0; i < n; i++) {
+      const f = faces === null ? i : faces[i]!;
       const t = this.he.triangles[f]!;
       const p0 = P[t[0]]!;
       const p1 = P[t[1]]!;
@@ -294,6 +335,31 @@ export class Mesh implements FeatureSource {
       hits.push({ t: tHit, point, normal, frontFacing });
     }
     return hits.sort((p, q) => p.t - q.t);
+  }
+}
+
+/** Bit-exact Hit[] comparison for `setBvhMode("verify")`. Object.is, not ===, so a
+ *  +0/-0 drift in a normal is caught rather than shrugged off. */
+function assertSameHits(fast: readonly Hit[], slow: readonly Hit[], id: ElementId, ray: Ray): void {
+  const where = `${id} ray o=[${ray.origin}] d=[${ray.dir}]`;
+  if (fast.length !== slow.length) {
+    throw new Error(`BVH divergence (${where}): ${fast.length} hits vs ${slow.length} brute-force`);
+  }
+  for (let i = 0; i < fast.length; i++) {
+    const a = fast[i]!;
+    const b = slow[i]!;
+    const same =
+      Object.is(a.t, b.t) &&
+      a.frontFacing === b.frontFacing &&
+      Object.is(a.point[0], b.point[0]) && Object.is(a.point[1], b.point[1]) && Object.is(a.point[2], b.point[2]) &&
+      Object.is(a.normal[0], b.normal[0]) && Object.is(a.normal[1], b.normal[1]) && Object.is(a.normal[2], b.normal[2]);
+    if (!same) {
+      throw new Error(
+        `BVH divergence (${where}) at hit ${i}: t=${a.t} vs ${b.t}, ` +
+          `point=[${a.point}] vs [${b.point}], normal=[${a.normal}] vs [${b.normal}], ` +
+          `frontFacing=${a.frontFacing} vs ${b.frontFacing}`,
+      );
+    }
   }
 }
 
