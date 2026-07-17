@@ -142,6 +142,45 @@ Each links to a demo in the [gallery](examples/README.md).
   single-line `<path>` centreline (no `<polyline>`, no filled ribbons), so the render
   goes straight to an SVG→G-code converter. ([API.md](API.md#pen-plotters))
 
+## Performance
+
+Meshes are raycast-heavy: hidden lines and tonal hatch are both resolved by
+casting rays, so cost scales with triangles × rays. A per-mesh BVH
+([`src/mesh/bvh.ts`](src/mesh/bvh.ts)) collapses the triangle factor —
+**~20× on real models**, built lazily on the first ray:
+
+| model | triangles | before | after | |
+|---|---|---|---|---|
+| `fist.obj` | 18,576 | 67.2 s | **3.2 s** | 20.8× |
+| `heart.stl` | 13,060 | 26.7 s | **1.3 s** | 20.0× |
+| torus 104×52 | 10,816 | 4.9 s | **0.29 s** | 17.1× |
+| sphere 64×44 | 5,504 | 1.9 s | **0.09 s** | 21.7× |
+
+<sub>One machine (Darwin, bun 1.3.5), full scene render incl. hidden-line + cross
+hatch. Absolute times are machine-specific and drift a few percent between runs —
+the ratio is the point.</sub>
+
+```bash
+bun run bench:bvh          # reproduce the sweep (--quick skips the real models)
+```
+
+It's **pure culling in front of the same exact intersector** — same rays, same
+hits, same order — so it buys speed without spending any exactness: the whole
+gallery, the importers, and every animation frame render byte-identical with it on
+and off.
+
+Two caveats worth stating plainly, because both are easy to get wrong when
+measuring this yourself:
+
+- **The exponent is scene-dependent, not a property of the engine.** A
+  shape-controlled sweep (one model, decimated to rising densities, so triangle
+  count is the only variable) measures ~1.1–1.4 pre-BVH — not the quadratic
+  reported from a heavier scene config. Fitting across _different_ models, which
+  is the tempting thing to do, conflates shape with count and measures nothing.
+- **A BVH does not make this flat.** It fixes the per-ray factor; feature count,
+  hatch samples, and silhouette density still grow with density. That residual is
+  inherent to the algorithm.
+
 ## Why it works this way
 
 - **Strokes are the core object.** Every visual requirement is a policy over the
@@ -180,8 +219,11 @@ src/
   primitives/  analytic primitives (Quadric→Sphere/Ellipsoid/Cylinder/Cone, Plane,
                Polygon, Line, ParametricCurve, Point, Torus)
   backend/     renderers — SVG (implemented)
-  mesh/        deferred organ/mesh regime — see docs/DESIGN.md §3
-examples/    runnable demos → *.svg (demo, styled, waterline)
+  mesh/        the mesh regime — half-edge scaffold, curvature, silhouette
+               zero-set, suggestive contours, streamline hatch, STL/OBJ loaders,
+               and the raycast BVH (see docs/DESIGN.md §3)
+scripts/     bench-bvh.ts — the mesh raycast performance sweep
+examples/    gallery/*.krbn.ts + importers/ + animation.krbn.ts → committed *.svg
 docs/DESIGN.md the full design & roadmap
 ```
 
@@ -192,7 +234,12 @@ bun install
 bun run typecheck
 bun run build
 bun test
+bun run bench:bvh        # mesh raycast performance sweep
 ```
+
+The gallery SVGs are committed, and rendering is deterministic — so
+`bun run render:gallery && git status --porcelain examples/` coming back **empty**
+is the regression test: if a change moves a pixel, git says so.
 
 ## About the author
 
