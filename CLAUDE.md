@@ -91,6 +91,15 @@ Newton-projection for sampled silhouettes (Phase-2-adjacent) and group-highlight
   polylines early — it throws away the exactness the primitive regime exists for.
 - **Wobble is a seeded, deterministic style parameter** (seed tied to primitive
   identity). Never re-randomize per frame — that breaks temporal coherence.
+- **Byte-exactness is a same-platform promise, and the docs must keep saying so.**
+  IEEE-754 mandates correct rounding for `+ − × ÷` and `sqrt` only; `Math.sin`/`cos`/
+  `hypot`/`atan2`/`acos`/`log2` come from the *system libm* (bun → JavaScriptCore,
+  which does not bundle its own fdlibm), so they differ by 1 ULP across OS/arch and a
+  few hatch/wobble/curved-silhouette strokes land ~1px apart. Do not restate the
+  guarantee as "identical everywhere", and do not "fix" it by swapping in JS
+  implementations of the transcendentals without raising it first — that is a real
+  cost in the hottest loops, and it is a decision, not a cleanup. See README,
+  "Determinism, and where it stops".
 - **Wobble and hatch are pluggable strategies** (`WobbleStrategy` / `HatchStrategy`,
   injected via `Scene` options; defaults in `wobble.ts` / `hatch.ts`). Improve or
   swap a layer by editing/replacing its strategy — don't reach across layers.
