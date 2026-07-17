@@ -48,7 +48,8 @@
     "render": "bun run src/cli/render.ts",
     "render:gallery": "bun run src/cli/render.ts examples/gallery/*.krbn.ts",
     "render:animation": "bun run src/cli/render.ts examples/animation.krbn.ts",
-    "render:importers": "bun run src/cli/render.ts examples/importers/stl.krbn.ts examples/importers/obj.krbn.ts"
+    "render:importers": "bun run src/cli/render.ts examples/importers/stl.krbn.ts examples/importers/obj.krbn.ts",
+    "bench:bvh": "bun run scripts/bench-bvh.ts"
   },
   "devDependencies": {
     "@types/bun": "^1.1.0",

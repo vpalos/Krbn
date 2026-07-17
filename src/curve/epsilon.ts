@@ -100,6 +100,35 @@ export const EPS_DEPTH_REL = 1e-6;
 export const EPS_NUDGE_REL = 3e-3;
 
 /**
+ * Relative slack (fraction of a mesh's bounding-box diagonal) by which a BVH leaf
+ * box is widened before the ray–slab test.
+ *
+ * The BVH is a *filter* in front of an unchanged Möller–Trumbore test: it may
+ * over-include (costing only time) but must never under-include, or a hit
+ * vanishes. A triangle's exact AABB is not a safe filter, for two reasons:
+ *
+ *   1. The slab test's own rounding (~3·MACHINE_EPS relative, two ops per
+ *      endpoint) can reject a near-grazing ray the exact test would accept.
+ *   2. More importantly, Möller–Trumbore is not exact either. When the true line
+ *      misses the box by an ulp, the exact barycentrics fall outside [0,1] — but
+ *      perhaps by only ~1e-17, so the *computed* u/v round into range and MT
+ *      accepts a triangle the true line misses. A tight box would have already
+ *      culled it.
+ *
+ * So the pad must dominate both MT's accept-set slop and the slab test's own
+ * error. 1e-9 — the order of EPS_REL, the practical accuracy of our closed-form
+ * roots — leaves ~4.5e6× headroom over machine noise while fattening a box by a
+ * billionth of the model, far below any spacing that affects culling efficiency.
+ * Widening only ever adds candidates, so it is deliberately generous.
+ *
+ * Applied as a *uniform absolute* pad (this constant × the mesh diagonal), never
+ * per-box relative: a relative pad is exactly zero on an axis-aligned triangle,
+ * which is the degenerate case that needs it most (a cube's faces, a lid, any
+ * extrusion cap).
+ */
+export const EPS_BVH_PAD_REL = 1e-9;
+
+/**
  * Relative comparison helper: true when a and b agree to EPS_REL, with an
  * absolute floor so values near zero still compare sanely.
  */
