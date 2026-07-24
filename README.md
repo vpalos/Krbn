@@ -34,7 +34,8 @@ poloidal loops on a torus, traced streamlines on an arbitrary mesh.
 Exactness is a project value, not an optimization. Intersections are roots of
 low-degree polynomials; degenerate cases — tangent lines, coincident conics,
 grazing cusps — are the spec, not edge cases. The payoff is output you can
-trust: the same scene always emits the same, byte-identical, diffable SVG.
+trust: on a given platform, the same scene always emits the same, byte-identical,
+diffable SVG. ([Why "on a given platform".](#determinism-and-where-it-stops))
 
 One more inversion: the author supplies _semantics_, the engine supplies
 _mechanics_. You mark what matters — importance, focus, role — and Krbn decides
@@ -136,8 +137,9 @@ Each links to a demo in the [gallery](examples/README.md).
   ([consolidation](examples/gallery/09-consolidation.svg))
 - **Highlight** — x-ray emphasis: a bold outline inside a soft halo, dashed where
   something hides it. ([highlight](examples/gallery/06-highlight.svg))
-- **Deterministic SVG** — pure, seeded vector output; the same scene always yields
-  the same, diffable file.
+- **Deterministic SVG** — pure, seeded vector output; on a given platform, the same
+  scene always yields the same, diffable file.
+  ([the platform caveat](#determinism-and-where-it-stops))
 - **Pen-plotter output** — `svg: { centerline: true }` emits every stroke as a
   single-line `<path>` centreline (no `<polyline>`, no filled ribbons), so the render
   goes straight to an SVG→G-code converter. ([API.md](API.md#pen-plotters))
@@ -149,12 +151,12 @@ casting rays, so cost scales with triangles × rays. A per-mesh BVH
 ([`src/mesh/bvh.ts`](src/mesh/bvh.ts)) collapses the triangle factor —
 **~20× on real models**, built lazily on the first ray:
 
-| model | triangles | before | after | |
-|---|---|---|---|---|
-| `fist.obj` | 18,576 | 67.2 s | **3.2 s** | 20.8× |
-| `heart.stl` | 13,060 | 26.7 s | **1.3 s** | 20.0× |
-| torus 104×52 | 10,816 | 4.9 s | **0.29 s** | 17.1× |
-| sphere 64×44 | 5,504 | 1.9 s | **0.09 s** | 21.7× |
+| model        | triangles | before | after      |       |
+| ------------ | --------- | ------ | ---------- | ----- |
+| `fist.obj`   | 18,576    | 67.2 s | **3.2 s**  | 20.8× |
+| `heart.stl`  | 13,060    | 26.7 s | **1.3 s**  | 20.0× |
+| torus 104×52 | 10,816    | 4.9 s  | **0.29 s** | 17.1× |
+| sphere 64×44 | 5,504     | 1.9 s  | **0.09 s** | 21.7× |
 
 <sub>One machine (Darwin, bun 1.3.5), full scene render incl. hidden-line + cross
 hatch. Absolute times are machine-specific and drift a few percent between runs —
@@ -180,6 +182,14 @@ measuring this yourself:
 - **A BVH does not make this flat.** It fixes the per-ray factor; feature count,
   hatch samples, and silhouette density still grow with density. That residual is
   inherent to the algorithm.
+
+## Determinism, and where it stops
+
+Byte-identical means **on one platform**. IEEE-754 mandates correct rounding for
+`+ − × ÷` and `sqrt` only; `Math.sin`/`cos`/`hypot`/`atan2`/`acos`/`log2` are left to
+the platform's math library, and bun (JavaScriptCore) calls the system libm instead of
+bundling its own. macOS and glibc disagree by 1 ULP on some inputs, which nudges a few
+hatch/wobble/silhouette strokes by ~1px. But on a each platform all bytes are stable.
 
 ## Why it works this way
 
