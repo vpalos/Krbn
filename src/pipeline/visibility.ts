@@ -16,6 +16,7 @@
 import type { Camera, Vec3 } from "../math/types.js";
 import type { FeatureSource } from "../scene/feature-source.js";
 import type { Feature, Stroke, VisibilityInterval } from "./types.js";
+import type { Curve2D } from "../curve/types.js";
 import { buildFeatureModel } from "./feature-curve.js";
 import { assignDefaultFeatureIds } from "./identity.js";
 import { crossScreenCurves } from "../curve/intersect2d.js";
@@ -131,13 +132,24 @@ function screenLength(model: ReturnType<typeof buildFeatureModel>, cam: Camera):
   return len;
 }
 
-/** Classify one feature curve into visible/hidden intervals against the scene. */
+/** Every source's projected apparent contour for `cam`, in source order. It depends
+ *  only on the scene and the camera, so callers classifying many features compute it
+ *  once and pass it to `classifyFeature`: for a mesh it is a pass over every face, and
+ *  redoing it per feature made classification O(features × faces). */
+export function sceneSilhouettes(sources: readonly FeatureSource[], cam: Camera): Curve2D[] {
+  return sources.flatMap((s) => s.projectedSilhouettes(cam));
+}
+
+/** Classify one feature curve into visible/hidden intervals against the scene.
+ *  `silhouettes` defaults to `sceneSilhouettes(sources, cam)`; pass it in when
+ *  classifying several features against the same camera. */
 export function classifyFeature(
   feature: Feature,
   cam: Camera,
   sources: readonly FeatureSource[],
   scale = sceneScale(sources),
   owner?: FeatureSource,
+  silhouettes: readonly Curve2D[] = sceneSilhouettes(sources, cam),
 ): Stroke {
   const model = buildFeatureModel(feature.curve, cam);
   const span = model.t1 - model.t0;
@@ -148,13 +160,11 @@ export function classifyFeature(
   // 1a) exact analytic crossings — transversal visibility changes land here
   // precisely (a superset; extra boundaries merge away harmlessly).
   const events: number[] = [];
-  for (const s of sources) {
-    for (const sil of s.projectedSilhouettes(cam)) {
-      for (const pt of crossScreenCurves(model.screen, sil)) {
-        const t = model.paramOf(pt);
-        if (t === null) continue;
-        if (t > model.t0 + epsT && t < model.t1 - epsT) events.push(t);
-      }
+  for (const sil of silhouettes) {
+    for (const pt of crossScreenCurves(model.screen, sil)) {
+      const t = model.paramOf(pt);
+      if (t === null) continue;
+      if (t > model.t0 + epsT && t < model.t1 - epsT) events.push(t);
     }
   }
 
@@ -240,9 +250,10 @@ export function classifyScene(
   const scale = sceneScale(sources);
   const perSource = sources.map((s) => assignDefaultFeatureIds(s.extractFeatures(cam)));
   reconcile?.(perSource.flat());
+  const sils = sceneSilhouettes(sources, cam);
   const strokes: Stroke[] = [];
   sources.forEach((s, i) => {
-    for (const feature of perSource[i]!) strokes.push(classifyFeature(feature, cam, sources, scale, s));
+    for (const feature of perSource[i]!) strokes.push(classifyFeature(feature, cam, sources, scale, s, sils));
   });
   return strokes;
 }

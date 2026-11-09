@@ -23,7 +23,7 @@ import {
   intersectQuadrics,
   type Section,
 } from "../primitives/intersection.js";
-import { classifyFeature, classifyScene, isOccluded, sceneScale } from "../pipeline/visibility.js";
+import { classifyFeature, classifyScene, isOccluded, sceneScale, sceneSilhouettes } from "../pipeline/visibility.js";
 import { assignDefaultFeatureIds } from "../pipeline/identity.js";
 import { consolidateLines } from "../pipeline/consolidate.js";
 import { emitStyledStroke, resolveStyle, ROLE_STYLE } from "../pipeline/style.js";
@@ -192,6 +192,9 @@ export class Scene {
     const sources = this.sources();
     const classified = classifyScene(sources, cam, opts.reconcileFeatures);
     const scale = sceneScale(sources);
+    // computed on first use: consolidation and highlights re-classify features
+    let sils: ReturnType<typeof sceneSilhouettes> | undefined;
+    const silhouettes = () => (sils ??= sceneSilhouettes(sources, cam));
 
     // Stage 3: importance-scaled screen-size thresholding.
     let strokes = applyAbstraction(classified, {
@@ -220,6 +223,8 @@ export class Scene {
             cam,
             sources,
             scale,
+            undefined,
+            silhouettes(),
           ),
         ),
       ];
@@ -350,7 +355,7 @@ export class Scene {
       const haloMembers: RenderStroke[] = [];
 
       for (const feature of assignDefaultFeatureIds(el.source.extractFeatures(cam))) {
-        const stroke = classifyFeature(feature, cam, sources, scale, el.source);
+        const stroke = classifyFeature(feature, cam, sources, scale, el.source, silhouettes());
         if (haloSpec) {
           // a continuous glow around the whole contour: opaque members, one group opacity
           for (const rs of emitStyledStroke(stroke, cam, haloSpec, this.sample, this.wobble)) {
